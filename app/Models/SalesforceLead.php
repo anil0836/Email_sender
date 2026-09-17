@@ -1,0 +1,168 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class SalesforceLead extends Model
+{
+    use HasFactory;
+
+    protected $table = 'salesforce_leads';
+
+    protected $fillable = [
+        'salesforce_id',
+        'first_name',
+        'last_name',
+        'name',
+        'company',
+        'title',
+        'email',
+        'phone',
+        'mobile_phone',
+        'website',
+        'lead_source',
+        'industry',
+        'status',
+        'street',
+        'city',
+        'state',
+        'postal_code',
+        'country',
+        'owner_id',
+        'prime_owner_id',
+        'secondary_owner',
+        'custom_owner',
+        'owner_name',
+        'owner_email',
+        'owner_verification_status',
+        'last_owner_verified_at',
+        'previous_owner_id',
+        'salesforce_created_at',
+        'salesforce_updated_at',
+        'synced_at',
+        'raw_data',
+    ];
+
+    protected $casts = [
+        'salesforce_created_at' => 'datetime',
+        'salesforce_updated_at' => 'datetime',
+        'synced_at' => 'datetime',
+        'last_owner_verified_at' => 'datetime',
+        'raw_data' => 'array',
+    ];
+
+    /**
+     * Relationship: Salesforce User who owns this Lead (Standard User)
+     */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(SalesforceUser::class, 'owner_id', 'salesforce_id');
+    }
+
+    /**
+     * Relationship: Custom Salesforce User (SF_User__c) who is Prime Owner
+     */
+    public function primeOwner(): BelongsTo
+    {
+        return $this->belongsTo(SalesforceSfUser::class, 'prime_owner_id', 'salesforce_id');
+    }
+
+    /**
+     * Relationship: Campaign Memberships for this Lead
+     */
+    public function campaignMembers()
+    {
+        return $this->hasMany(CampaignMember::class, 'local_record_id')->where('record_type', 'Lead');
+    }
+
+    /**
+     * Scope to search leads across name, company, email, phone, and salesforce ID.
+     */
+    public function scopeSearch(Builder $query, ?string $search): Builder
+    {
+        if (empty(trim((string)$search))) {
+            return $query;
+        }
+
+        $term = '%' . trim($search) . '%';
+
+        return $query->where(function (Builder $q) use ($term) {
+            $q->where('name', 'like', $term)
+              ->orWhere('first_name', 'like', $term)
+              ->orWhere('last_name', 'like', $term)
+              ->orWhere('company', 'like', $term)
+              ->orWhere('email', 'like', $term)
+              ->orWhere('phone', 'like', $term)
+              ->orWhere('mobile_phone', 'like', $term)
+              ->orWhere('owner_name', 'like', $term)
+              ->orWhere('owner_email', 'like', $term)
+              ->orWhere('secondary_owner', 'like', $term)
+              ->orWhere('custom_owner', 'like', $term)
+              ->orWhere('salesforce_id', 'like', $term);
+        });
+    }
+
+    /**
+     * Scope to filter by Lead Status.
+     */
+    public function scopeFilterStatus(Builder $query, ?string $status): Builder
+    {
+        if (empty(trim((string)$status))) {
+            return $query;
+        }
+
+        return $query->where('status', trim($status));
+    }
+
+    /**
+     * Scope to filter by Lead Source.
+     */
+    public function scopeFilterLeadSource(Builder $query, ?string $source): Builder
+    {
+        if (empty(trim((string)$source))) {
+            return $query;
+        }
+
+        return $query->where('lead_source', trim($source));
+    }
+
+    /**
+     * Scope to filter by Standard User Owner.
+     */
+    public function scopeFilterOwner(Builder $query, ?string $ownerId): Builder
+    {
+        if (empty(trim((string)$ownerId))) {
+            return $query;
+        }
+
+        return $query->where('owner_id', trim($ownerId));
+    }
+
+    /**
+     * Scope to filter by Custom SF User Prime Owner (SF_User__c).
+     */
+    public function scopeFilterPrimeOwner(Builder $query, ?string $primeOwnerId): Builder
+    {
+        if (empty(trim((string)$primeOwnerId))) {
+            return $query;
+        }
+
+        return $query->where('prime_owner_id', trim($primeOwnerId));
+    }
+
+    /**
+     * Scope to filter by Owner Verification Status.
+     */
+    public function scopeFilterOwnerVerificationStatus(Builder $query, ?string $status): Builder
+    {
+        if (empty(trim((string)$status))) {
+            return $query;
+        }
+
+        return $query->where('owner_verification_status', trim($status));
+    }
+}
