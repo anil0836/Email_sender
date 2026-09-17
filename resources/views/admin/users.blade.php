@@ -264,7 +264,12 @@
                             </td>
                             <td><span class="font-monospace text-zinc-700">${escapeHtml(u.emp_id || 'N/A')}</span></td>
                             <td>${roleBadge}</td>
-                            <td><span class="text-zinc-600">${escapeHtml(u.manager_username || 'None')}</span></td>
+                            <td>
+                                ${u.manager_username ? `
+                                    <div class="fw-medium text-zinc-800">${escapeHtml(u.manager_name || u.manager_username)}</div>
+                                    ${u.manager_email ? `<div class="text-zinc-500 font-monospace" style="font-size: 0.73rem;">${escapeHtml(u.manager_email)}</div>` : ''}
+                                ` : '<span class="text-zinc-400">None</span>'}
+                            </td>
                             <td>${statusBadge}</td>
                             <td>
                                 <div class="d-flex gap-1 justify-content-center">
@@ -314,7 +319,9 @@
                 managers.forEach(m => {
                     const opt = document.createElement('option');
                     opt.value = m.id;
-                    opt.textContent = `${m.username} (${m.role})`;
+                    const displayName = m.name || m.username;
+                    const emailPart = m.email ? ` <${m.email}>` : '';
+                    opt.textContent = `${displayName}${emailPart} (${m.role})`;
                     selectNew.appendChild(opt);
                 });
 
@@ -323,7 +330,9 @@
                 managers.forEach(m => {
                     const opt = document.createElement('option');
                     opt.value = m.id;
-                    opt.textContent = `${m.username} (${m.role})`;
+                    const displayName = m.name || m.username;
+                    const emailPart = m.email ? ` <${m.email}>` : '';
+                    opt.textContent = `${displayName}${emailPart} (${m.role})`;
                     selectEdit.appendChild(opt);
                 });
             })

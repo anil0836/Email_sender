@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesforceUser extends Model
@@ -33,6 +34,7 @@ class SalesforceUser extends Model
         'user_type',
         'profile_id',
         'user_role_id',
+        'manager_id',
         'salesforce_created_at',
         'salesforce_updated_at',
         'synced_at',
@@ -46,6 +48,22 @@ class SalesforceUser extends Model
         'synced_at' => 'datetime',
         'raw_data' => 'array',
     ];
+
+    /**
+     * Relationship: Manager of this Salesforce User (Salesforce User.ManagerId -> Salesforce User.Id)
+     */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(SalesforceUser::class, 'manager_id', 'salesforce_id');
+    }
+
+    /**
+     * Relationship: Direct reports of this Salesforce User
+     */
+    public function directReports(): HasMany
+    {
+        return $this->hasMany(SalesforceUser::class, 'manager_id', 'salesforce_id');
+    }
 
     /**
      * Relationship: Salesforce Leads owned by this user
@@ -97,7 +115,8 @@ class SalesforceUser extends Model
               ->orWhere('title', 'like', $term)
               ->orWhere('department', 'like', $term)
               ->orWhere('company_name', 'like', $term)
-              ->orWhere('salesforce_id', 'like', $term);
+              ->orWhere('salesforce_id', 'like', $term)
+              ->orWhere('manager_id', 'like', $term);
         });
     }
 

@@ -27,6 +27,7 @@ class SalesforceUserAdminController extends Controller
         }
 
         $query = SalesforceUser::query()
+            ->with(['manager'])
             ->withCount(['leads', 'accounts', 'contacts'])
             ->search($search)
             ->filterActive($isActive)

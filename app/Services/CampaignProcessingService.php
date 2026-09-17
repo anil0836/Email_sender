@@ -16,7 +16,8 @@ class CampaignProcessingService
 {
     public function __construct(
         protected SalesforceService $sfService,
-        protected PabblyService $pabblyService
+        protected PabblyService $pabblyService,
+        protected CampaignMergeFieldService $mergeFieldService
     ) {}
 
     /**
@@ -103,14 +104,27 @@ class CampaignProcessingService
                     continue;
                 }
 
-                // Process HTML Body: merge fields substitution, tracking pixel, and unsubscribe footer
-                $body = $campaign->body;
-                $firstName = $sfRecord['first_name'] ?? 'Valued';
-                $lastName = $sfRecord['last_name'] ?? 'Customer';
-                $fullName = trim("{$firstName} {$lastName}");
+                // Process Subject & HTML Body: per-recipient dynamic merge fields substitution
+                $personalizedSubject = $this->mergeFieldService->resolve(
+                    $campaign->subject,
+                    $sfRecord,
+                    $campaign->user,
+                    null,
+                    false
+                );
 
-                $body = str_replace(['{{FirstName}}', '{{ FirstName }}'], $firstName, $body);
-                $body = str_replace(['{{LastName}}', '{{ LastName }}'], $lastName, $body);
+                $personalizedBody = $this->mergeFieldService->resolve(
+                    $campaign->body,
+                    $sfRecord,
+                    $campaign->user,
+                    $campaign->signature_snapshot,
+                    true
+                );
+
+                $recipientName = $sfRecord['name'] ?? trim(($sfRecord['first_name'] ?? '') . ' ' . ($sfRecord['last_name'] ?? ''));
+                if (empty($recipientName)) {
+                    $recipientName = $sfRecord['email'] ?? 'Valued Customer';
+                }
 
                 $trackingToken = $recipient->tracking_token;
                 $pixelUrl = url("/track/open/{$trackingToken}");
@@ -119,7 +133,7 @@ class CampaignProcessingService
                 $pixelTag = '<img src="' . $pixelUrl . '" width="1" height="1" alt="" style="display:none;" />';
                 $unsubFooter = '<p style="font-size: 11px; color: #64748b; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px;">This email was sent to ' . e($email) . '. If you wish to unsubscribe, please <a href="' . $unsubUrl . '">click here</a>.</p>';
 
-                $finalBody = $body . $unsubFooter . $pixelTag;
+                $finalBody = $personalizedBody . $unsubFooter . $pixelTag;
 
                 $providerMsgId = 'msg-' . Str::random(16);
                 $sentAt = Carbon::now();
@@ -129,8 +143,8 @@ class CampaignProcessingService
                     try {
                         $pabblyResult = $this->pabblyService->sendEmail(
                             $email,
-                            $fullName,
-                            $campaign->subject,
+                            $recipientName,
+                            $personalizedSubject,
                             $finalBody,
                             $fromEmail,
                             $fromName,

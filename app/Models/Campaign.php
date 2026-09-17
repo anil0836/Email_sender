@@ -21,6 +21,9 @@ class Campaign extends Model
         'from_address',
         'reply_to',
         'user_id',
+        'template_id',
+        'signature_id',
+        'signature_snapshot',
         'team',
         'manager_salesforce_id',
         'manager_user_id',
@@ -46,6 +49,16 @@ class Campaign extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function template()
+    {
+        return $this->belongsTo(CampaignTemplate::class, 'template_id');
+    }
+
+    public function signature()
+    {
+        return $this->belongsTo(UserSignature::class, 'signature_id');
     }
 
     public function manager()

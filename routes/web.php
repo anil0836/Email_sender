@@ -12,6 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\RepliesController;
 use App\Http\Controllers\SalesforceLeadController;
+use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\SimulatorController;
 use App\Http\Controllers\TemplateSignatureController;
 use App\Http\Controllers\TrackingController;
@@ -34,7 +35,18 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/campaign/new', [CampaignController::class, 'createView'])->name('campaign_create_view');
     Route::get('/campaign/create', [CampaignController::class, 'createView']);
+    Route::get('/campaign/bulk', [CampaignController::class, 'bulkEmailView'])->name('campaign_bulk_view');
+    Route::get('/campaign/list', [CampaignController::class, 'listView'])->name('campaign_list_view');
     Route::get('/campaign/{campaign_id}', [CampaignController::class, 'detailView'])->name('campaign_detail_view');
+    
+    // Signatures UI & Management
+    Route::get('/signatures', [SignatureController::class, 'index'])->name('signatures.index');
+    Route::post('/signatures', [SignatureController::class, 'store'])->name('signatures.store');
+    Route::get('/signatures/{id}', [SignatureController::class, 'show'])->name('signatures.show');
+    Route::put('/signatures/{id}', [SignatureController::class, 'update'])->name('signatures.update');
+    Route::delete('/signatures/{id}', [SignatureController::class, 'destroy'])->name('signatures.destroy');
+    Route::post('/signatures/{id}/default', [SignatureController::class, 'setDefault'])->name('signatures.default');
+
     Route::get('/salesforce/leads', [SalesforceLeadController::class, 'index'])->name('salesforce.leads');
     Route::get('/salesforce/test-connection', [SalesforceLeadController::class, 'connectionTestView'])->name('salesforce.connection_test');
     Route::get('/replies', [RepliesController::class, 'index'])->name('replies_view');
@@ -99,7 +111,11 @@ Route::middleware(['app_auth'])->group(function () {
     Route::match(['get', 'post'], '/api/signatures', [TemplateSignatureController::class, 'apiSignatures'])->name('api.signatures');
     Route::delete('/api/signatures/{sig_id}', [TemplateSignatureController::class, 'apiDeleteSignature'])->name('api.signatures.delete');
     Route::match(['get', 'post'], '/api/templates', [TemplateSignatureController::class, 'apiTemplates'])->name('api.templates');
+    Route::get('/api/templates/{tmpl_id}', [TemplateSignatureController::class, 'apiGetTemplate'])->name('api.templates.show');
+    Route::put('/api/templates/{tmpl_id}', [TemplateSignatureController::class, 'apiUpdateTemplate'])->name('api.templates.update');
     Route::delete('/api/templates/{tmpl_id}', [TemplateSignatureController::class, 'apiDeleteTemplate'])->name('api.templates.delete');
+    Route::get('/api/campaign/merge-fields', [TemplateSignatureController::class, 'apiMergeFields'])->name('api.campaign.merge_fields');
+    Route::post('/api/campaign/preview', [TemplateSignatureController::class, 'apiPreview'])->name('api.campaign.preview');
     Route::get('/api/user/assigned-settings', [TemplateSignatureController::class, 'apiUserAssignedSettings'])->name('api.user.assigned_settings');
 
     // Manager APIs

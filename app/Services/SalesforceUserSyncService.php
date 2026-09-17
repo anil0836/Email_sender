@@ -237,6 +237,7 @@ class SalesforceUserSyncService
                             'user_type' => $rec['user_type'] ?? null,
                             'profile_id' => $rec['profile_id'] ?? null,
                             'user_role_id' => $rec['user_role_id'] ?? null,
+                            'manager_id' => $rec['manager_id'] ?? null,
                             'salesforce_created_at' => !empty($rec['salesforce_created_at']) ? Carbon::parse($rec['salesforce_created_at']) : null,
                             'salesforce_updated_at' => !empty($rec['salesforce_updated_at']) ? Carbon::parse($rec['salesforce_updated_at']) : null,
                             'synced_at' => $now,

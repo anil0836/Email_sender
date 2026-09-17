@@ -160,7 +160,7 @@ const OBJECT_CONFIGS = {
             'Id', 'Username', 'FirstName', 'LastName', 'Name', 'Email', 'Title',
             'Department', 'CompanyName', 'Division', 'Phone', 'MobilePhone',
             'City', 'State', 'Country', 'IsActive', 'UserType', 'ProfileId', 'UserRoleId',
-            'CreatedDate', 'LastModifiedDate'
+            'ManagerId', 'CreatedDate', 'LastModifiedDate'
         ],
         mapRecord: (r) => ({
             salesforce_id: r.Id || '',
@@ -182,6 +182,7 @@ const OBJECT_CONFIGS = {
             user_type: r.UserType || '',
             profile_id: r.ProfileId || '',
             user_role_id: r.UserRoleId || '',
+            manager_id: r.ManagerId || null,
             salesforce_created_at: r.CreatedDate || null,
             salesforce_updated_at: r.LastModifiedDate || null,
         })

@@ -635,9 +635,27 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('campaign_create_view') ? 'active' : '' }}"
+                <a class="nav-link {{ (request()->routeIs('campaign_create_view') && request()->query('mode') !== 'paste' && !request()->routeIs('campaign_bulk_view')) ? 'active' : '' }}"
                     href="{{ route('campaign_create_view') }}">
                     <i class="bi bi-pencil-square"></i> Create Campaign
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ (request()->routeIs('campaign_bulk_view') || request()->query('mode') === 'paste') ? 'active' : '' }}"
+                    href="{{ route('campaign_bulk_view') }}">
+                    <i class="bi bi-envelope-at"></i> Bulk Email
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('campaign_list_view') ? 'active' : '' }}"
+                    href="{{ route('campaign_list_view') }}">
+                    <i class="bi bi-envelope-paper"></i> My Campaigns
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('signatures.*') ? 'active' : '' }}"
+                    href="{{ route('signatures.index') }}">
+                    <i class="bi bi-pen"></i> Signatures
                 </a>
             </li>
             <li class="nav-item">

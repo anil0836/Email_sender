@@ -30,9 +30,42 @@ class CampaignController extends Controller
     /**
      * Show create campaign view.
      */
-    public function createView()
+    public function createView(Request $request)
     {
-        return view('campaigns.create');
+        $mode = $request->query('mode', 'crm');
+        return view('campaigns.create', compact('mode'));
+    }
+
+    /**
+     * Show bulk email view (paste raw list mode).
+     */
+    public function bulkEmailView(Request $request)
+    {
+        $mode = 'paste';
+        return view('campaigns.create', compact('mode'));
+    }
+
+    /**
+     * Show list of all sent and pending campaigns of the user account.
+     */
+    public function listView(Request $request)
+    {
+        $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        // Fetch campaigns belonging to this user account
+        $campaigns = Campaign::where('user_id', $user->id)
+            ->with(['approver:id,username,name'])
+            ->orderByRaw("CASE WHEN status = 'pending_approval' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('campaigns.list', [
+            'campaigns' => $campaigns,
+            'user' => $user,
+        ]);
     }
 
     /**
@@ -50,9 +83,17 @@ class CampaignController extends Controller
             return redirect()->route('dashboard_view')->with('danger', 'Unauthorized or campaign not found.');
         }
 
+        // Fetch accessible campaigns for the interactive sidebar
+        $sidebarCampaigns = Campaign::accessibleBy($user)
+            ->with('user:id,username,name')
+            ->orderByRaw("CASE WHEN status = 'pending_approval' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('campaigns.detail', [
             'campaign_id' => $campaignId,
             'campaignId' => $campaignId,
+            'sidebarCampaigns' => $sidebarCampaigns,
         ]);
     }
 
@@ -225,6 +266,16 @@ class CampaignController extends Controller
         $recipientEmails = $request->input('recipient_emails', []);
         $attachments = $request->input('attachments', []);
         $scheduleTime = $request->input('scheduled_at');
+        $templateId = $request->input('template_id');
+        $signatureId = $request->input('signature_id');
+
+        $signatureSnapshot = null;
+        if ($signatureId) {
+            $sig = \App\Models\UserSignature::where('id', $signatureId)->where('user_id', $userId)->first();
+            if ($sig) {
+                $signatureSnapshot = $sig->renderHtml();
+            }
+        }
 
         // 1. Daily limit validation check (rolling 24h)
         $dailyLimit = $user->daily_limit ?? 1000;
@@ -354,7 +405,9 @@ class CampaignController extends Controller
         $campaignId = (string) Str::uuid();
 
         // 5. Determine Campaign Status
-        if (app()->environment('testing') && $userRole === 'user') {
+        // Standard users (role='user') always require manager approval before sending.
+        // Admins and Managers bypass approval and go directly to queued/scheduled.
+        if ($userRole === 'user') {
             $status = 'pending_approval';
         } else {
             $status = $scheduleTime ? 'scheduled' : 'queued';
@@ -375,6 +428,9 @@ class CampaignController extends Controller
             'from_address' => $fromAddress,
             'reply_to' => $replyTo,
             'user_id' => $userId,
+            'template_id' => $templateId,
+            'signature_id' => $signatureId,
+            'signature_snapshot' => $signatureSnapshot,
             'team' => $team,
             'manager_salesforce_id' => $managerSfId,
             'manager_user_id' => $managerUserId,
@@ -472,7 +528,11 @@ class CampaignController extends Controller
         return response()->json([
             'success' => true,
             'campaign_id' => $campaignId,
+            'status' => $status,
             'message' => "Campaign created with status: {$status}.",
+            'warning' => ($status === 'pending_approval' && !$managerUserId)
+                ? 'No manager is currently assigned to your account. The campaign will remain on hold until an admin assigns a manager to your profile.'
+                : null,
         ]);
     }
 
@@ -695,7 +755,9 @@ class CampaignController extends Controller
         $filterTeam = $request->input('team');
 
         $query = Campaign::accessibleBy($user)
-            ->select('id', 'subject', 'team', 'status', 'created_at')
+            ->with('user:id,username,name')
+            ->select('id', 'subject', 'team', 'status', 'user_id', 'total_requested', 'total_approved', 'approved_by', 'created_at', 'scheduled_at')
+            ->orderByRaw("CASE WHEN status = 'pending_approval' THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc');
 
         if ($filterUserId) {
@@ -739,6 +801,13 @@ class CampaignController extends Controller
         $campaign = Campaign::with('user')->find($campaignId);
         if (!$campaign) {
             return response()->json(['error' => 'Campaign not found.'], 404);
+        }
+
+        // Idempotency guard: only pending_approval campaigns can be approved or rejected.
+        if ($campaign->status !== 'pending_approval') {
+            return response()->json([
+                'error' => "This campaign cannot be actioned. Current status is '{$campaign->status}'. Only campaigns in 'pending_approval' status can be approved or rejected.",
+            ], 409);
         }
 
         // Authorization check: Admin OR manager of this user/campaign

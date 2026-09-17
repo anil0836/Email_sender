@@ -690,13 +690,17 @@ class BulkEmailClientTest extends TestCase
 
         $routes = [
             '/',
+            '/campaign/new',
             '/campaign/create',
+            '/campaign/list',
             "/campaign/{$campaign->id}",
+            '/signatures',
             '/manager/campaigns',
             '/replies',
             '/admin/users',
             '/admin/infrastructure',
             '/simulator',
+            '/campaign/bulk',
         ];
 
         foreach ($routes as $route) {
@@ -711,6 +715,31 @@ class BulkEmailClientTest extends TestCase
         session()->flush();
         $res = $this->get('/login');
         $res->assertStatus(200);
+    }
+
+    public function test_bulk_email_route_and_sidebar_rendering(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        // 1. Visit /campaign/bulk (Bulk Email view)
+        $resBulk = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->get('/campaign/bulk');
+
+        $resBulk->assertStatus(200);
+        $resBulk->assertSee('Bulk Email');
+        $resBulk->assertSee('Paste Raw List');
+        $resBulk->assertSee('pasted-emails');
+        $resBulk->assertSee('pasted-email-counter');
+
+        // 2. Visit /campaign/new (CRM Directory view)
+        $resNew = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->get('/campaign/new');
+
+        $resNew->assertStatus(200);
+        $resNew->assertSee('Create Campaign');
+        $resNew->assertSee('CRM Directory');
     }
 }
 

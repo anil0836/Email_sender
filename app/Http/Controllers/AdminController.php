@@ -64,11 +64,14 @@ class AdminController extends Controller
                     'u.id',
                     'u.emp_id',
                     'u.username',
+                    'u.name',
                     'u.email',
                     'u.role',
                     'u.manager_id',
                     'u.is_blocked',
                     'm.username as manager_username',
+                    'm.name as manager_name',
+                    'm.email as manager_email',
                     'u.created_at',
                     'u.assigned_server_id',
                     'u.assigned_domain_id',
@@ -234,7 +237,9 @@ class AdminController extends Controller
         }
 
         $managers = User::whereIn('role', ['manager', 'admin'])
-            ->select('id', 'username', 'role')
+            ->select('id', 'username', 'name', 'email', 'role')
+            ->orderBy('name', 'asc')
+            ->orderBy('username', 'asc')
             ->get();
 
         return response()->json($managers);

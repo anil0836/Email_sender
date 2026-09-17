@@ -170,6 +170,7 @@
                             <th style="min-width: 130px;">Company</th>
                             <th style="min-width: 110px;">Status</th>
                             <th style="min-width: 130px;">User Type</th>
+                            <th style="min-width: 140px;">Manager</th>
                             <th style="min-width: 150px;">Owned Entities</th>
                             <th style="min-width: 140px;">SF Modified</th>
                             <th class="pe-4 text-end" style="min-width: 140px;">Local Synced</th>
@@ -221,6 +222,16 @@
                                 <span class="badge bg-secondary-soft text-zinc-800">{{ $user->user_type ?: 'Standard' }}</span>
                             </td>
                             <td>
+                                @if($user->manager)
+                                    <div class="fw-medium text-zinc-900 small">{{ $user->manager->name ?: trim($user->manager->first_name . ' ' . $user->manager->last_name) ?: $user->manager->username }}</div>
+                                    <div class="text-secondary small font-monospace" style="font-size: 0.72rem;">{{ $user->manager_id }}</div>
+                                @elseif($user->manager_id)
+                                    <span class="badge bg-light text-zinc-800 border font-monospace" style="font-size: 0.72rem;">{{ $user->manager_id }}</span>
+                                @else
+                                    <span class="text-muted small">-</span>
+                                @endif
+                            </td>
+                            <td>
                                 <div class="d-flex gap-1 flex-wrap">
                                     <span class="badge bg-primary-soft" title="Owned Leads">
                                         <i class="bi bi-funnel me-0.5"></i> {{ $user->leads_count }} Leads
@@ -246,7 +257,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-5">
+                            <td colspan="10" class="text-center py-5">
                                 <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 48px; height: 48px;">
                                     <i class="bi bi-people text-muted fs-4"></i>
                                 </div>
