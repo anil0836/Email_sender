@@ -57,6 +57,10 @@ class CheckAppAuth
         if (!empty($roles)) {
             $allowedRoles = is_array($roles) ? $roles : explode(',', $roles);
             if (!in_array($user->role, $allowedRoles)) {
+                // If manager role is allowed, check if the user is a team manager
+                if (in_array('manager', $allowedRoles) && $user->isTeamManager()) {
+                    return $next($request);
+                }
                 if ($request->expectsJson() || $request->is('api/*')) {
                     return response()->json(['error' => 'Unauthorized access.'], 403);
                 }

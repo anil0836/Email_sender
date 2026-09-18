@@ -206,6 +206,7 @@
                             </td>
                             <td>
                                 <div class="fw-medium text-zinc-900">${escapeHtml(c.username)}</div>
+                                <div class="text-zinc-500" style="font-size: 0.72rem;">Team: <span class="badge bg-secondary-soft">${escapeHtml(c.team || 'Unassigned')}</span></div>
                                 <div class="text-zinc-400" style="font-size: 0.72rem;">Emp: ${escapeHtml(c.emp_id || 'N/A')}</div>
                             </td>
                             <td class="text-zinc-500" style="font-size: 0.76rem;">${new Date(c.created_at).toLocaleString()}</td>

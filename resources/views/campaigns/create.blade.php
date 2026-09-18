@@ -102,9 +102,11 @@
         background-color: #ffffff;
         font-family: inherit;
     }
+
     #editor-container {
         height: 250px;
     }
+
     .attachment-tag {
         background-color: #f4f4f5;
         border: 1px solid var(--border-color);
@@ -118,9 +120,18 @@
         gap: 6px;
         transition: all 0.15s ease;
     }
+
     .attachment-tag:hover {
         background-color: #e4e4e7;
     }
+
+    .btn-xs {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.725rem;
+        line-height: 1.25;
+        border-radius: 4px;
+    }
+
     .segmented-control {
         background: #f4f4f5;
         padding: 3px;
@@ -148,7 +159,11 @@
 </style>
 @endsection
 
-@section('page_title', 'Compose Bulk Campaign')
+@php
+$isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs('campaign_bulk_view');
+@endphp
+
+@section('page_title', $isPasteMode ? 'Bulk Email (Raw List)' : 'Compose Bulk Campaign')
 
 @section('content')
 <div class="row g-4">
@@ -157,46 +172,74 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
-                    <h6 class="mb-0 fw-semibold text-zinc-900"><i class="bi bi-people me-1.5 text-indigo-600"></i> Configure Recipients</h6>
-                    <small class="text-zinc-500" style="font-size: 0.76rem;">Select CRM contacts or paste a custom list. Compliance and consent checks are applied automatically.</small>
+                    <h6 class="mb-0 fw-semibold text-zinc-900">
+                        <i
+                            class="bi {{ $isPasteMode ? 'bi-envelope-at text-indigo-600' : 'bi-people text-indigo-600' }} me-1.5"></i>
+                        {{ $isPasteMode ? 'Bulk Email Recipients (Paste Raw List)' : 'Configure Recipients' }}
+                    </h6>
+                    <small class="text-zinc-500" style="font-size: 0.76rem;">
+                        {{ $isPasteMode ? 'Paste email addresses directly. Opt-out, suppression, and compliance records
+                        will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and
+                        consent checks are applied automatically.' }}
+                    </small>
                 </div>
-                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">0 Selected</span>
+                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">{{
+                    $isPasteMode ? '0 Emails Detected' : '0 Selected' }}</span>
             </div>
             <div class="card-body">
                 <!-- Segmented Control Tabs -->
-                <div class="mb-3">
+                {{-- <div class="mb-3">
                     <ul class="nav segmented-control" id="recipients-tab" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="crm-tab" data-bs-toggle="pill" data-bs-target="#crm-pane" type="button" role="tab" onclick="switchRecipientMethod('crm')">CRM Directory</button>
+                            <button class="nav-link {{ $isPasteMode ? '' : 'active' }}" id="crm-tab"
+                                data-bs-toggle="pill" data-bs-target="#crm-pane" type="button" role="tab"
+                                onclick="switchRecipientMethod('crm')">CRM Directory</button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="paste-tab" data-bs-toggle="pill" data-bs-target="#paste-pane" type="button" role="tab" onclick="switchRecipientMethod('paste')">Paste Raw List</button>
+                            <button class="nav-link {{ $isPasteMode ? 'active' : '' }}" id="paste-tab"
+                                data-bs-toggle="pill" data-bs-target="#paste-pane" type="button" role="tab"
+                                onclick="switchRecipientMethod('paste')">Paste Raw List</button>
                         </li>
                     </ul>
-                </div>
+                </div> --}}
 
                 <div class="tab-content" id="recipients-tab-content">
                     <!-- Tab 1: CRM Checklist -->
-                    <div class="tab-pane fade show active" id="crm-pane" role="tabpanel">
-                        
+                    <div class="tab-pane fade {{ $isPasteMode ? '' : 'show active' }}" id="crm-pane" role="tabpanel">
+
                         <!-- Filters Box -->
-                        <div class="p-3 bg-zinc-50 rounded-3 mb-3" style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
+                        <div class="p-3 bg-zinc-50 rounded-3 mb-3"
+                            style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
                             <div class="row g-3">
                                 <!-- Type Radio Pill Filter -->
                                 <div class="col-12 d-flex align-items-center gap-2 flex-wrap pb-2 border-bottom">
                                     <span class="form-label mb-0 text-zinc-500">Object Type:</span>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-all" value="all" checked onchange="filterRecipientsType('all')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-all">All (Hidden Emails)</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-all"
+                                            value="all" checked onchange="filterRecipientsType('all')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-all">All CRM Records</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-lead" value="Lead" onchange="filterRecipientsType('Lead')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-lead">Leads Only</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                            id="crm-filter-lead" value="Lead" onchange="filterRecipientsType('Lead')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-lead"><i class="bi bi-person me-1"></i>Leads</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-contact" value="Contact" onchange="filterRecipientsType('Contact')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-contact">Contacts Only</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                            id="crm-filter-contact" value="Contact"
+                                            onchange="filterRecipientsType('Contact')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-contact"><i
+                                                class="bi bi-person-lines-fill me-1"></i>Contacts</label>
+
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                            id="crm-filter-account" value="Account"
+                                            onchange="filterRecipientsType('Account')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label>
                                     </div>
                                 </div>
-                                
+
                                 <!-- 3 Multiselect Picklists (Dynamic from Salesforce) -->
                                 <div class="col-12">
                                     <div class="row g-2">
@@ -204,37 +247,61 @@
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Deal Category</label>
                                             <div class="dropdown w-100">
-                                                <button class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3" type="button" id="btn-filter-category" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-category">All Categories</span>
+                                                <button
+                                                    class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3"
+                                                    type="button" id="btn-filter-category" data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                    style="font-size: 0.8125rem; font-weight: 500;">
+                                                    <span class="text-truncate" id="label-filter-category">All
+                                                        Categories</span>
                                                 </button>
-                                                <div class="dropdown-menu p-2 shadow-sm border w-100" id="menu-filter-category" aria-labelledby="btn-filter-category" style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">Loading categories...</div>
+                                                <div class="dropdown-menu p-2 shadow-sm border w-100"
+                                                    id="menu-filter-category" aria-labelledby="btn-filter-category"
+                                                    style="max-height: 220px; overflow-y: auto;">
+                                                    <div class="text-zinc-400 p-2 text-center"
+                                                        style="font-size: 0.8125rem;">Loading categories...</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Region Multiselect -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Region</label>
                                             <div class="dropdown w-100">
-                                                <button class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3" type="button" id="btn-filter-region" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-region">All Regions</span>
+                                                <button
+                                                    class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3"
+                                                    type="button" id="btn-filter-region" data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                    style="font-size: 0.8125rem; font-weight: 500;">
+                                                    <span class="text-truncate" id="label-filter-region">All
+                                                        Regions</span>
                                                 </button>
-                                                <div class="dropdown-menu p-2 shadow-sm border w-100" id="menu-filter-region" aria-labelledby="btn-filter-region" style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">Loading regions...</div>
+                                                <div class="dropdown-menu p-2 shadow-sm border w-100"
+                                                    id="menu-filter-region" aria-labelledby="btn-filter-region"
+                                                    style="max-height: 220px; overflow-y: auto;">
+                                                    <div class="text-zinc-400 p-2 text-center"
+                                                        style="font-size: 0.8125rem;">Loading regions...</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Country Multiselect -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Country</label>
                                             <div class="dropdown w-100">
-                                                <button class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3" type="button" id="btn-filter-country" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-country">All Countries</span>
+                                                <button
+                                                    class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3"
+                                                    type="button" id="btn-filter-country" data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                    style="font-size: 0.8125rem; font-weight: 500;">
+                                                    <span class="text-truncate" id="label-filter-country">All
+                                                        Countries</span>
                                                 </button>
-                                                <div class="dropdown-menu p-2 shadow-sm border w-100" id="menu-filter-country" aria-labelledby="btn-filter-country" style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">Loading countries...</div>
+                                                <div class="dropdown-menu p-2 shadow-sm border w-100"
+                                                    id="menu-filter-country" aria-labelledby="btn-filter-country"
+                                                    style="max-height: 220px; overflow-y: auto;">
+                                                    <div class="text-zinc-400 p-2 text-center"
+                                                        style="font-size: 0.8125rem;">Loading countries...</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -242,34 +309,45 @@
                                 </div>
                             </div>
                         </div>
-                        
                         <!-- Search & Quick Selection Bar -->
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-8 col-sm-7">
                                 <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-white border-end-0 text-zinc-400"><i class="bi bi-search"></i></span>
-                                    <input type="text" id="rec-search" class="form-control border-start-0 ps-0" placeholder="Search contacts by name or ID..." onkeyup="filterRecipients()">
+                                    <span class="input-group-text bg-white border-end-0 text-zinc-400"><i
+                                            class="bi bi-search"></i></span>
+                                    <input type="text" id="rec-search" class="form-control border-start-0 ps-0"
+                                        placeholder="Search contacts by name or ID..." onkeyup="filterRecipients()">
                                 </div>
                             </div>
                             <div class="col-md-4 col-sm-5 text-end">
-                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="toggleSelectAll(true)"><i class="bi bi-check-all"></i> Select All</button>
-                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="toggleSelectAll(false)"><i class="bi bi-x"></i> Clear</button>
+                                <button type="button" class="btn btn-outline-secondary btn-xs"
+                                    onclick="toggleSelectAll(true)"><i class="bi bi-check-all"></i> Select All</button>
+                                <button type="button" class="btn btn-outline-secondary btn-xs"
+                                    onclick="toggleSelectAll(false)"><i class="bi bi-x"></i> Clear</button>
                             </div>
                         </div>
 
                         <!-- Recipient Checklist -->
                         <div class="recipient-list-box mb-1">
                             <ul class="list-group list-group-flush" id="recipient-list">
-                                <li class="list-group-item text-center text-muted py-4">Loading Salesforce records...</li>
+                                <li class="list-group-item text-center text-muted py-4">Loading Salesforce records...
+                                </li>
                             </ul>
                         </div>
                     </div>
 
                     <!-- Tab 2: Paste Email List -->
-                    <div class="tab-pane fade" id="paste-pane" role="tabpanel">
-                        <p class="text-zinc-500 mb-2" style="font-size: 0.78rem;">Paste email addresses line-by-line. Opt-out and compliance records will be verified automatically.</p>
+                    <div class="tab-pane fade {{ $isPasteMode ? 'show active' : '' }}" id="paste-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <p class="text-zinc-500 mb-0" style="font-size: 0.78rem;">Paste email addresses line-by-line
+                                or comma-separated. Opt-out and compliance records will be verified automatically.</p>
+                            <span class="badge bg-primary-soft text-indigo-700 fw-semibold" id="pasted-email-counter">0
+                                detected</span>
+                        </div>
                         <div>
-                            <textarea class="form-control font-monospace" id="pasted-emails" rows="6" placeholder="john.doe@company.com&#10;jane.smith@partner.net&#10;david@leads.com" style="font-size: 0.82rem;"></textarea>
+                            <textarea class="form-control font-monospace" id="pasted-emails" rows="6"
+                                placeholder="john.doe@company.com&#10;jane.smith@partner.net&#10;david@leads.com"
+                                style="font-size: 0.82rem;" oninput="updatePastedCount()"></textarea>
                         </div>
                     </div>
                 </div>
@@ -281,27 +359,48 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0 fw-semibold text-zinc-900"><i class="bi bi-envelope-open me-1.5 text-zinc-500"></i> Message Content & Configuration</h6>
+                <h6 class="mb-0 fw-semibold text-zinc-900"><i class="bi bi-envelope-open me-1.5 text-zinc-500"></i>
+                    Message Content & Configuration</h6>
             </div>
             <div class="card-body">
                 <form id="campaign-form" onsubmit="event.preventDefault();">
-                    <!-- Templates Selector & Save row -->
+                    <!-- Templates Toolbar -->
                     <div class="row g-2 mb-3 align-items-end">
-                        <div class="col-md-8">
-                            <label for="template-select" class="form-label mb-1">Load Saved Template</label>
+                        <div class="col-md-7">
+                            <label for="template-select" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
+                                <i class="bi bi-journal-bookmark-fill me-1 text-primary"></i> Email Template
+                            </label>
                             <div class="input-group">
-                                <span class="input-group-text bg-white text-zinc-400 border-end-0"><i class="bi bi-journal-bookmark"></i></span>
-                                <select id="template-select" class="form-select border-start-0" onchange="loadSelectedTemplate()">
+                                <select id="template-select" class="form-select" onchange="onTemplateSelectionChange()">
                                     <option value="">-- No Template Selected --</option>
                                 </select>
-                                <button type="button" class="btn btn-outline-danger" onclick="deleteSelectedTemplate()" title="Delete Template">
+                                <button type="button" class="btn btn-outline-secondary" id="btn-apply-template"
+                                    onclick="loadSelectedTemplate()" title="Apply Template into Editor" disabled>
+                                    <i class="bi bi-box-arrow-in-down me-1"></i> Apply
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-template"
+                                    onclick="previewSelectedTemplate()" title="Preview Template" disabled>
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-edit-template"
+                                    onclick="openEditTemplateModal()" title="Edit Template" disabled>
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" id="btn-delete-template"
+                                    onclick="deleteSelectedTemplate()" title="Delete Template" disabled>
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <button type="button" class="btn btn-outline-secondary w-100" onclick="saveAsTemplate()">
-                                <i class="bi bi-bookmark-plus"></i> Save as Template
+                        <div class="col-md-5 d-flex gap-2">
+                            <button type="button" class="btn btn-outline-primary w-50"
+                                onclick="openCreateTemplateModal()">
+                                <i class="bi bi-plus-lg me-1"></i> New Template
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary w-50" onclick="saveAsTemplate()"
+                                title="Save Current Subject & Body as New Template">
+                                <i class="bi bi-bookmark-plus me-1"></i> Save Current
                             </button>
                         </div>
                     </div>
@@ -309,18 +408,26 @@
                     <!-- Subject & Attachments Row -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label for="subject" class="form-label mb-1">Subject Line</label>
-                            <input type="text" class="form-control" id="subject" placeholder="e.g. Strategic Partnership Discussion" required>
+                            <label for="subject" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
+                                Subject Line <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="subject"
+                                placeholder="e.g. Quick question regarding @{{CompanyName}}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label mb-1"><i class="bi bi-paperclip me-1"></i> Attachments</label>
-                            <input type="file" id="attachments-input" class="form-control" multiple onchange="handleFileSelect()">
+                            <label class="form-label mb-1 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                                <i class="bi bi-paperclip me-1"></i> Attachments
+                            </label>
+                            <input type="file" id="attachments-input" class="form-control" multiple
+                                onchange="handleFileSelect()">
                             <div id="attachments-list" class="mt-2 d-flex flex-wrap gap-1.5"></div>
                         </div>
                     </div>
 
                     <!-- Sender Info Row (Visible only to Admin) -->
-                    <div class="row g-3 mb-3 {{ (session('role', Auth::user()->role ?? '') !== 'admin') ? 'd-none' : '' }}">
+                    <div
+                        class="row g-3 mb-3 {{ (session('role', Auth::user()->role ?? '') !== 'admin') ? 'd-none' : '' }}">
                         <div class="col-md-6">
                             <label for="sending-domain" class="form-label mb-1">Outbound Domain</label>
                             <select class="form-select" id="sending-domain" onchange="updateFromEmail()" required>
@@ -329,49 +436,251 @@
                         </div>
                         <div class="col-md-6">
                             <label for="from-address" class="form-label mb-1">From Address</label>
-                            <input type="email" class="form-control" id="from-address" placeholder="sales@domain.com" required>
+                            <input type="email" class="form-control" id="from-address" placeholder="rma@proitbuyer.com"
+                                value="rma@proitbuyer.com" required>
                         </div>
                     </div>
 
-                    <!-- Rich HTML Editor -->
-                    <div class="mb-3">
-                        <label class="form-label mb-1">Email Body Content</label>
-                        <div id="editor-wrapper">
-                            <div id="editor-container"></div>
+                    <!-- Dynamic Merge Variable Insertion Pills -->
+                    <div class="mb-2 p-2.5 rounded border" style="background-color: #f8fafc;">
+                        <div class="d-flex justify-content-between align-items-center mb-1.5 flex-wrap gap-1">
+                            <span class="fw-semibold text-zinc-700" style="font-size: 0.775rem;">
+                                <i class="bi bi-magic text-primary me-1"></i> Merge Fields (Click to insert at editor
+                                cursor):
+                            </span>
+                            <span class="text-zinc-500" style="font-size: 0.725rem;">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i> Dynamically mapped
+                                per-recipient
+                            </span>
                         </div>
-                        <div class="form-text text-zinc-500" style="font-size: 0.74rem;">Merge tokens: <code>@{{FirstName}}</code>, <code>@{{LastName}}</code> map to recipient CRM fields.</div>
+                        <div class="d-flex flex-wrap gap-1.5 align-items-center">
+                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-primary fw-medium"
+                                onclick="insertMergeField('@{{FirstName}}')"
+                                title="Recipient First Name (Lead/Contact CRM record)">
+                                <code>@{{FirstName}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{LastName}}')" title="Recipient Last Name">
+                                <code>@{{LastName}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{FullName}}')" title="Recipient Full Name">
+                                <code>@{{FullName}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyName}}')"
+                                title="Recipient Company or Account Name">
+                                <code>@{{CompanyName}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{Email}}')" title="Recipient Email Address">
+                                <code>@{{Email}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{Phone}}')" title="Recipient Phone Number">
+                                <code>@{{Phone}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{OwnerName}}')" title="Assigned Salesforce Owner">
+                                <code>@{{OwnerName}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{SenderName}}')" title="Your Sender Name">
+                                <code>@{{SenderName}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyWebsite}}')"
+                                title="Recipient or Company Website URL">
+                                <code>@{{CompanyWebsite}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyEmail}}')" title="Company Contact Email">
+                                <code>@{{CompanyEmail}}</code>
+                            </button>
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyPhone}}')" title="Company Contact Phone">
+                                <code>@{{CompanyPhone}}</code>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-success fw-medium"
+                                onclick="insertMergeField('@{{Signature}}')" title="Your Rendered Email Signature">
+                                <code>@{{Signature}}</code>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dual-Mode Email Body Editor (Visual Rich Text + Lossless HTML Template Engine) -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1.5 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="form-label mb-0 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                                    Email Body Content <span class="text-danger">*</span>
+                                </label>
+                                <span id="editor-active-mode-badge" class="badge bg-primary-soft text-primary"
+                                    style="font-size: 0.7rem;">
+                                    <i class="bi bi-fonts me-1"></i> Visual Mode
+                                </span>
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group" id="editor-mode-toggle">
+                                <button type="button" class="btn btn-sm btn-outline-secondary active"
+                                    id="btn-mode-visual" onclick="setEditorMode('visual')"
+                                    title="Visual Rich Text Editor for standard formatting">
+                                    <i class="bi bi-fonts me-1"></i> Visual Rich Text
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-mode-html"
+                                    onclick="setEditorMode('html')"
+                                    title="Raw HTML Source Editor (Lossless tables & responsive email templates)">
+                                    <i class="bi bi-code-slash me-1"></i> HTML Source / Template
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-mode-preview"
+                                    onclick="setEditorMode('preview')"
+                                    title="Live Pixel-Perfect Rendered Email Preview">
+                                    <i class="bi bi-eye me-1"></i> Live Rendered View
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="editor-wrapper" class="border rounded"
+                            style="overflow: hidden; border-color: var(--border-color) !important;">
+                            <!-- Visual Quill Editor -->
+                            <div id="quill-wrapper">
+                                <div id="editor-container"></div>
+                            </div>
+
+                            <!-- Raw HTML Code Editor (Preserves Tables & CSS losslessly) -->
+                            <div id="html-wrapper" class="d-none">
+                                <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2"
+                                    style="font-size: 0.75rem;">
+                                    <div class="text-zinc-600">
+                                        <i class="bi bi-shield-check text-success me-1"></i> <strong>Lossless HTML
+                                            Mode:</strong> Full email tables, inline styles, hero images & structures
+                                        are preserved 100% untouched.
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-xs btn-outline-primary"
+                                            onclick="setEditorMode('preview')">
+                                            <i class="bi bi-eye me-1"></i> View Rendered Preview
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea id="html-source-editor" class="form-control font-monospace border-0 p-3"
+                                    rows="16"
+                                    style="font-size: 0.8rem; line-height: 1.5; background: #fafafa; border-radius: 0; outline: none; box-shadow: none;"
+                                    placeholder="Paste or edit raw HTML email template code here..."></textarea>
+                            </div>
+
+                            <!-- Live Rendered View -->
+                            <div id="preview-wrapper" class="d-none">
+                                <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2"
+                                    style="font-size: 0.75rem;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-zinc-600 fw-semibold">View as:</span>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary active"
+                                                id="btn-vp-desktop" onclick="setPreviewViewport('desktop')">
+                                                <i class="bi bi-laptop me-1"></i> Desktop (600px)
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary"
+                                                id="btn-vp-mobile" onclick="setPreviewViewport('mobile')">
+                                                <i class="bi bi-phone me-1"></i> Mobile (380px)
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary"
+                                                id="btn-vp-full" onclick="setPreviewViewport('full')">
+                                                <i class="bi bi-arrows-fullscreen me-1"></i> Full Width
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button type="button" class="btn btn-xs btn-outline-primary"
+                                            onclick="setEditorMode('html')">
+                                            <i class="bi bi-pencil me-1"></i> Edit HTML Source
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="p-3"
+                                    style="background-color: #f4f7f9; min-height: 380px; max-height: 600px; overflow-y: auto;">
+                                    <div id="editor-live-preview-box"
+                                        style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); overflow: hidden;">
+                                        <!-- Rendered HTML will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-text text-zinc-500 d-flex justify-content-between align-items-center mt-1"
+                            style="font-size: 0.74rem;">
+                            <span><code>@{{FirstName}}</code> maps to the recipient's first name. For full marketing
+                                templates with tables, HTML Source mode delivers pixel-perfect rendering in Gmail &
+                                Outlook.</span>
+                            <span id="editor-type-indicator">Quill Rich Text / HTML Engine</span>
+                        </div>
                     </div>
 
                     <!-- Signatures & Schedule Grid -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label for="signature-select" class="form-label mb-1"><i class="bi bi-pen me-1"></i> Insert Signature</label>
-                            <div class="d-flex gap-1.5">
-                                <select id="signature-select" class="form-select" onchange="insertSelectedSignature()">
-                                    <option value="">-- Select a Signature --</option>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="signature-select" class="form-label mb-0 fw-semibold text-zinc-700"
+                                    style="font-size: 0.8rem;">
+                                    <i class="bi bi-pen me-1 text-primary"></i> Email Signature
+                                </label>
+                                <a href="{{ route('signatures.index') }}" target="_blank"
+                                    class="text-decoration-none text-primary" style="font-size: 0.75rem;">
+                                    <i class="bi bi-gear me-1"></i> Manage Signatures
+                                </a>
+                            </div>
+                            <div class="input-group">
+                                <select id="signature-select" class="form-select"
+                                    onchange="onSignatureSelectionChange()">
+                                    <option value="">-- No Signature Selected --</option>
                                 </select>
-                                <button type="button" class="btn btn-outline-secondary" onclick="saveCurrentAsSignature()" title="Save Signature">
-                                    <i class="bi bi-plus"></i> Save
+                                <button type="button" class="btn btn-outline-secondary" id="btn-insert-sig"
+                                    onclick="insertSelectedSignature()" title="Insert Signature into Body Editor"
+                                    disabled>
+                                    <i class="bi bi-box-arrow-in-down me-1"></i> Insert
                                 </button>
-                                <button type="button" class="btn btn-outline-danger" onclick="deleteSelectedSignature()" title="Delete Signature">
-                                    <i class="bi bi-trash"></i>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-sig"
+                                    onclick="previewSelectedSignature()" title="Preview Signature" disabled>
+                                    <i class="bi bi-eye"></i>
                                 </button>
+                            </div>
+                            <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
+                                The selected signature is auto-attached to outbound emails or substituted where
+                                <code>@{{Signature}}</code> appears.
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
-                            <label for="schedule-datetime" class="form-label mb-1"><i class="bi bi-clock me-1"></i> Schedule Send (Atlanta EST/EDT)</label>
+                            <label for="schedule-datetime" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
+                                <i class="bi bi-clock me-1 text-primary"></i> Schedule Send (Atlanta EST/EDT)
+                            </label>
                             <div class="input-group">
                                 <input type="datetime-local" id="schedule-datetime" class="form-control">
-                                <button class="btn btn-outline-secondary" type="button" onclick="showTimezoneChecker()"><i class="bi bi-globe"></i> Timezones</button>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="showTimezoneChecker()"><i class="bi bi-globe"></i> Timezones</button>
                             </div>
+                            <div class="form-text text-zinc-500" style="font-size: 0.72rem;">Leave empty to dispatch as
+                                soon as campaign is approved.</div>
                         </div>
                     </div>
 
                     <!-- Action bar -->
-                    <div class="d-flex justify-content-end pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <button type="button" class="btn btn-outline-primary" onclick="openLivePreviewModal()">
+                            <i class="bi bi-eye-fill me-1"></i> Preview Email
+                        </button>
                         <button type="button" class="btn btn-primary" onclick="runPreSendValidation()">
-                            <i class="bi bi-shield-check"></i> Verify & Dispatch
+                            <i class="bi bi-shield-check me-1"></i> Verify & Dispatch
                         </button>
                     </div>
                 </form>
@@ -383,7 +692,8 @@
     <div class="col-12 d-none" id="validation-summary-card">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold text-zinc-900"><i class="bi bi-shield-lock me-1.5"></i> Pre-Send Compliance Summary</span>
+                <span class="fw-semibold text-zinc-900"><i class="bi bi-shield-lock me-1.5"></i> Pre-Send Compliance
+                    Summary</span>
                 <span class="badge bg-secondary-soft" id="val-badge-total">0 Deliverable</span>
             </div>
             <div class="card-body">
@@ -436,13 +746,18 @@
                 <div class="accordion mb-3" id="blockedDetailsAccordion">
                     <div class="accordion-item border-0">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed fw-medium text-rose-700 bg-rose-soft py-2 px-3 rounded-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBlockedList" style="font-size: 0.8rem;">
+                            <button
+                                class="accordion-button collapsed fw-medium text-rose-700 bg-rose-soft py-2 px-3 rounded-2"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseBlockedList"
+                                style="font-size: 0.8rem;">
                                 View Blocked Records Breakdown
                             </button>
                         </h2>
-                        <div id="collapseBlockedList" class="accordion-collapse collapse" data-bs-parent="#blockedDetailsAccordion">
+                        <div id="collapseBlockedList" class="accordion-collapse collapse"
+                            data-bs-parent="#blockedDetailsAccordion">
                             <div class="accordion-body px-0 py-2">
-                                <ul class="list-group list-group-flush" id="validation-error-list" style="max-height: 250px; overflow-y: auto;">
+                                <ul class="list-group list-group-flush" id="validation-error-list"
+                                    style="max-height: 250px; overflow-y: auto;">
                                     <!-- Populated dynamically -->
                                 </ul>
                             </div>
@@ -467,11 +782,14 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header py-3 px-4" style="border-bottom: 1px solid var(--border-color);">
-                <h6 class="modal-title fw-semibold text-zinc-900"><i class="bi bi-globe me-1.5"></i> Timezone Conversion Matrix</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem;"></button>
+                <h6 class="modal-title fw-semibold text-zinc-900"><i class="bi bi-globe me-1.5"></i> Timezone Conversion
+                    Matrix</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                    style="font-size: 0.75rem;"></button>
             </div>
             <div class="modal-body py-3 px-4">
-                <p class="text-zinc-500 mb-3" style="font-size: 0.78rem;">Converted from scheduled Atlanta time: <strong class="text-zinc-900" id="tz-atlanta-input-label">N/A</strong></p>
+                <p class="text-zinc-500 mb-3" style="font-size: 0.78rem;">Converted from scheduled Atlanta time: <strong
+                        class="text-zinc-900" id="tz-atlanta-input-label">N/A</strong></p>
                 <div class="table-responsive border-0">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
@@ -489,6 +807,193 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Create / Edit Template -->
+<div class="modal fade" id="templateModal" tabindex="-1" aria-labelledby="templateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <div class="modal-header border-bottom pb-3">
+                <h6 class="modal-title fw-bold text-zinc-900" id="templateModalLabel">
+                    <i class="bi bi-journal-bookmark-fill text-primary me-2"></i> Create Email Template
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="tmpl_modal_id" value="">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                        Template Name <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="tmpl_modal_name"
+                        placeholder="e.g. Sales Intro - Healthcare" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                        Default Subject Line <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="tmpl_modal_subject"
+                        placeholder="e.g. Partnership Opportunity for @{{CompanyName}}" required>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label fw-semibold text-zinc-700 mb-0" style="font-size: 0.8rem;">
+                            Template Body (HTML / Text) <span class="text-danger">*</span>
+                        </label>
+                        <button type="button" class="btn btn-outline-secondary btn-xs"
+                            onclick="copyEditorContentToTemplateModal()">
+                            <i class="bi bi-clipboard me-1"></i> Copy from Main Editor
+                        </button>
+                    </div>
+                    <textarea class="form-control font-monospace" id="tmpl_modal_body" rows="8"
+                        placeholder="<p>Hi @{{FirstName}},</p><p>I noticed your work at @{{CompanyName}}...</p>"
+                        required style="font-size: 0.825rem;"></textarea>
+                    <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
+                        Supports merge tags: <code>@{{FirstName}}</code>, <code>@{{LastName}}</code>,
+                        <code>@{{FullName}}</code>, <code>@{{CompanyName}}</code>, <code>@{{Email}}</code>,
+                        <code>@{{Phone}}</code>, <code>@{{Signature}}</code>.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top pt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" id="btn-save-template-modal"
+                    onclick="saveTemplateFromModal()">
+                    <i class="bi bi-check-lg me-1"></i> Save Template
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Preview Template -->
+<div class="modal fade" id="templatePreviewModal" tabindex="-1" aria-labelledby="templatePreviewModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <div class="modal-header border-bottom pb-3">
+                <h6 class="modal-title fw-bold text-zinc-900" id="templatePreviewModalLabel">
+                    <i class="bi bi-eye-fill text-primary me-2"></i> Template Preview: <span id="prev_tmpl_name"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <span class="text-zinc-500 fw-semibold"
+                        style="font-size: 0.75rem; text-transform: uppercase;">Subject Line:</span>
+                    <div class="p-2 bg-light rounded border fw-medium text-zinc-900 mt-1" id="prev_tmpl_subject"></div>
+                </div>
+                <div>
+                    <span class="text-zinc-500 fw-semibold" style="font-size: 0.75rem; text-transform: uppercase;">Body
+                        Content:</span>
+                    <div class="p-3 bg-white rounded border mt-1" id="prev_tmpl_body"
+                        style="min-height: 200px; max-height: 400px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            <div class="modal-footer border-top pt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" onclick="applyPreviewedTemplate()">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Apply into Campaign Editor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Preview Signature -->
+<div class="modal fade" id="signaturePreviewModal" tabindex="-1" aria-labelledby="signaturePreviewModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <div class="modal-header border-bottom pb-3">
+                <h6 class="modal-title fw-bold text-zinc-900">
+                    <i class="bi bi-pen-fill text-primary me-2"></i> Signature Preview: <span id="prev_sig_name"></span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="p-3 bg-white rounded border" id="prev_sig_body" style="min-height: 120px;"></div>
+            </div>
+            <div class="modal-footer border-top pt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary btn-sm"
+                    onclick="insertSelectedSignature(); bootstrap.Modal.getInstance(document.getElementById('signaturePreviewModal')).hide();">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Insert into Editor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Live Email Preview (Personalized per Recipient) -->
+<div class="modal fade" id="campaignPreviewModal" tabindex="-1" aria-labelledby="campaignPreviewModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content" style="border-radius: var(--radius-card);">
+            <div class="modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <h6 class="modal-title fw-bold text-zinc-900 mb-0">
+                        <i class="bi bi-envelope-paper-fill text-primary me-2"></i> Live Personalized Email Preview
+                    </h6>
+                    <span class="badge bg-success-soft" style="font-size: 0.72rem;">Dynamic CRM Resolution</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-7">
+                        <label class="form-label fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                            <i class="bi bi-person-check me-1 text-primary"></i> Preview as Recipient:
+                        </label>
+                        <select id="prev_recipient_select" class="form-select form-select-sm"
+                            onchange="refreshLivePreviewModal()">
+                            <!-- Populated with selected recipients or sample -->
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <div class="p-2 rounded bg-light border text-zinc-600" style="font-size: 0.75rem;">
+                            <div><strong>Recipient Email:</strong> <span id="prev_rec_email"
+                                    class="font-monospace text-primary"></span></div>
+                            <div><strong>Company / Account:</strong> <span id="prev_rec_company"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border rounded p-3 mb-3 bg-light">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">FROM:
+                        </div>
+                        <div class="col text-zinc-900 fw-medium" style="font-size: 0.825rem;" id="prev_from_field">
+                            rma@proitbuyer.com</div>
+                    </div>
+                    <div class="row g-2 align-items-center mt-1">
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">TO:
+                        </div>
+                        <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;"
+                            id="prev_to_field">john.doe@example.com</div>
+                    </div>
+                    <div class="row g-2 align-items-center mt-1 pt-1 border-top">
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">
+                            SUBJECT:</div>
+                        <div class="col text-zinc-900 fw-bold" style="font-size: 0.875rem;" id="prev_subject_field">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border rounded p-4 bg-white shadow-2xs"
+                    style="min-height: 250px; max-height: 450px; overflow-y: auto;">
+                    <div id="prev_body_field" class="email-preview-rendered-body"></div>
+                </div>
+            </div>
+            <div class="modal-footer border-top pt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary btn-sm px-4"
+                    onclick="bootstrap.Modal.getInstance(document.getElementById('campaignPreviewModal')).hide(); runPreSendValidation();">
+                    <i class="bi bi-shield-check me-1"></i> Proceed to Verify & Dispatch
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('extra_scripts')
@@ -500,7 +1005,7 @@
     let selectedRecords = new Set();
     let allRecords = [];
     let attachedFilesList = [];
-    let recipientMethod = 'crm'; // 'crm' or 'paste'
+    let recipientMethod = '{{ $isPasteMode ? "paste" : "crm" }}'; // 'crm' or 'paste'
 
     // Configure custom fonts and sizes in Quill
     const Size = Quill.import('attributors/style/size');
@@ -527,6 +1032,125 @@
     });
     
     quill.root.innerHTML = `<p>Hi @{{FirstName}},</p><p>We wanted to check in and share some exciting updates.</p><p>Best regards,<br>Team</p>`;
+
+    // --- Dual-Mode Editor Controller (Visual Quill vs Lossless HTML Source vs Live Preview) ---
+    let currentEditorMode = 'visual'; // 'visual', 'html', 'preview'
+
+    function getCampaignBodyContent() {
+        if (currentEditorMode === 'html' || currentEditorMode === 'preview') {
+            const ta = document.getElementById('html-source-editor');
+            return ta ? ta.value : '';
+        }
+        // If in visual mode, check if html-source-editor contains an uncorrupted HTML table template
+        const htmlVal = document.getElementById('html-source-editor') ? document.getElementById('html-source-editor').value : '';
+        if (htmlVal && /<table|<tbody|<tr|<td|<style|<div style=/i.test(htmlVal)) {
+            return htmlVal;
+        }
+        return (quill && quill.root) ? quill.root.innerHTML : '';
+    }
+
+    function setEditorMode(mode) {
+        if (mode === currentEditorMode) return;
+
+        const quillWrap = document.getElementById('quill-wrapper');
+        const htmlWrap = document.getElementById('html-wrapper');
+        const prevWrap = document.getElementById('preview-wrapper');
+        const htmlEditor = document.getElementById('html-source-editor');
+        const badge = document.getElementById('editor-active-mode-badge');
+        const indicator = document.getElementById('editor-type-indicator');
+
+        const btnVisual = document.getElementById('btn-mode-visual');
+        const btnHtml = document.getElementById('btn-mode-html');
+        const btnPreview = document.getElementById('btn-mode-preview');
+
+        if (mode === 'visual') {
+            const htmlCode = htmlEditor ? htmlEditor.value.trim() : '';
+            if (htmlCode && /<table|<tbody|<tr|<td/i.test(htmlCode)) {
+                const proceed = confirm("Notice: This template contains custom responsive HTML tables and inline styling.\n\nOpening it in the Visual Editor will cause Quill to simplify nested tables. For marketing email templates, we recommend staying in HTML Source mode or checking in Live Rendered View.\n\nDo you want to switch to Visual Editor anyway?");
+                if (!proceed) return;
+            }
+            if (htmlCode && quill) {
+                quill.root.innerHTML = htmlCode;
+            }
+            quillWrap.classList.remove('d-none');
+            htmlWrap.classList.add('d-none');
+            prevWrap.classList.add('d-none');
+
+            btnVisual.classList.add('active');
+            btnHtml.classList.remove('active');
+            btnPreview.classList.remove('active');
+
+            badge.className = 'badge bg-primary-soft text-primary';
+            badge.innerHTML = '<i class="bi bi-fonts me-1"></i> Visual Mode';
+            indicator.textContent = 'Quill Rich Text';
+            currentEditorMode = 'visual';
+        } else if (mode === 'html') {
+            if (currentEditorMode === 'visual') {
+                if ((!htmlEditor.value || !htmlEditor.value.trim()) && quill && quill.root) {
+                    htmlEditor.value = quill.root.innerHTML;
+                }
+            }
+            quillWrap.classList.add('d-none');
+            htmlWrap.classList.remove('d-none');
+            prevWrap.classList.add('d-none');
+
+            btnVisual.classList.remove('active');
+            btnHtml.classList.add('active');
+            btnPreview.classList.remove('active');
+
+            badge.className = 'badge bg-success-soft text-success';
+            badge.innerHTML = '<i class="bi bi-code-slash me-1"></i> Lossless HTML Mode';
+            indicator.textContent = 'Raw HTML Source (Tables & Styles 100% Preserved)';
+            currentEditorMode = 'html';
+        } else if (mode === 'preview') {
+            const content = (currentEditorMode === 'html') ? htmlEditor.value : (htmlEditor.value.trim() ? htmlEditor.value : (quill ? quill.root.innerHTML : ''));
+            document.getElementById('editor-live-preview-box').innerHTML = content;
+
+            quillWrap.classList.add('d-none');
+            htmlWrap.classList.add('d-none');
+            prevWrap.classList.remove('d-none');
+
+            btnVisual.classList.remove('active');
+            btnHtml.classList.remove('active');
+            btnPreview.classList.add('active');
+
+            badge.className = 'badge bg-info-soft text-info';
+            badge.innerHTML = '<i class="bi bi-eye me-1"></i> Live Rendered View';
+            indicator.textContent = 'Live Email Client Rendering';
+            currentEditorMode = 'preview';
+        }
+    }
+
+    function setPreviewViewport(type) {
+        const box = document.getElementById('editor-live-preview-box');
+        const btnDesk = document.getElementById('btn-vp-desktop');
+        const btnMob = document.getElementById('btn-vp-mobile');
+        const btnFull = document.getElementById('btn-vp-full');
+
+        btnDesk.classList.remove('active');
+        btnMob.classList.remove('active');
+        btnFull.classList.remove('active');
+
+        if (type === 'mobile') {
+            box.style.maxWidth = '380px';
+            btnMob.classList.add('active');
+        } else if (type === 'full') {
+            box.style.maxWidth = '100%';
+            btnFull.classList.add('active');
+        } else {
+            box.style.maxWidth = '600px';
+            btnDesk.classList.add('active');
+        }
+    }
+
+    function formatHtmlSource() {
+        const ta = document.getElementById('html-source-editor');
+        if (!ta || !ta.value.trim()) return;
+        let formatted = ta.value
+            .replace(/>\s*</g, '>\n<')
+            .replace(/\n\s*\n/g, '\n');
+        ta.value = formatted;
+    }
 
     function handleFileSelect() {
         const input = document.getElementById('attachments-input');
@@ -566,9 +1190,22 @@
     function switchRecipientMethod(method) {
         recipientMethod = method;
         if (method === 'paste') {
-            document.getElementById('selected-count').innerText = "Paste List Mode";
+            updatePastedCount();
         } else {
             document.getElementById('selected-count').innerText = `${selectedRecords.size} Selected`;
+        }
+    }
+
+    function updatePastedCount() {
+        const textarea = document.getElementById('pasted-emails');
+        const text = textarea ? textarea.value : '';
+        const emails = text.split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0 && e.includes('@'));
+        const counter = document.getElementById('pasted-email-counter');
+        if (counter) {
+            counter.innerText = `${emails.length} detected`;
+        }
+        if (recipientMethod === 'paste') {
+            document.getElementById('selected-count').innerText = `${emails.length} Emails Detected`;
         }
     }
 
@@ -577,10 +1214,12 @@
             .then(res => res.json())
             .then(domains => {
                 const select = document.getElementById('sending-domain');
-                const activeDomains = domains.filter(d => d.status === 'enabled');
+                if (!select) return;
+                const activeDomains = Array.isArray(domains) ? domains.filter(d => d.status === 'enabled') : [];
                 
                 if (activeDomains.length === 0) {
-                    select.innerHTML = '<option value="">No domains verified by administrator</option>';
+                    select.innerHTML = '<option value="proitbuyer.com" selected>proitbuyer.com (Default)</option>';
+                    updateFromEmail();
                     return;
                 }
 
@@ -610,14 +1249,20 @@
                         select.innerHTML = html;
                         updateFromEmail();
                     });
+            })
+            .catch(() => {
+                const select = document.getElementById('sending-domain');
+                if (select) {
+                    select.innerHTML = '<option value="proitbuyer.com" selected>proitbuyer.com (Default)</option>';
+                    updateFromEmail();
+                }
             });
     }
 
     function updateFromEmail() {
-        const domain = document.getElementById('sending-domain').value;
-        if (domain) {
-            const username = "{{ session('username', Auth::user()->username ?? '') }}";
-            document.getElementById('from-address').value = `${username}@${domain}`;
+        const fromInput = document.getElementById('from-address');
+        if (fromInput) {
+            fromInput.value = 'rma@proitbuyer.com';
         }
     }
 
@@ -750,25 +1395,36 @@
         let html = '';
         filtered.forEach(r => {
             const isChecked = selectedRecords.has(r.id) ? 'checked' : '';
-            const typeBadge = r.object_type === 'Contact' 
-                ? '<span class="badge bg-secondary-soft text-zinc-700 me-1" style="font-size: 0.65rem;">C</span>' 
-                : '<span class="badge bg-warning-soft text-amber-700 me-1" style="font-size: 0.65rem;">L</span>';
+            let typeBadge = '<span class="badge bg-warning-soft text-amber-800 me-1" style="font-size: 0.65rem;">Lead</span>';
+            if (r.object_type === 'Contact') {
+                typeBadge = '<span class="badge bg-secondary-soft text-zinc-700 me-1" style="font-size: 0.65rem;">Contact</span>';
+            } else if (r.object_type === 'Account') {
+                typeBadge = '<span class="badge bg-primary-soft text-indigo-700 me-1" style="font-size: 0.65rem;">Account</span>';
+            }
             
+            let vBadge = '';
+            if (r.owner_verification_status === 'verified') {
+                vBadge = '<span class="badge bg-success-soft ms-1" style="font-size: 0.65rem;" title="Salesforce Owner Verified"><i class="bi bi-shield-check"></i> Verified</span>';
+            } else if (r.owner_verification_status === 'changed') {
+                vBadge = '<span class="badge bg-warning-soft text-amber-800 ms-1" style="font-size: 0.65rem;" title="Salesforce Owner Changed"><i class="bi bi-arrow-repeat"></i> Owner Changed</span>';
+            }
+
             let warning = '';
-            if (r.opted_out === 1) warning += ' <i class="bi bi-slash-circle text-rose-600 ms-1" title="Opted Out in Salesforce"></i>';
+            if (r.opted_out === 1 || r.opted_out === true) warning += ' <i class="bi bi-slash-circle text-rose-600 ms-1" title="Opted Out in Salesforce"></i>';
             if (r.consent_status !== 'valid') warning += ' <i class="bi bi-exclamation-triangle text-amber-600 ms-1" title="GDPR Non-compliant"></i>';
-            if (r.owner_id !== "{{ session('username', Auth::user()->username ?? '') }}") warning += ' <i class="bi bi-lock text-zinc-400 ms-1" title="Owned by another Salesforce user"></i>';
 
             const emailText = showEmail ? ` &bull; <span class="text-indigo-600 font-monospace" style="font-size: 0.775rem;">${escapeHtml(r.email)}</span>` : '';
-            const detailsText = `<div class="text-zinc-500 mt-0.5" style="font-size: 0.74rem;">Category: <span class="text-zinc-800 fw-medium">${escapeHtml(r.deal_category || 'None')}</span> &bull; Region: <span class="text-zinc-800 fw-medium">${escapeHtml(r.region || 'None')}</span> &bull; Country: <span class="text-zinc-800 fw-medium">${escapeHtml(r.country || 'None')}</span></div>`;
+            const companyText = r.company ? ` &bull; <span class="text-zinc-600">${escapeHtml(r.company)}</span>` : '';
+            const ownerText = r.owner_name ? ` &bull; <span class="text-zinc-500">Owner: ${escapeHtml(r.owner_name)}</span>` : '';
+            const detailsText = `<div class="text-zinc-500 mt-0.5" style="font-size: 0.74rem;">Category: <span class="text-zinc-800 fw-medium">${escapeHtml(r.deal_category || 'None')}</span> &bull; Region: <span class="text-zinc-800 fw-medium">${escapeHtml(r.region || 'None')}</span> &bull; Country: <span class="text-zinc-800 fw-medium">${escapeHtml(r.country || 'None')}</span>${ownerText}</div>`;
 
             html += `
                 <li class="list-group-item d-flex align-items-center py-2.5 px-3 recipient-row" data-id="${r.id}">
                     <input class="form-check-input me-3 rec-checkbox mt-0" type="checkbox" value="${r.id}" ${isChecked} onchange="handleSelect(this)">
                     <div style="font-size: 0.8125rem;" class="flex-grow-1">
-                        <div class="fw-semibold text-zinc-900">${typeBadge}${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}${emailText}${warning}</div>
+                        <div class="fw-semibold text-zinc-900">${typeBadge}${escapeHtml(r.name || (r.first_name + ' ' + r.last_name))}${companyText}${emailText}${vBadge}${warning}</div>
                         ${detailsText}
-                        <div class="text-zinc-400 font-monospace" style="font-size: 0.71rem;">ID: ${r.id}</div>
+                        <div class="text-zinc-400 font-monospace" style="font-size: 0.71rem;">SF ID: ${r.id}</div>
                     </div>
                 </li>
             `;
@@ -858,7 +1514,7 @@
             data.duplicates.forEach(d => {
                 errHtml += `
                     <li class="list-group-item d-flex justify-content-between align-items-center py-1.5 px-3 text-danger border-light-subtle" style="font-size: 0.78rem;">
-                        <span><strong>${escapeHtml(d.name)}</strong> (${escapeHtml(d.email)})</span>
+                        <span><span class="badge bg-secondary-soft me-1">${escapeHtml(d.record_type || 'CRM')}</span><strong>${escapeHtml(d.name)}</strong> (${escapeHtml(d.email)})</span>
                         <span class="badge bg-danger-soft text-danger fw-semibold" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Duplicate Entry</span>
                     </li>
                 `;
@@ -875,9 +1531,11 @@
 
             for (const [reason, list] of Object.entries(data.blocked_by_reason)) {
                 list.forEach(r => {
+                    const typeLabel = r.record_type ? `<span class="badge bg-secondary-soft me-1">${escapeHtml(r.record_type)}</span>` : '';
+                    const vStatusLabel = r.owner_verification_status ? `<span class="badge bg-light text-muted ms-1">${escapeHtml(r.owner_verification_status)}</span>` : '';
                     errHtml += `
                         <li class="list-group-item d-flex justify-content-between align-items-center py-1.5 px-3 text-danger border-light-subtle" style="font-size: 0.78rem;">
-                            <span><strong>${escapeHtml(r.name)}</strong> (${escapeHtml(r.email)})</span>
+                            <span>${typeLabel}<strong>${escapeHtml(r.name)}</strong> (${escapeHtml(r.email)})${vStatusLabel}</span>
                             <span class="badge bg-danger-soft text-danger fw-semibold" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">${reasonLabels[reason] || reason}</span>
                         </li>
                     `;
@@ -912,13 +1570,16 @@
 
     function submitCampaign() {
         const subject = document.getElementById('subject').value;
-        const sending_domain = document.getElementById('sending-domain').value;
-        const from_address = document.getElementById('from-address').value;
-        const body = quill.root.innerHTML;
+        const sendingDomainEl = document.getElementById('sending-domain');
+        const sending_domain = (sendingDomainEl && sendingDomainEl.value) ? sendingDomainEl.value : 'proitbuyer.com';
+        const from_address = 'rma@proitbuyer.com';
+        const body = getCampaignBodyContent();
         const scheduled_at = document.getElementById('schedule-datetime').value || null;
+        const templateId = document.getElementById('template-select').value || null;
+        const signatureId = document.getElementById('signature-select').value || null;
 
-        if (!subject || !sending_domain || !from_address || !body) {
-            alert("Please fill out all fields.");
+        if (!subject || !body) {
+            alert("Please provide both subject and body for the email.");
             return;
         }
 
@@ -928,7 +1589,9 @@
             from_address,
             body,
             attachments: attachedFilesList,
-            scheduled_at: scheduled_at
+            scheduled_at: scheduled_at,
+            template_id: templateId,
+            signature_id: signatureId
         };
 
         if (recipientMethod === 'crm') {
@@ -956,6 +1619,18 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                if (data.status === 'pending_approval') {
+                    let msg = '✅ Campaign submitted successfully!\n\n'
+                        + '⏳ PENDING MANAGER APPROVAL\n\n'
+                        + 'Your campaign has been placed on hold. No emails will be sent until your manager reviews and approves it.\n\n'
+                        + 'You will be redirected to the campaign status page where you can track its approval progress.';
+
+                    if (data.warning) {
+                        msg += '\n\n⚠️ WARNING: ' + data.warning;
+                    }
+
+                    alert(msg);
+                }
                 window.location.href = `/campaign/${data.campaign_id}`;
             } else {
                 alert(data.error || "Failed to submit campaign.");
@@ -964,6 +1639,32 @@
         .catch(err => console.error("Error creating campaign:", err));
     }
 
+    // --- Dynamic Personalization Merge Fields ---
+    function insertMergeField(fieldTag) {
+        if (currentEditorMode === 'html') {
+            const ta = document.getElementById('html-source-editor');
+            if (ta) {
+                const start = ta.selectionStart || 0;
+                const end = ta.selectionEnd || 0;
+                const val = ta.value;
+                ta.value = val.substring(0, start) + fieldTag + val.substring(end);
+                ta.selectionStart = ta.selectionEnd = start + fieldTag.length;
+                ta.focus();
+            }
+        } else if (currentEditorMode === 'preview') {
+            setEditorMode('html');
+            insertMergeField(fieldTag);
+        } else {
+            if (!quill) return;
+            quill.focus();
+            const range = quill.getSelection(true);
+            const index = range ? range.index : quill.getLength();
+            quill.insertText(index, fieldTag, 'user');
+            quill.setSelection(index + fieldTag.length, 'user');
+        }
+    }
+
+    // --- Template Management ---
     let savedTemplates = [];
     let savedSignatures = [];
 
@@ -971,38 +1672,32 @@
         fetch('/api/templates')
             .then(res => res.json())
             .then(data => {
-                savedTemplates = data;
+                savedTemplates = data || [];
                 const select = document.getElementById('template-select');
                 select.innerHTML = '<option value="">-- No Template Selected --</option>';
-                data.forEach(t => {
+                savedTemplates.forEach(t => {
                     const opt = document.createElement('option');
                     opt.value = t.id;
-                    opt.textContent = t.name;
+                    opt.textContent = t.name + (t.is_default ? ' (Default)' : '');
                     select.appendChild(opt);
                 });
-            });
+                onTemplateSelectionChange();
+            })
+            .catch(err => console.error("Error loading templates:", err));
     }
 
-    function saveAsTemplate() {
-        const name = prompt("Enter a name for this template:");
-        if (!name) return;
-        const subject = document.getElementById('subject').value;
-        const body = quill.root.innerHTML;
+    function onTemplateSelectionChange() {
+        const id = document.getElementById('template-select').value;
+        const hasSelection = Boolean(id);
+        const btnApply = document.getElementById('btn-apply-template');
+        const btnPreview = document.getElementById('btn-preview-template');
+        const btnEdit = document.getElementById('btn-edit-template');
+        const btnDelete = document.getElementById('btn-delete-template');
 
-        fetch('/api/templates', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, subject, body })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert("Template saved successfully!");
-                loadTemplates();
-            } else {
-                alert(data.error || "Failed to save template.");
-            }
-        });
+        if (btnApply) btnApply.disabled = !hasSelection;
+        if (btnPreview) btnPreview.disabled = !hasSelection;
+        if (btnEdit) btnEdit.disabled = !hasSelection;
+        if (btnDelete) btnDelete.disabled = !hasSelection;
     }
 
     function loadSelectedTemplate() {
@@ -1011,56 +1706,143 @@
         if (!id) return;
         const tmpl = savedTemplates.find(t => t.id == id);
         if (tmpl) {
-            document.getElementById('subject').value = tmpl.subject;
-            quill.root.innerHTML = tmpl.body;
+            document.getElementById('subject').value = tmpl.subject || '';
+            const bodyContent = tmpl.body || '';
+
+            // Store unmodified pristine HTML in the HTML source editor
+            const htmlEditor = document.getElementById('html-source-editor');
+            if (htmlEditor) {
+                htmlEditor.value = bodyContent;
+            }
+
+            // Check if template contains HTML tables or rich marketing layout
+            const isTableTemplate = /<table|<tbody|<tr|<td|<style|<div style=|max-width/i.test(bodyContent);
+
+            if (isTableTemplate) {
+                // DO NOT feed complex tables into Quill, as Quill strips/mutates nested tables!
+                // Switch directly to HTML Source mode to keep the template 100% intact:
+                setEditorMode('html');
+                const prevBox = document.getElementById('editor-live-preview-box');
+                if (prevBox) prevBox.innerHTML = bodyContent;
+            } else {
+                if (quill) {
+                    quill.root.innerHTML = bodyContent;
+                }
+                setEditorMode('visual');
+            }
         }
     }
 
-    function loadSignatures() {
-        fetch('/api/signatures')
-            .then(res => res.json())
-            .then(data => {
-                savedSignatures = data;
-                const select = document.getElementById('signature-select');
-                select.innerHTML = '<option value="">-- Select a Signature --</option>';
-                data.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.textContent = s.name;
-                    select.appendChild(opt);
-                });
-            });
+    function previewSelectedTemplate() {
+        const id = document.getElementById('template-select').value;
+        if (!id) return;
+        const tmpl = savedTemplates.find(t => t.id == id);
+        if (tmpl) {
+            document.getElementById('prev_tmpl_name').textContent = tmpl.name;
+            document.getElementById('prev_tmpl_subject').textContent = tmpl.subject;
+            document.getElementById('prev_tmpl_body').innerHTML = tmpl.body;
+            const modalEl = document.getElementById('templatePreviewModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        }
     }
 
-    function saveCurrentAsSignature() {
-        const name = prompt("Enter a name for this signature:");
-        if (!name) return;
-        const content = quill.root.innerHTML;
+    function applyPreviewedTemplate() {
+        loadSelectedTemplate();
+        const modalEl = document.getElementById('templatePreviewModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+    }
 
-        fetch('/api/signatures', {
-            method: 'POST',
+    function openCreateTemplateModal() {
+        document.getElementById('tmpl_modal_id').value = '';
+        document.getElementById('templateModalLabel').innerHTML = '<i class="bi bi-journal-bookmark-fill text-primary me-2"></i> Create Email Template';
+        document.getElementById('tmpl_modal_name').value = '';
+        document.getElementById('tmpl_modal_subject').value = (document.getElementById('subject') ? document.getElementById('subject').value : '');
+        document.getElementById('tmpl_modal_body').value = getCampaignBodyContent();
+        
+        const modalEl = document.getElementById('templateModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    }
+
+    function openEditTemplateModal() {
+        const id = document.getElementById('template-select').value;
+        if (!id) return;
+        const tmpl = savedTemplates.find(t => t.id == id);
+        if (!tmpl) return;
+
+        document.getElementById('tmpl_modal_id').value = tmpl.id;
+        document.getElementById('templateModalLabel').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Edit Email Template';
+        document.getElementById('tmpl_modal_name').value = tmpl.name;
+        document.getElementById('tmpl_modal_subject').value = tmpl.subject;
+        document.getElementById('tmpl_modal_body').value = tmpl.body;
+
+        const modalEl = document.getElementById('templateModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    }
+
+    function copyEditorContentToTemplateModal() {
+        document.getElementById('tmpl_modal_subject').value = (document.getElementById('subject') ? document.getElementById('subject').value : '');
+        document.getElementById('tmpl_modal_body').value = getCampaignBodyContent();
+    }
+
+    function saveTemplateFromModal() {
+        const id = document.getElementById('tmpl_modal_id').value;
+        const name = document.getElementById('tmpl_modal_name').value.trim();
+        const subject = document.getElementById('tmpl_modal_subject').value.trim();
+        const body = document.getElementById('tmpl_modal_body').value.trim();
+
+        if (!name || !subject || !body) {
+            alert("Name, Subject, and Body are all required.");
+            return;
+        }
+
+        const url = id ? `/api/templates/${id}` : '/api/templates';
+        const method = id ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, content })
+            body: JSON.stringify({ name, subject, body })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert("Signature saved successfully!");
-                loadSignatures();
+                const modalEl = document.getElementById('templateModal');
+                if (modalEl) {
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
+                loadTemplates();
+                setTimeout(() => {
+                    const targetId = data.template_id || (data.template && data.template.id);
+                    if (targetId) {
+                        const select = document.getElementById('template-select');
+                        if (select) {
+                            select.value = targetId;
+                            onTemplateSelectionChange();
+                        }
+                    }
+                }, 400);
             } else {
-                alert(data.error || "Failed to save signature.");
+                alert(data.error || "Failed to save template.");
             }
-        });
+        })
+        .catch(err => alert("Error saving template: " + err.message));
     }
 
-    function insertSelectedSignature() {
-        const select = document.getElementById('signature-select');
-        const id = select.value;
-        if (!id) return;
-        const sig = savedSignatures.find(s => s.id == id);
-        if (sig) {
-            quill.root.innerHTML += `<br><br>${sig.content}`;
-        }
+    function saveAsTemplate() {
+        openCreateTemplateModal();
     }
 
     function deleteSelectedTemplate() {
@@ -1086,6 +1868,64 @@
             .catch(err => console.error("Error deleting template:", err));
     }
 
+    // --- Signatures Management ---
+    function loadSignatures() {
+        fetch('/api/signatures')
+            .then(res => res.json())
+            .then(data => {
+                savedSignatures = data || [];
+                const select = document.getElementById('signature-select');
+                select.innerHTML = '<option value="">-- No Signature Selected --</option>';
+                let defaultSigId = null;
+
+                savedSignatures.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name + (s.is_default ? ' (Default)' : '');
+                    if (s.is_default) {
+                        defaultSigId = s.id;
+                    }
+                    select.appendChild(opt);
+                });
+
+                if (defaultSigId) {
+                    select.value = defaultSigId;
+                }
+                onSignatureSelectionChange();
+            })
+            .catch(err => console.error("Error loading signatures:", err));
+    }
+
+    function onSignatureSelectionChange() {
+        const id = document.getElementById('signature-select').value;
+        const hasSelection = Boolean(id);
+        const btnInsert = document.getElementById('btn-insert-sig');
+        const btnPreview = document.getElementById('btn-preview-sig');
+        if (btnInsert) btnInsert.disabled = !hasSelection;
+        if (btnPreview) btnPreview.disabled = !hasSelection;
+    }
+
+    function previewSelectedSignature() {
+        const id = document.getElementById('signature-select').value;
+        if (!id) return;
+        const sig = savedSignatures.find(s => s.id == id);
+        if (sig) {
+            document.getElementById('prev_sig_name').textContent = sig.name;
+            document.getElementById('prev_sig_body').innerHTML = sig.rendered_html || sig.content || '';
+            const modalEl = document.getElementById('signaturePreviewModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        }
+    }
+
+    function insertSelectedSignature() {
+        const id = document.getElementById('signature-select').value;
+        if (!id) return;
+        insertMergeField('@{{Signature}}');
+    }
+
     function deleteSelectedSignature() {
         const select = document.getElementById('signature-select');
         const id = select.value;
@@ -1107,6 +1947,74 @@
                 }
             })
             .catch(err => console.error("Error deleting signature:", err));
+    }
+
+    // --- Live Personalized Email Preview ---
+    function openLivePreviewModal() {
+        const subject = document.getElementById('subject').value || '(No Subject)';
+        const body = getCampaignBodyContent();
+        const signatureId = document.getElementById('signature-select').value || null;
+
+        const recSelect = document.getElementById('prev_recipient_select');
+        recSelect.innerHTML = '';
+
+        if (selectedRecords.size > 0) {
+            Array.from(selectedRecords).forEach(id => {
+                const rec = allRecords.find(r => r.id == id);
+                if (rec) {
+                    const opt = document.createElement('option');
+                    opt.value = rec.id;
+                    const rName = rec.name || (rec.first_name + ' ' + rec.last_name);
+                    opt.textContent = `${rName} (${rec.email}) [${rec.object_type || 'CRM'}]`;
+                    recSelect.appendChild(opt);
+                }
+            });
+        }
+
+        if (recSelect.options.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Demo Contact: John Doe (john.doe@example.com)';
+            recSelect.appendChild(opt);
+        }
+
+        refreshLivePreviewModal();
+        const modalEl = document.getElementById('campaignPreviewModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    }
+
+    function refreshLivePreviewModal() {
+        const subject = document.getElementById('subject').value || '(No Subject)';
+        const body = getCampaignBodyContent();
+        const signatureId = document.getElementById('signature-select').value || null;
+        const recipientId = document.getElementById('prev_recipient_select').value || null;
+
+        document.getElementById('prev_from_field').textContent = document.getElementById('from-address').value || 'rma@proitbuyer.com';
+
+        fetch('/api/campaign/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subject: subject,
+                body: body,
+                signature_id: signatureId,
+                recipient_id: recipientId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('prev_subject_field').textContent = data.resolved_subject;
+                document.getElementById('prev_body_field').innerHTML = data.resolved_body;
+                document.getElementById('prev_to_field').textContent = (data.recipient.full_name || 'Recipient') + ' <' + (data.recipient.email || '') + '>';
+                document.getElementById('prev_rec_email').textContent = data.recipient.email || 'N/A';
+                document.getElementById('prev_rec_company').textContent = data.recipient.company || 'N/A';
+            }
+        })
+        .catch(err => console.error("Preview error:", err));
     }
 
     const timezones = [
@@ -1197,6 +2105,10 @@
         loadRecipients();
         loadTemplates();
         loadSignatures();
+
+        if (recipientMethod === 'paste') {
+            updatePastedCount();
+        }
 
         // Prevent closing of bootstrap dropdowns when clicking checkboxes inside them
         document.querySelectorAll('.dropdown-menu').forEach(menu => {

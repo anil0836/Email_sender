@@ -1,11 +1,18 @@
 <?php
 
+use App\Http\Controllers\Admin\SalesforceAccountAdminController;
+use App\Http\Controllers\Admin\SalesforceContactAdminController;
+use App\Http\Controllers\Admin\SalesforceLeadAdminController;
+use App\Http\Controllers\Admin\SalesforceSfUserAdminController;
+use App\Http\Controllers\Admin\SalesforceUserAdminController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\RepliesController;
+use App\Http\Controllers\SalesforceLeadController;
+use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\SimulatorController;
 use App\Http\Controllers\TemplateSignatureController;
 use App\Http\Controllers\TrackingController;
@@ -28,7 +35,20 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/campaign/new', [CampaignController::class, 'createView'])->name('campaign_create_view');
     Route::get('/campaign/create', [CampaignController::class, 'createView']);
+    Route::get('/campaign/bulk', [CampaignController::class, 'bulkEmailView'])->name('campaign_bulk_view');
+    Route::get('/campaign/list', [CampaignController::class, 'listView'])->name('campaign_list_view');
     Route::get('/campaign/{campaign_id}', [CampaignController::class, 'detailView'])->name('campaign_detail_view');
+    
+    // Signatures UI & Management
+    Route::get('/signatures', [SignatureController::class, 'index'])->name('signatures.index');
+    Route::post('/signatures', [SignatureController::class, 'store'])->name('signatures.store');
+    Route::get('/signatures/{id}', [SignatureController::class, 'show'])->name('signatures.show');
+    Route::put('/signatures/{id}', [SignatureController::class, 'update'])->name('signatures.update');
+    Route::delete('/signatures/{id}', [SignatureController::class, 'destroy'])->name('signatures.destroy');
+    Route::post('/signatures/{id}/default', [SignatureController::class, 'setDefault'])->name('signatures.default');
+
+    Route::get('/salesforce/leads', [SalesforceLeadController::class, 'index'])->name('salesforce.leads');
+    Route::get('/salesforce/test-connection', [SalesforceLeadController::class, 'connectionTestView'])->name('salesforce.connection_test');
     Route::get('/replies', [RepliesController::class, 'index'])->name('replies_view');
     Route::get('/simulator', [SimulatorController::class, 'index'])->name('simulator_view');
     Route::get('/download/attachment/{campaign_id}/{filename}', [CampaignController::class, 'downloadAttachment'])->name('download_attachment');
@@ -38,10 +58,32 @@ Route::middleware(['app_auth'])->group(function () {
         Route::get('/manager/campaigns', [ManagerController::class, 'campaignsView'])->name('team_campaigns_view');
     });
 
-    // Admin-only UI
+    // Admin-only UI & Management
     Route::middleware(['app_auth:admin'])->group(function () {
         Route::get('/admin/users', [AdminController::class, 'usersView'])->name('admin_users_view');
         Route::get('/admin/infrastructure', [AdminController::class, 'infrastructureView'])->name('admin_infrastructure_view');
+
+        // Salesforce Sync Management
+        Route::get('/admin/salesforce-leads', [SalesforceLeadAdminController::class, 'index'])->name('admin.salesforce_leads.index');
+        Route::get('/admin/salesforce-leads/{lead}', [SalesforceLeadAdminController::class, 'show'])->name('admin.salesforce_leads.show');
+        Route::post('/admin/salesforce-leads/sync', [SalesforceLeadAdminController::class, 'manualSync'])->name('admin.salesforce_leads.sync');
+        Route::get('/admin/salesforce-leads/sync-status', [SalesforceLeadAdminController::class, 'syncStatus'])->name('admin.salesforce_leads.status');
+
+        Route::get('/admin/salesforce-accounts', [SalesforceAccountAdminController::class, 'index'])->name('admin.salesforce_accounts.index');
+        Route::post('/admin/salesforce-accounts/sync', [SalesforceAccountAdminController::class, 'manualSync'])->name('admin.salesforce_accounts.sync');
+        Route::get('/admin/salesforce-accounts/sync-status', [SalesforceAccountAdminController::class, 'syncStatus'])->name('admin.salesforce_accounts.status');
+
+        Route::get('/admin/salesforce-contacts', [SalesforceContactAdminController::class, 'index'])->name('admin.salesforce_contacts.index');
+        Route::post('/admin/salesforce-contacts/sync', [SalesforceContactAdminController::class, 'manualSync'])->name('admin.salesforce_contacts.sync');
+        Route::get('/admin/salesforce-contacts/sync-status', [SalesforceContactAdminController::class, 'syncStatus'])->name('admin.salesforce_contacts.status');
+
+        Route::get('/admin/salesforce-users', [SalesforceUserAdminController::class, 'index'])->name('admin.salesforce_users.index');
+        Route::post('/admin/salesforce-users/sync', [SalesforceUserAdminController::class, 'manualSync'])->name('admin.salesforce_users.sync');
+        Route::get('/admin/salesforce-users/sync-status', [SalesforceUserAdminController::class, 'syncStatus'])->name('admin.salesforce_users.status');
+
+        Route::get('/admin/salesforce-sf-users', [SalesforceSfUserAdminController::class, 'index'])->name('admin.salesforce_sf_users.index');
+        Route::post('/admin/salesforce-sf-users/sync', [SalesforceSfUserAdminController::class, 'manualSync'])->name('admin.salesforce_sf_users.sync');
+        Route::get('/admin/salesforce-sf-users/sync-status', [SalesforceSfUserAdminController::class, 'syncStatus'])->name('admin.salesforce_sf_users.status');
     });
 
     // --- AUTHENTICATED JSON API ENDPOINTS ---
@@ -49,8 +91,13 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/api/dashboard/stats', [DashboardController::class, 'apiStats'])->name('api.dashboard.stats');
     Route::get('/api/dashboard/recipient-list', [DashboardController::class, 'apiRecipientList'])->name('api.dashboard.recipient_list');
 
+    // Salesforce Leads & Connection APIs (JSforce Integration)
+    Route::get('/api/salesforce/leads', [SalesforceLeadController::class, 'apiLeads'])->name('api.salesforce.leads');
+    Route::get('/api/salesforce/test-connection', [SalesforceLeadController::class, 'apiTestConnection'])->name('api.salesforce.test_connection');
+
     // Salesforce & Campaign Compose APIs
-    Route::get('/api/salesforce/recipients', [SimulatorController::class, 'apiSalesforceRecipients'])->name('api.salesforce.recipients');
+    Route::get('/api/salesforce/recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.recipients');
+    Route::get('/api/salesforce/campaign-recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.campaign_recipients');
     Route::post('/api/campaign/validate', [CampaignController::class, 'apiValidate'])->name('api.campaign.validate');
     Route::post('/api/campaign/send', [CampaignController::class, 'apiSend'])->name('api.campaign.send');
     Route::get('/api/campaign/{campaign_id}', [CampaignController::class, 'apiDetail'])->name('api.campaign.detail');
@@ -64,7 +111,11 @@ Route::middleware(['app_auth'])->group(function () {
     Route::match(['get', 'post'], '/api/signatures', [TemplateSignatureController::class, 'apiSignatures'])->name('api.signatures');
     Route::delete('/api/signatures/{sig_id}', [TemplateSignatureController::class, 'apiDeleteSignature'])->name('api.signatures.delete');
     Route::match(['get', 'post'], '/api/templates', [TemplateSignatureController::class, 'apiTemplates'])->name('api.templates');
+    Route::get('/api/templates/{tmpl_id}', [TemplateSignatureController::class, 'apiGetTemplate'])->name('api.templates.show');
+    Route::put('/api/templates/{tmpl_id}', [TemplateSignatureController::class, 'apiUpdateTemplate'])->name('api.templates.update');
     Route::delete('/api/templates/{tmpl_id}', [TemplateSignatureController::class, 'apiDeleteTemplate'])->name('api.templates.delete');
+    Route::get('/api/campaign/merge-fields', [TemplateSignatureController::class, 'apiMergeFields'])->name('api.campaign.merge_fields');
+    Route::post('/api/campaign/preview', [TemplateSignatureController::class, 'apiPreview'])->name('api.campaign.preview');
     Route::get('/api/user/assigned-settings', [TemplateSignatureController::class, 'apiUserAssignedSettings'])->name('api.user.assigned_settings');
 
     // Manager APIs
@@ -88,4 +139,283 @@ Route::middleware(['app_auth'])->group(function () {
     Route::post('/api/simulator/update-salesforce', [SimulatorController::class, 'apiUpdateSalesforce'])->name('api.simulator.update_salesforce');
     Route::post('/api/simulator/inbound-reply', [SimulatorController::class, 'apiInboundReply'])->name('api.simulator.inbound_reply');
     Route::post('/api/simulator/clear-cache', [SimulatorController::class, 'apiClearCache'])->name('api.simulator.clear_cache');
+});
+
+
+Route::get('/salesforce-test', function () {
+
+    // =====================================================
+    // SALESFORCE CONFIGURATION
+    // =====================================================
+
+    $sfLoginUrl = 'https://login.salesforce.com';
+
+    $sfUsername = 'pramod@retrotech.in';
+
+    // Salesforce password + security token
+    $sfPassword = 'Admin@Retrotech#2033HctxqZXWac6krSA8CWPVwACjF';
+
+    $apiVersion = '61.0';
+
+    $soapUrl = $sfLoginUrl . '/services/Soap/u/' . $apiVersion;
+
+
+    // =====================================================
+    // CREATE SOAP REQUEST
+    // =====================================================
+
+    $soapRequest = '<?xml version="1.0" encoding="utf-8" ?>'
+        . '<env:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"'
+        . ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        . ' xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">'
+        . '<env:Body>'
+        . '<n1:login xmlns:n1="urn:partner.soap.sforce.com">'
+        . '<n1:username>'
+        . htmlspecialchars($sfUsername, ENT_XML1)
+        . '</n1:username>'
+        . '<n1:password>'
+        . htmlspecialchars($sfPassword, ENT_XML1)
+        . '</n1:password>'
+        . '</n1:login>'
+        . '</env:Body>'
+        . '</env:Envelope>';
+
+
+    try {
+
+        // =====================================================
+        // SEND REQUEST TO SALESFORCE
+        // =====================================================
+
+        $response = Http::withHeaders([
+            'Content-Type' => 'text/xml; charset=UTF-8',
+            'SOAPAction'   => 'login',
+        ])
+        ->timeout(30)
+        ->withBody($soapRequest, 'text/xml')
+        ->post($soapUrl);
+
+
+        $httpCode = $response->status();
+
+        $responseBody = $response->body();
+
+
+        // =====================================================
+        // CHECK SALESFORCE CONNECTION
+        // =====================================================
+
+        if (
+            $response->successful() &&
+            strpos($responseBody, '<sessionId>') !== false
+        ) {
+
+            // Get Session ID
+            preg_match(
+                '/<sessionId>(.*?)<\/sessionId>/',
+                $responseBody,
+                $sessionMatch
+            );
+
+            // Get Salesforce Server URL
+            preg_match(
+                '/<serverUrl>(.*?)<\/serverUrl>/',
+                $responseBody,
+                $serverMatch
+            );
+
+            $sessionId = $sessionMatch[1] ?? '';
+
+            $serverUrl = $serverMatch[1] ?? '';
+
+
+            // Hide most of session ID
+            $maskedSessionId = substr($sessionId, 0, 20)
+                . '********************';
+
+
+            // =====================================================
+            // SUCCESS PAGE
+            // =====================================================
+
+            return response('
+                <!DOCTYPE html>
+
+                <html>
+
+                <head>
+
+                    <title>Salesforce Connection Test</title>
+
+                    <style>
+
+                        body {
+                            font-family: Arial, sans-serif;
+                            background: #f5f7fa;
+                            padding: 40px;
+                        }
+
+                        .container {
+                            max-width: 900px;
+                            margin: auto;
+                            background: #ffffff;
+                            padding: 30px;
+                            border-radius: 10px;
+                            box-shadow: 0 4px 15px rgba(0,0,0,.1);
+                        }
+
+                        .success {
+                            background: #d4edda;
+                            color: #155724;
+                            padding: 20px;
+                            border-radius: 6px;
+                        }
+
+                    </style>
+
+                </head>
+
+                <body>
+
+                    <div class="container">
+
+                        <h2>Salesforce Connection Test</h2>
+
+                        <div class="success">
+
+                            <h3>
+                                ✅ Salesforce Connected Successfully!
+                            </h3>
+
+                            <p>
+                                <strong>Username:</strong>
+                                ' . e($sfUsername) . '
+                            </p>
+
+                            <p>
+                                <strong>HTTP Status:</strong>
+                                ' . e($httpCode) . '
+                            </p>
+
+                            <p>
+                                <strong>Salesforce Server:</strong>
+                                <br>
+                                ' . e($serverUrl) . '
+                            </p>
+
+                            <p>
+                                <strong>Session ID:</strong>
+                                <br>
+                                ' . e($maskedSessionId) . '
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </body>
+
+                </html>
+            ');
+
+        }
+
+
+        // =====================================================
+        // SALESFORCE LOGIN FAILED
+        // =====================================================
+
+        return response('
+
+            <!DOCTYPE html>
+
+            <html>
+
+            <head>
+
+                <title>Salesforce Connection Failed</title>
+
+                <style>
+
+                    body {
+                        font-family: Arial, sans-serif;
+                        background: #f5f7fa;
+                        padding: 40px;
+                    }
+
+                    .container {
+                        max-width: 900px;
+                        margin: auto;
+                        background: white;
+                        padding: 30px;
+                        border-radius: 10px;
+                    }
+
+                    .error {
+                        background: #f8d7da;
+                        color: #721c24;
+                        padding: 20px;
+                        border-radius: 6px;
+                    }
+
+                    pre {
+                        background: #222;
+                        color: #eee;
+                        padding: 20px;
+                        overflow: auto;
+                        border-radius: 6px;
+                    }
+
+                </style>
+
+            </head>
+
+            <body>
+
+                <div class="container">
+
+                    <h2>Salesforce Connection Test</h2>
+
+                    <div class="error">
+
+                        <h3>
+                            ❌ Salesforce Connection Failed
+                        </h3>
+
+                        <p>
+                            <strong>HTTP Status:</strong>
+                            ' . e($httpCode) . '
+                        </p>
+
+                    </div>
+
+                    <h3>Salesforce Response</h3>
+
+                    <pre>'
+                        . e($responseBody)
+                    . '</pre>
+
+                </div>
+
+            </body>
+
+            </html>
+
+        ');
+
+    } catch (\Exception $e) {
+
+        return response('
+            <h2>Salesforce Connection Error</h2>
+
+            <p style="
+                background:#f8d7da;
+                color:#721c24;
+                padding:20px;
+            ">
+                ' . e($e->getMessage()) . '
+            </p>
+        ', 500);
+    }
+
 });

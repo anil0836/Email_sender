@@ -27,8 +27,16 @@ class DashboardController extends Controller
     public function apiStats(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
         $userId = $user->id;
         $role = $user->role;
+
+        $teamService = app(\App\Services\TeamService::class);
+        $managedTeams = $teamService->getManagedTeamsForUser($user);
+        $isMgr = $role === 'admin' || $role === 'manager' || count($managedTeams) > 0;
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
@@ -36,7 +44,7 @@ class DashboardController extends Controller
         $teamMemberId = $request->input('team_member_id') ?: $request->input('user_id');
 
         // Apply filters helper
-        $applyFilters = function ($query) use ($role, $userId, $startDate, $endDate, $campaignId, $teamMemberId) {
+        $applyFilters = function ($query) use ($role, $userId, $startDate, $endDate, $campaignId, $teamMemberId, $managedTeams, $isMgr) {
             if ($startDate) {
                 $query->where('campaigns.created_at', '>=', $startDate . ' 00:00:00');
             }
@@ -51,14 +59,24 @@ class DashboardController extends Controller
                 if ($teamMemberId) {
                     $query->where('campaigns.user_id', (int) $teamMemberId);
                 }
-            } elseif ($role === 'manager') {
+            } elseif ($isMgr) {
                 $subordinateIds = User::where('manager_id', $userId)->pluck('id')->toArray();
                 $subordinateIds[] = $userId;
 
-                if ($teamMemberId && in_array((int) $teamMemberId, $subordinateIds)) {
+                if ($teamMemberId) {
                     $query->where('campaigns.user_id', (int) $teamMemberId);
                 } else {
-                    $query->whereIn('campaigns.user_id', $subordinateIds);
+                    $query->where(function ($q) use ($userId, $subordinateIds, $managedTeams) {
+                        $q->where('campaigns.user_id', $userId)
+                          ->orWhere('campaigns.manager_user_id', $userId);
+
+                        if (count($managedTeams) > 0) {
+                            $q->orWhereIn('campaigns.team', $managedTeams);
+                        }
+                        if (count($subordinateIds) > 0) {
+                            $q->orWhereIn('campaigns.user_id', $subordinateIds);
+                        }
+                    });
                 }
             } else {
                 $query->where('campaigns.user_id', $userId);
@@ -69,13 +87,24 @@ class DashboardController extends Controller
         $teamMembers = [];
         if ($role === 'admin') {
             $teamMembers = User::select('id', 'username', 'email', 'role')->orderBy('username')->get()->toArray();
-        } elseif ($role === 'manager') {
-            $teamMembers = User::select('id', 'username', 'email', 'role')
-                ->where('id', $userId)
-                ->orWhere('manager_id', $userId)
-                ->orderBy('username')
-                ->get()
-                ->toArray();
+        } elseif ($isMgr) {
+            $membersColl = $teamService->getTeamMembersForManager($user);
+            $teamMembers = $membersColl->toArray();
+            $hasSelf = false;
+            foreach ($teamMembers as $tm) {
+                if ($tm['id'] == $userId) {
+                    $hasSelf = true;
+                    break;
+                }
+            }
+            if (!$hasSelf) {
+                array_unshift($teamMembers, [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ]);
+            }
         }
 
         $sentStatuses = ['sent', 'delivered', 'opened', 'unsubscribed', 'bounce', 'spam_complaint'];
@@ -283,18 +312,32 @@ class DashboardController extends Controller
         }
 
         // Role filter
+        $teamService = app(\App\Services\TeamService::class);
+        $managedTeams = $teamService->getManagedTeamsForUser($user);
+        $isMgr = $role === 'admin' || $role === 'manager' || count($managedTeams) > 0;
+
         if ($role === 'admin') {
             if ($teamMemberId) {
                 $query->where('campaigns.user_id', (int) $teamMemberId);
             }
-        } elseif ($role === 'manager') {
+        } elseif ($isMgr) {
             $subordinateIds = User::where('manager_id', $userId)->pluck('id')->toArray();
             $subordinateIds[] = $userId;
 
-            if ($teamMemberId && in_array((int) $teamMemberId, $subordinateIds)) {
+            if ($teamMemberId) {
                 $query->where('campaigns.user_id', (int) $teamMemberId);
             } else {
-                $query->whereIn('campaigns.user_id', $subordinateIds);
+                $query->where(function ($q) use ($userId, $subordinateIds, $managedTeams) {
+                    $q->where('campaigns.user_id', $userId)
+                      ->orWhere('campaigns.manager_user_id', $userId);
+
+                    if (count($managedTeams) > 0) {
+                        $q->orWhereIn('campaigns.team', $managedTeams);
+                    }
+                    if (count($subordinateIds) > 0) {
+                        $q->orWhereIn('campaigns.user_id', $subordinateIds);
+                    }
+                });
             }
         } else {
             $query->where('campaigns.user_id', $userId);

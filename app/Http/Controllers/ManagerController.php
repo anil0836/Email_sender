@@ -16,7 +16,12 @@ class ManagerController extends Controller
     public function campaignsView()
     {
         $user = Auth::user() ?: User::find(session('user_id'));
-        if (!in_array($user->role, ['admin', 'manager'])) {
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        $teamService = app(\App\Services\TeamService::class);
+        if (!in_array($user->role, ['admin', 'manager']) && !$teamService->isTeamManager($user)) {
             return redirect()->route('dashboard_view')->with('danger', 'Unauthorized access.');
         }
 
@@ -29,22 +34,31 @@ class ManagerController extends Controller
     public function apiCampaigns(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
-        $userRole = $user->role;
-        $userId = $user->id;
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
 
-        if (!in_array($userRole, ['admin', 'manager'])) {
+        $teamService = app(\App\Services\TeamService::class);
+        $userRole = $user->role;
+
+        if (!in_array($userRole, ['admin', 'manager']) && !$teamService->isTeamManager($user)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $teamMemberId = $request->input('team_member_id');
+        $teamFilter = $request->input('team');
 
-        $query = DB::table('campaigns')
+        $query = Campaign::accessibleBy($user)
             ->join('users', 'campaigns.user_id', '=', 'users.id')
             ->leftJoin('users as approvers', 'campaigns.approved_by', '=', 'approvers.id')
+            ->leftJoin('salesforce_users as sf_mgr', 'campaigns.manager_salesforce_id', '=', 'sf_mgr.salesforce_id')
             ->select(
                 'campaigns.id',
                 'campaigns.subject',
                 'campaigns.status',
+                'campaigns.team',
+                'campaigns.manager_salesforce_id',
+                'campaigns.manager_user_id',
                 'campaigns.created_at',
                 'campaigns.scheduled_at',
                 'campaigns.total_requested',
@@ -56,18 +70,16 @@ class ManagerController extends Controller
                 'users.email as user_email',
                 'campaigns.approval_remark',
                 'campaigns.approval_at',
-                'approvers.username as approver_username'
+                'approvers.username as approver_username',
+                'sf_mgr.name as manager_name'
             );
 
-        if ($userRole === 'admin') {
-            if ($teamMemberId) {
-                $query->where('campaigns.user_id', $teamMemberId);
-            }
-        } else {
-            $query->where('users.manager_id', $userId);
-            if ($teamMemberId) {
-                $query->where('campaigns.user_id', $teamMemberId);
-            }
+        if ($teamMemberId) {
+            $query->where('campaigns.user_id', $teamMemberId);
+        }
+
+        if ($teamFilter) {
+            $query->where('campaigns.team', $teamFilter);
         }
 
         $query->orderBy('campaigns.created_at', 'desc');
@@ -81,18 +93,18 @@ class ManagerController extends Controller
     public function apiTeamMembers(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
-        $userRole = $user->role;
-        $userId = $user->id;
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
 
-        if (!in_array($userRole, ['admin', 'manager'])) {
+        $teamService = app(\App\Services\TeamService::class);
+        $userRole = $user->role;
+
+        if (!in_array($userRole, ['admin', 'manager']) && !$teamService->isTeamManager($user)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        if ($userRole === 'admin') {
-            $members = User::where('role', 'user')->select('id', 'username', 'emp_id', 'email', 'role')->get();
-        } else {
-            $members = User::where('manager_id', $userId)->where('role', 'user')->select('id', 'username', 'emp_id', 'email', 'role')->get();
-        }
+        $members = $teamService->getTeamMembersForManager($user);
 
         return response()->json($members);
     }

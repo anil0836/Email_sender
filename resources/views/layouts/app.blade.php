@@ -12,8 +12,10 @@
     <!-- Google Fonts: Inter & Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
     <script>
         const themes = {
             indigo: {
@@ -234,7 +236,6 @@
         const savedTheme = localStorage.getItem('selected-theme') || 'indigo';
         changeTheme(savedTheme);
     </script>
-    
     <style>
         :root {
             --primary-color: #4f46e5;
@@ -333,7 +334,7 @@
             align-items: center;
             justify-content: center;
             color: #ffffff;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
             flex-shrink: 0;
         }
 
@@ -440,7 +441,8 @@
         }
 
         /* Inputs & Form Controls */
-        .form-control, .form-select {
+        .form-control,
+        .form-select {
             font-size: 0.8125rem;
             border-radius: var(--radius-input);
             border: 1px solid var(--border-color);
@@ -450,7 +452,8 @@
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .form-control:focus, .form-select:focus {
+        .form-control:focus,
+        .form-select:focus {
             border-color: var(--primary-color, #4f46e5);
             box-shadow: 0 0 0 3px var(--focus-ring, rgba(99, 102, 241, 0.15));
             outline: none;
@@ -587,9 +590,11 @@
             width: 6px;
             height: 6px;
         }
+
         ::-webkit-scrollbar-track {
             background: transparent;
         }
+
         ::-webkit-scrollbar-thumb {
             background: #d4d4d8;
             border-radius: 999px;
@@ -620,30 +625,60 @@
 
         <ul class="nav flex-column mt-2">
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('dashboard_view') ? 'active' : '' }}" href="{{ route('dashboard_view') }}">
+                <a class="nav-link {{ request()->routeIs('dashboard_view') ? 'active' : '' }}"
+                    href="{{ route('dashboard_view') }}">
                     <i class="bi bi-grid"></i> Dashboard
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('campaign_create_view') ? 'active' : '' }}" href="{{ route('campaign_create_view') }}">
+                <a class="nav-link {{ (request()->routeIs('campaign_create_view') && request()->query('mode') !== 'paste' && !request()->routeIs('campaign_bulk_view')) ? 'active' : '' }}"
+                    href="{{ route('campaign_create_view') }}">
                     <i class="bi bi-pencil-square"></i> Create Campaign
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('replies_view') ? 'active' : '' }}" href="{{ route('replies_view') }}">
+                <a class="nav-link {{ (request()->routeIs('campaign_bulk_view') || request()->query('mode') === 'paste') ? 'active' : '' }}"
+                    href="{{ route('campaign_bulk_view') }}">
+                    <i class="bi bi-envelope-at"></i> Bulk Email
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('campaign_list_view') ? 'active' : '' }}"
+                    href="{{ route('campaign_list_view') }}">
+                    <i class="bi bi-envelope-paper"></i> My Campaigns
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('signatures.*') ? 'active' : '' }}"
+                    href="{{ route('signatures.index') }}">
+                    <i class="bi bi-pen"></i> Signatures
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('replies_view') ? 'active' : '' }}"
+                    href="{{ route('replies_view') }}">
                     <i class="bi bi-inbox"></i> Inbound Replies
                 </a>
             </li>
+            {{-- <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('salesforce.leads*') ? 'active' : '' }}"
+                    href="{{ route('salesforce.leads') }}">
+                    <i class="bi bi-person-lines-fill"></i> Salesforce Leads
+                </a>
+            </li> --}}
 
             @php
-                $userRole = session('role') ?? (Auth::check() ? Auth::user()->role : 'user');
-                $username = session('username') ?? (Auth::check() ? Auth::user()->username : 'User');
+            $userRole = session('role') ?? (Auth::check() ? Auth::user()->role : 'user');
+            $username = session('username') ?? (Auth::check() ? Auth::user()->username : 'User');
+            $currentUser = Auth::user() ?: \App\Models\User::find(session('user_id'));
+            $isTeamManager = $currentUser ? $currentUser->isTeamManager() : false;
             @endphp
 
-            @if(in_array($userRole, ['admin', 'manager']))
+            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager)
             <li class="nav-item-header">Management</li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}" href="{{ route('team_campaigns_view') }}">
+                <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"
+                    href="{{ route('team_campaigns_view') }}">
                     <i class="bi bi-shield-check"></i> Team Campaigns
                 </a>
             </li>
@@ -652,23 +687,63 @@
             @if($userRole === 'admin')
             <li class="nav-item-header">Administration</li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin_users_view') ? 'active' : '' }}" href="{{ route('admin_users_view') }}">
+                <a class="nav-link {{ request()->routeIs('admin_users_view') ? 'active' : '' }}"
+                    href="{{ route('admin_users_view') }}">
                     <i class="bi bi-people"></i> Users & Limits
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin_infrastructure_view') ? 'active' : '' }}" href="{{ route('admin_infrastructure_view') }}">
+                <a class="nav-link {{ request()->routeIs('admin_infrastructure_view') ? 'active' : '' }}"
+                    href="{{ route('admin_infrastructure_view') }}">
                     <i class="bi bi-hdd-network"></i> IPs & Domains
+                </a>
+            </li>
+            <li class="nav-item-header">Salesforce Sync</li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.salesforce_leads*') ? 'active' : '' }}"
+                    href="{{ route('admin.salesforce_leads.index') }}">
+                    <i class="bi bi-funnel"></i> Synced Leads
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.salesforce_accounts*') ? 'active' : '' }}"
+                    href="{{ route('admin.salesforce_accounts.index') }}">
+                    <i class="bi bi-buildings"></i> Synced Accounts
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.salesforce_contacts*') ? 'active' : '' }}"
+                    href="{{ route('admin.salesforce_contacts.index') }}">
+                    <i class="bi bi-person-rolodex"></i> Synced Contacts
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.salesforce_users*') ? 'active' : '' }}"
+                    href="{{ route('admin.salesforce_users.index') }}">
+                    <i class="bi bi-person-gear"></i> Synced Standard Users
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.salesforce_sf_users*') ? 'active' : '' }}"
+                    href="{{ route('admin.salesforce_sf_users.index') }}">
+                    <i class="bi bi-person-badge"></i> Synced SF Users (SF_User__c)
                 </a>
             </li>
             @endif
 
             <li class="nav-item-header">Developer Tools</li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('simulator_view') ? 'active' : '' }}" href="{{ route('simulator_view') }}">
+                <a class="nav-link {{ request()->routeIs('simulator_view') ? 'active' : '' }}"
+                    href="{{ route('simulator_view') }}">
                     <i class="bi bi-terminal"></i> Client Simulator
                 </a>
             </li>
+            {{-- <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('salesforce.connection_test') ? 'active' : '' }}"
+                    href="{{ route('salesforce.connection_test') }}">
+                    <i class="bi bi-shield-check"></i> SF Connection Test
+                </a>
+            </li> --}}
         </ul>
     </aside>
 
@@ -680,70 +755,96 @@
                     @yield('page_title', 'Dashboard')
                 </h5>
             </div>
-            
+
             <div class="d-flex align-items-center gap-2">
                 <!-- Theme Palette Selector -->
                 <div class="dropdown">
-                    <button class="btn btn-outline-secondary btn-sm" type="button" id="themeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <button class="btn btn-outline-secondary btn-sm" type="button" id="themeDropdown"
+                        data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-palette"></i> Palette
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="themeDropdown" style="min-width: 220px;">
-                        <li><h6 class="dropdown-header text-uppercase text-secondary fw-semibold" style="font-size: 0.65rem; letter-spacing: 0.05em;">Color Theme</h6></li>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="themeDropdown"
+                        style="min-width: 220px;">
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('indigo')">
+                            <h6 class="dropdown-header text-uppercase text-secondary fw-semibold"
+                                style="font-size: 0.65rem; letter-spacing: 0.05em;">Color Theme</h6>
+                        </li>
+                        <li>
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('indigo')">
                                 <span><i class="bi bi-circle-fill me-2" style="color: #4f46e5;"></i>Linear Indigo</span>
-                                <i class="bi bi-check-lg text-indigo-600 palette-check d-none" id="theme-check-indigo"></i>
+                                <i class="bi bi-check-lg text-indigo-600 palette-check d-none"
+                                    id="theme-check-indigo"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('emerald')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #059669;"></i>Emerald & Mint</span>
-                                <i class="bi bi-check-lg text-emerald-600 palette-check d-none" id="theme-check-emerald"></i>
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('emerald')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #059669;"></i>Emerald &
+                                    Mint</span>
+                                <i class="bi bi-check-lg text-emerald-600 palette-check d-none"
+                                    id="theme-check-emerald"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('rose')">
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('rose')">
                                 <span><i class="bi bi-circle-fill me-2" style="color: #e11d48;"></i>Electric Rose</span>
                                 <i class="bi bi-check-lg text-rose-600 palette-check d-none" id="theme-check-rose"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('violet')">
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('violet')">
                                 <span><i class="bi bi-circle-fill me-2" style="color: #7c3aed;"></i>Cyber Violet</span>
-                                <i class="bi bi-check-lg text-violet-600 palette-check d-none" id="theme-check-violet"></i>
+                                <i class="bi bi-check-lg text-violet-600 palette-check d-none"
+                                    id="theme-check-violet"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('blue')">
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('blue')">
                                 <span><i class="bi bi-circle-fill me-2" style="color: #2563eb;"></i>Ocean Blue</span>
                                 <i class="bi bi-check-lg text-blue-600 palette-check d-none" id="theme-check-blue"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('amber')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #d97706;"></i>Obsidian & Amber</span>
-                                <i class="bi bi-check-lg text-amber-600 palette-check d-none" id="theme-check-amber"></i>
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('amber')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #d97706;"></i>Obsidian &
+                                    Amber</span>
+                                <i class="bi bi-check-lg text-amber-600 palette-check d-none"
+                                    id="theme-check-amber"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('teal')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #0d9488;"></i>Teal & Cyan Wave</span>
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('teal')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #0d9488;"></i>Teal & Cyan
+                                    Wave</span>
                                 <i class="bi bi-check-lg text-teal-600 palette-check d-none" id="theme-check-teal"></i>
                             </a>
                         </li>
-                        <li><hr class="dropdown-divider my-1"></li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5" href="#" onclick="changeTheme('monochrome')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #18181b;"></i>Minimal Charcoal</span>
-                                <i class="bi bi-check-lg text-dark palette-check d-none" id="theme-check-monochrome"></i>
+                            <hr class="dropdown-divider my-1">
+                        </li>
+                        <li>
+                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
+                                href="#" onclick="changeTheme('monochrome')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #18181b;"></i>Minimal
+                                    Charcoal</span>
+                                <i class="bi bi-check-lg text-dark palette-check d-none"
+                                    id="theme-check-monochrome"></i>
                             </a>
                         </li>
                     </ul>
                 </div>
 
                 <!-- User Account Pill -->
-                <div class="d-flex align-items-center gap-2 px-2.5 py-1 bg-white border rounded-pill text-zinc-800" style="font-size: 0.78rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                    <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold" style="width: 22px; height: 22px; font-size: 0.65rem; background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); box-shadow: 0 1px 4px rgba(99,102,241,0.3);">
+                <div class="d-flex align-items-center gap-2 px-2.5 py-1 bg-white border rounded-pill text-zinc-800"
+                    style="font-size: 0.78rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold"
+                        style="width: 22px; height: 22px; font-size: 0.65rem; background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); box-shadow: 0 1px 4px rgba(99,102,241,0.3);">
                         {{ strtoupper(substr($username, 0, 1)) }}
                     </div>
                     <span class="fw-semibold text-zinc-900">{{ $username }}</span>
@@ -764,17 +865,19 @@
 
     <!-- Main App Container -->
     <main class="{{ (session('user_id') || Auth::check()) ? 'main-content' : 'container mt-5 pt-4' }}">
-        
+
         <!-- Flash Alert Messages -->
         <div class="container-fluid px-0 mb-3">
             @foreach (['success', 'danger', 'warning', 'info'] as $msg)
-                @if(session($msg))
-                    <div class="alert alert-{{ $msg }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
-                        <i class="bi bi-info-circle-fill"></i>
-                        <div>{{ session($msg) }}</div>
-                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.7rem;"></button>
-                    </div>
-                @endif
+            @if(session($msg))
+            <div class="alert alert-{{ $msg }} alert-dismissible fade show d-flex align-items-center gap-2"
+                role="alert">
+                <i class="bi bi-info-circle-fill"></i>
+                <div>{{ session($msg) }}</div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"
+                    style="font-size: 0.7rem;"></button>
+            </div>
+            @endif
             @endforeach
         </div>
 
@@ -785,4 +888,5 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     @yield('extra_scripts')
 </body>
+
 </html>

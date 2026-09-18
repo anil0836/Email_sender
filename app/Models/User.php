@@ -64,6 +64,26 @@ class User extends Authenticatable
         return $this->hasMany(Campaign::class, 'user_id');
     }
 
+    public function managedCampaigns()
+    {
+        return $this->hasMany(Campaign::class, 'manager_user_id');
+    }
+
+    public function isTeamManager(): bool
+    {
+        return app(\App\Services\TeamService::class)->isTeamManager($this);
+    }
+
+    public function managedTeams(): array
+    {
+        return app(\App\Services\TeamService::class)->getManagedTeamsForUser($this);
+    }
+
+    public function getTeamAttribute(): ?string
+    {
+        return app(\App\Services\TeamService::class)->resolveUserTeam($this);
+    }
+
     public function signatures()
     {
         return $this->hasMany(UserSignature::class, 'user_id');

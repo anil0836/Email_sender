@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+<<<<<<< HEAD
+=======
+    'salesforce' => [
+        'login_url' => env('SF_LOGIN_URL', 'https://login.salesforce.com'),
+        'username' => env('SF_USERNAME'),
+        'password' => env('SF_PASSWORD'),
+    ],
+
+>>>>>>> origin/Email0002
 ];

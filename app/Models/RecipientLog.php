@@ -11,10 +11,12 @@ class RecipientLog extends Model
 
     protected $fillable = [
         'campaign_id',
+        'campaign_member_id',
         'email',
         'salesforce_record_id',
         'salesforce_object',
         'record_owner_id',
+        'owner_verification_status',
         'decision',
         'decision_reason',
         'delivery_status',
@@ -33,6 +35,11 @@ class RecipientLog extends Model
     public function campaign()
     {
         return $this->belongsTo(Campaign::class, 'campaign_id');
+    }
+
+    public function campaignMember()
+    {
+        return $this->belongsTo(CampaignMember::class, 'campaign_member_id');
     }
 
     public function opens()
