@@ -12,39 +12,48 @@
         border-radius: var(--radius-input);
         background-color: #ffffff;
     }
+
     /* Quill custom font family dropdown labels */
     .ql-snow .ql-picker.ql-font .ql-picker-label::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item::before {
         content: 'Default' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="abadi"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="abadi"]::before {
         content: 'Abadi' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="inter"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="inter"]::before {
         content: 'Inter' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
         content: 'Arial' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="courier-new"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier-new"]::before {
         content: 'Courier New' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before {
         content: 'Georgia' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="tahoma"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="tahoma"]::before {
         content: 'Tahoma' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before {
         content: 'Times New Roman' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before {
         content: 'Verdana' !important;
@@ -55,34 +64,42 @@
     .ql-snow .ql-picker.ql-size .ql-picker-item::before {
         content: '14px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before {
         content: '10px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
         content: '12px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before {
         content: '14px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before {
         content: '16px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before {
         content: '18px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
         content: '20px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before {
         content: '24px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before {
         content: '32px' !important;
@@ -94,6 +111,7 @@
         border-top-right-radius: var(--radius-input);
         background-color: #fafafa;
     }
+
     .ql-container.ql-snow {
         border: 1px solid var(--border-color) !important;
         border-top: none !important;
@@ -102,9 +120,11 @@
         background-color: #ffffff;
         font-family: inherit;
     }
+
     #editor-container {
         height: 250px;
     }
+
     .attachment-tag {
         background-color: #f4f4f5;
         border: 1px solid var(--border-color);
@@ -118,15 +138,18 @@
         gap: 6px;
         transition: all 0.15s ease;
     }
+
     .attachment-tag:hover {
         background-color: #e4e4e7;
     }
+
     .btn-xs {
         padding: 0.2rem 0.5rem;
         font-size: 0.725rem;
         line-height: 1.25;
         border-radius: 4px;
     }
+
     .segmented-control {
         background: #f4f4f5;
         padding: 3px;
@@ -135,6 +158,7 @@
         gap: 3px;
         border: 1px solid var(--border-color);
     }
+
     .segmented-control .nav-link {
         border-radius: 6px;
         padding: 0.35rem 0.85rem;
@@ -144,6 +168,7 @@
         transition: all 0.15s ease;
         border: 1px solid transparent;
     }
+
     .segmented-control .nav-link.active {
         background: #ffffff;
         color: #4338ca;
@@ -168,53 +193,73 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
                     <h6 class="mb-0 fw-semibold text-zinc-900">
-                        <i class="bi {{ $isPasteMode ? 'bi-envelope-at text-indigo-600' : 'bi-people text-indigo-600' }} me-1.5"></i>
+                        <i
+                            class="bi {{ $isPasteMode ? 'bi-envelope-at text-indigo-600' : 'bi-people text-indigo-600' }} me-1.5"></i>
                         {{ $isPasteMode ? 'Bulk Email Recipients (Paste Raw List)' : 'Configure Recipients' }}
                     </h6>
                     <small class="text-zinc-500" style="font-size: 0.76rem;">
-                        {{ $isPasteMode ? 'Paste email addresses directly. Opt-out, suppression, and compliance records will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and consent checks are applied automatically.' }}
+                        {{ $isPasteMode ? 'Paste email addresses directly. Opt-out, suppression, and compliance records
+                        will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and
+                        consent checks are applied automatically.' }}
                     </small>
                 </div>
-                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">{{ $isPasteMode ? '0 Emails Detected' : '0 Selected' }}</span>
+                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">{{
+                    $isPasteMode ? '0 Emails Detected' : '0 Selected' }}</span>
             </div>
             <div class="card-body">
                 <!-- Segmented Control Tabs -->
-                <div class="mb-3">
+                {{-- <div class="mb-3">
                     <ul class="nav segmented-control" id="recipients-tab" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link {{ $isPasteMode ? '' : 'active' }}" id="crm-tab" data-bs-toggle="pill" data-bs-target="#crm-pane" type="button" role="tab" onclick="switchRecipientMethod('crm')">CRM Directory</button>
+                            <button class="nav-link {{ $isPasteMode ? '' : 'active' }}" id="crm-tab"
+                                data-bs-toggle="pill" data-bs-target="#crm-pane" type="button" role="tab"
+                                onclick="switchRecipientMethod('crm')">CRM Directory</button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link {{ $isPasteMode ? 'active' : '' }}" id="paste-tab" data-bs-toggle="pill" data-bs-target="#paste-pane" type="button" role="tab" onclick="switchRecipientMethod('paste')">Paste Raw List</button>
+                            <button class="nav-link {{ $isPasteMode ? 'active' : '' }}" id="paste-tab"
+                                data-bs-toggle="pill" data-bs-target="#paste-pane" type="button" role="tab"
+                                onclick="switchRecipientMethod('paste')">Paste Raw List</button>
                         </li>
                     </ul>
-                </div>
+                </div> --}}
 
                 <div class="tab-content" id="recipients-tab-content">
                     <!-- Tab 1: CRM Checklist -->
                     <div class="tab-pane fade {{ $isPasteMode ? '' : 'show active' }}" id="crm-pane" role="tabpanel">
-                        
+
                         <!-- Filters Box -->
-                        <div class="p-3 bg-zinc-50 rounded-3 mb-3" style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
+                        <div class="p-3 bg-zinc-50 rounded-3 mb-3"
+                            style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
                             <div class="row g-3">
                                 <!-- Type Radio Pill Filter -->
                                 <div class="col-12 d-flex align-items-center gap-2 flex-wrap pb-2 border-bottom">
                                     <span class="form-label mb-0 text-zinc-500">Object Type:</span>
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-all" value="all" checked onchange="filterRecipientsType('all')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-all">All CRM Records</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-all"
+                                            value="all" checked onchange="filterRecipientsType('all')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-all">All CRM Records</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-lead" value="Lead" onchange="filterRecipientsType('Lead')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-lead"><i class="bi bi-person me-1"></i>Leads</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                            id="crm-filter-lead" value="Lead" onchange="filterRecipientsType('Lead')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-lead"><i class="bi bi-person me-1"></i>Leads</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-contact" value="Contact" onchange="filterRecipientsType('Contact')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-contact"><i class="bi bi-person-lines-fill me-1"></i>Contacts</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                            id="crm-filter-contact" value="Contact"
+                                            onchange="filterRecipientsType('Contact')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-contact"><i
+                                                class="bi bi-person-lines-fill me-1"></i>Contacts</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter" id="crm-filter-account" value="Account" onchange="filterRecipientsType('Account')">
-                                        <label class="btn btn-outline-secondary btn-xs fw-medium" for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label>
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                            id="crm-filter-account" value="Account"
+                                            onchange="filterRecipientsType('Account')">
+                                        <label class="btn btn-outline-secondary btn-xs fw-medium"
+                                            for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label>
                                     </div>
                                 </div>
-                                
+
                                 <!-- 3 Multiselect Picklists (Dynamic from Salesforce) -->
                                 <div class="col-12">
                                     <div class="row g-2">
@@ -222,37 +267,61 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Deal Category</label>
                                             <div class="dropdown w-100">
-                                                <button class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3" type="button" id="btn-filter-category" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-category">All Categories</span>
+                                                <button
+                                                    class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3"
+                                                    type="button" id="btn-filter-category" data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                    style="font-size: 0.8125rem; font-weight: 500;">
+                                                    <span class="text-truncate" id="label-filter-category">All
+                                                        Categories</span>
                                                 </button>
-                                                <div class="dropdown-menu p-2 shadow-sm border w-100" id="menu-filter-category" aria-labelledby="btn-filter-category" style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">Loading categories...</div>
+                                                <div class="dropdown-menu p-2 shadow-sm border w-100"
+                                                    id="menu-filter-category" aria-labelledby="btn-filter-category"
+                                                    style="max-height: 220px; overflow-y: auto;">
+                                                    <div class="text-zinc-400 p-2 text-center"
+                                                        style="font-size: 0.8125rem;">Loading categories...</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Region Multiselect -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Region</label>
                                             <div class="dropdown w-100">
-                                                <button class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3" type="button" id="btn-filter-region" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-region">All Regions</span>
+                                                <button
+                                                    class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3"
+                                                    type="button" id="btn-filter-region" data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                    style="font-size: 0.8125rem; font-weight: 500;">
+                                                    <span class="text-truncate" id="label-filter-region">All
+                                                        Regions</span>
                                                 </button>
-                                                <div class="dropdown-menu p-2 shadow-sm border w-100" id="menu-filter-region" aria-labelledby="btn-filter-region" style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">Loading regions...</div>
+                                                <div class="dropdown-menu p-2 shadow-sm border w-100"
+                                                    id="menu-filter-region" aria-labelledby="btn-filter-region"
+                                                    style="max-height: 220px; overflow-y: auto;">
+                                                    <div class="text-zinc-400 p-2 text-center"
+                                                        style="font-size: 0.8125rem;">Loading regions...</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Country Multiselect -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Country</label>
                                             <div class="dropdown w-100">
-                                                <button class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3" type="button" id="btn-filter-country" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-country">All Countries</span>
+                                                <button
+                                                    class="form-select text-start d-flex justify-content-between align-items-center w-100 py-1.5 px-3"
+                                                    type="button" id="btn-filter-country" data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                    style="font-size: 0.8125rem; font-weight: 500;">
+                                                    <span class="text-truncate" id="label-filter-country">All
+                                                        Countries</span>
                                                 </button>
-                                                <div class="dropdown-menu p-2 shadow-sm border w-100" id="menu-filter-country" aria-labelledby="btn-filter-country" style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">Loading countries...</div>
+                                                <div class="dropdown-menu p-2 shadow-sm border w-100"
+                                                    id="menu-filter-country" aria-labelledby="btn-filter-country"
+                                                    style="max-height: 220px; overflow-y: auto;">
+                                                    <div class="text-zinc-400 p-2 text-center"
+                                                        style="font-size: 0.8125rem;">Loading countries...</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -260,25 +329,30 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Search & Quick Selection Bar -->
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-8 col-sm-7">
                                 <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-white border-end-0 text-zinc-400"><i class="bi bi-search"></i></span>
-                                    <input type="text" id="rec-search" class="form-control border-start-0 ps-0" placeholder="Search contacts by name or ID..." onkeyup="filterRecipients()">
+                                    <span class="input-group-text bg-white border-end-0 text-zinc-400"><i
+                                            class="bi bi-search"></i></span>
+                                    <input type="text" id="rec-search" class="form-control border-start-0 ps-0"
+                                        placeholder="Search contacts by name or ID..." onkeyup="filterRecipients()">
                                 </div>
                             </div>
                             <div class="col-md-4 col-sm-5 text-end">
-                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="toggleSelectAll(true)"><i class="bi bi-check-all"></i> Select All</button>
-                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="toggleSelectAll(false)"><i class="bi bi-x"></i> Clear</button>
+                                <button type="button" class="btn btn-outline-secondary btn-xs"
+                                    onclick="toggleSelectAll(true)"><i class="bi bi-check-all"></i> Select All</button>
+                                <button type="button" class="btn btn-outline-secondary btn-xs"
+                                    onclick="toggleSelectAll(false)"><i class="bi bi-x"></i> Clear</button>
                             </div>
                         </div>
 
                         <!-- Recipient Checklist -->
                         <div class="recipient-list-box mb-1">
                             <ul class="list-group list-group-flush" id="recipient-list">
-                                <li class="list-group-item text-center text-muted py-4">Loading Salesforce records...</li>
+                                <li class="list-group-item text-center text-muted py-4">Loading Salesforce records...
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -286,11 +360,15 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <!-- Tab 2: Paste Email List -->
                     <div class="tab-pane fade {{ $isPasteMode ? 'show active' : '' }}" id="paste-pane" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <p class="text-zinc-500 mb-0" style="font-size: 0.78rem;">Paste email addresses line-by-line or comma-separated. Opt-out and compliance records will be verified automatically.</p>
-                            <span class="badge bg-primary-soft text-indigo-700 fw-semibold" id="pasted-email-counter">0 detected</span>
+                            <p class="text-zinc-500 mb-0" style="font-size: 0.78rem;">Paste email addresses line-by-line
+                                or comma-separated. Opt-out and compliance records will be verified automatically.</p>
+                            <span class="badge bg-primary-soft text-indigo-700 fw-semibold" id="pasted-email-counter">0
+                                detected</span>
                         </div>
                         <div>
-                            <textarea class="form-control font-monospace" id="pasted-emails" rows="6" placeholder="john.doe@company.com&#10;jane.smith@partner.net&#10;david@leads.com" style="font-size: 0.82rem;" oninput="updatePastedCount()"></textarea>
+                            <textarea class="form-control font-monospace" id="pasted-emails" rows="6"
+                                placeholder="john.doe@company.com&#10;jane.smith@partner.net&#10;david@leads.com"
+                                style="font-size: 0.82rem;" oninput="updatePastedCount()"></textarea>
                         </div>
                     </div>
                 </div>
@@ -302,39 +380,47 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0 fw-semibold text-zinc-900"><i class="bi bi-envelope-open me-1.5 text-zinc-500"></i> Message Content & Configuration</h6>
+                <h6 class="mb-0 fw-semibold text-zinc-900"><i class="bi bi-envelope-open me-1.5 text-zinc-500"></i>
+                    Message Content & Configuration</h6>
             </div>
             <div class="card-body">
                 <form id="campaign-form" onsubmit="event.preventDefault();">
                     <!-- Templates Toolbar -->
                     <div class="row g-2 mb-3 align-items-end">
                         <div class="col-md-7">
-                            <label for="template-select" class="form-label mb-1 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                            <label for="template-select" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
                                 <i class="bi bi-journal-bookmark-fill me-1 text-primary"></i> Email Template
                             </label>
                             <div class="input-group">
                                 <select id="template-select" class="form-select" onchange="onTemplateSelectionChange()">
                                     <option value="">-- No Template Selected --</option>
                                 </select>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-apply-template" onclick="loadSelectedTemplate()" title="Apply Template into Editor" disabled>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-apply-template"
+                                    onclick="loadSelectedTemplate()" title="Apply Template into Editor" disabled>
                                     <i class="bi bi-box-arrow-in-down me-1"></i> Apply
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-template" onclick="previewSelectedTemplate()" title="Preview Template" disabled>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-template"
+                                    onclick="previewSelectedTemplate()" title="Preview Template" disabled>
                                     <i class="bi bi-eye"></i>
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-edit-template" onclick="openEditTemplateModal()" title="Edit Template" disabled>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-edit-template"
+                                    onclick="openEditTemplateModal()" title="Edit Template" disabled>
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button type="button" class="btn btn-outline-danger" id="btn-delete-template" onclick="deleteSelectedTemplate()" title="Delete Template" disabled>
+                                <button type="button" class="btn btn-outline-danger" id="btn-delete-template"
+                                    onclick="deleteSelectedTemplate()" title="Delete Template" disabled>
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="col-md-5 d-flex gap-2">
-                            <button type="button" class="btn btn-outline-primary w-50" onclick="openCreateTemplateModal()">
+                            <button type="button" class="btn btn-outline-primary w-50"
+                                onclick="openCreateTemplateModal()">
                                 <i class="bi bi-plus-lg me-1"></i> New Template
                             </button>
-                            <button type="button" class="btn btn-outline-secondary w-50" onclick="saveAsTemplate()" title="Save Current Subject & Body as New Template">
+                            <button type="button" class="btn btn-outline-secondary w-50" onclick="saveAsTemplate()"
+                                title="Save Current Subject & Body as New Template">
                                 <i class="bi bi-bookmark-plus me-1"></i> Save Current
                             </button>
                         </div>
@@ -343,22 +429,26 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <!-- Subject & Attachments Row -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label for="subject" class="form-label mb-1 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                            <label for="subject" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
                                 Subject Line <span class="text-danger">*</span>
                             </label>
-                            <input type="text" class="form-control" id="subject" placeholder="e.g. Quick question regarding @{{CompanyName}}" required>
+                            <input type="text" class="form-control" id="subject"
+                                placeholder="e.g. Quick question regarding @{{CompanyName}}" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label mb-1 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
                                 <i class="bi bi-paperclip me-1"></i> Attachments
                             </label>
-                            <input type="file" id="attachments-input" class="form-control" multiple onchange="handleFileSelect()">
+                            <input type="file" id="attachments-input" class="form-control" multiple
+                                onchange="handleFileSelect()">
                             <div id="attachments-list" class="mt-2 d-flex flex-wrap gap-1.5"></div>
                         </div>
                     </div>
 
                     <!-- Sender Info Row (Visible only to Admin) -->
-                    <div class="row g-3 mb-3 {{ (session('role', Auth::user()->role ?? '') !== 'admin') ? 'd-none' : '' }}">
+                    <div
+                        class="row g-3 mb-3 {{ (session('role', Auth::user()->role ?? '') !== 'admin') ? 'd-none' : '' }}">
                         <div class="col-md-6">
                             <label for="sending-domain" class="form-label mb-1">Outbound Domain</label>
                             <select class="form-select" id="sending-domain" onchange="updateFromEmail()" required>
@@ -367,7 +457,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         </div>
                         <div class="col-md-6">
                             <label for="from-address" class="form-label mb-1">From Address</label>
-                            <input type="email" class="form-control" id="from-address" placeholder="rma@proitbuyer.com" value="rma@proitbuyer.com" required>
+                            <input type="email" class="form-control" id="from-address" placeholder="rma@proitbuyer.com"
+                                value="rma@proitbuyer.com" required>
                         </div>
                     </div>
 
@@ -375,47 +466,74 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <div class="mb-2 p-2.5 rounded border" style="background-color: #f8fafc;">
                         <div class="d-flex justify-content-between align-items-center mb-1.5 flex-wrap gap-1">
                             <span class="fw-semibold text-zinc-700" style="font-size: 0.775rem;">
-                                <i class="bi bi-magic text-primary me-1"></i> Merge Fields (Click to insert at editor cursor):
+                                <i class="bi bi-magic text-primary me-1"></i> Merge Fields (Click to insert at editor
+                                cursor):
                             </span>
                             <span class="text-zinc-500" style="font-size: 0.725rem;">
-                                <i class="bi bi-check-circle-fill text-success me-1"></i> Dynamically mapped per-recipient
+                                <i class="bi bi-check-circle-fill text-success me-1"></i> Dynamically mapped
+                                per-recipient
                             </span>
                         </div>
                         <div class="d-flex flex-wrap gap-1.5 align-items-center">
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-primary fw-medium" onclick="insertMergeField('@{{FirstName}}')" title="Recipient First Name (Lead/Contact CRM record)">
+                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-primary fw-medium"
+                                onclick="insertMergeField('@{{FirstName}}')"
+                                title="Recipient First Name (Lead/Contact CRM record)">
                                 <code>@{{FirstName}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{LastName}}')" title="Recipient Last Name">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{LastName}}')" title="Recipient Last Name">
                                 <code>@{{LastName}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{FullName}}')" title="Recipient Full Name">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{FullName}}')" title="Recipient Full Name">
                                 <code>@{{FullName}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{CompanyName}}')" title="Recipient Company or Account Name">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyName}}')"
+                                title="Recipient Company or Account Name">
                                 <code>@{{CompanyName}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{Email}}')" title="Recipient Email Address">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{Email}}')" title="Recipient Email Address">
                                 <code>@{{Email}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{Phone}}')" title="Recipient Phone Number">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{Phone}}')" title="Recipient Phone Number">
                                 <code>@{{Phone}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{OwnerName}}')" title="Assigned Salesforce Owner">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{OwnerName}}')" title="Assigned Salesforce Owner">
                                 <code>@{{OwnerName}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{SenderName}}')" title="Your Sender Name">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{SenderName}}')" title="Your Sender Name">
                                 <code>@{{SenderName}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{CompanyWebsite}}')" title="Recipient or Company Website URL">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyWebsite}}')"
+                                title="Recipient or Company Website URL">
                                 <code>@{{CompanyWebsite}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{CompanyEmail}}')" title="Company Contact Email">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyEmail}}')" title="Company Contact Email">
                                 <code>@{{CompanyEmail}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium" onclick="insertMergeField('@{{CompanyPhone}}')" title="Company Contact Phone">
+                            <button type="button"
+                                class="btn btn-sm btn-white border py-0.5 px-2 text-zinc-700 fw-medium"
+                                onclick="insertMergeField('@{{CompanyPhone}}')" title="Company Contact Phone">
                                 <code>@{{CompanyPhone}}</code>
                             </button>
-                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-success fw-medium" onclick="insertMergeField('@{{Signature}}')" title="Your Rendered Email Signature">
+                            <button type="button" class="btn btn-sm btn-white border py-0.5 px-2 text-success fw-medium"
+                                onclick="insertMergeField('@{{Signature}}')" title="Your Rendered Email Signature">
                                 <code>@{{Signature}}</code>
                             </button>
                         </div>
@@ -428,24 +546,32 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 <label class="form-label mb-0 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
                                     Email Body Content <span class="text-danger">*</span>
                                 </label>
-                                <span id="editor-active-mode-badge" class="badge bg-primary-soft text-primary" style="font-size: 0.7rem;">
+                                <span id="editor-active-mode-badge" class="badge bg-primary-soft text-primary"
+                                    style="font-size: 0.7rem;">
                                     <i class="bi bi-fonts me-1"></i> Visual Mode
                                 </span>
                             </div>
                             <div class="btn-group btn-group-sm" role="group" id="editor-mode-toggle">
-                                <button type="button" class="btn btn-sm btn-outline-secondary active" id="btn-mode-visual" onclick="setEditorMode('visual')" title="Visual Rich Text Editor for standard formatting">
+                                <button type="button" class="btn btn-sm btn-outline-secondary active"
+                                    id="btn-mode-visual" onclick="setEditorMode('visual')"
+                                    title="Visual Rich Text Editor for standard formatting">
                                     <i class="bi bi-fonts me-1"></i> Visual Rich Text
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-mode-html" onclick="setEditorMode('html')" title="Raw HTML Source Editor (Lossless tables & responsive email templates)">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-mode-html"
+                                    onclick="setEditorMode('html')"
+                                    title="Raw HTML Source Editor (Lossless tables & responsive email templates)">
                                     <i class="bi bi-code-slash me-1"></i> HTML Source / Template
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-mode-preview" onclick="setEditorMode('preview')" title="Live Pixel-Perfect Rendered Email Preview">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-mode-preview"
+                                    onclick="setEditorMode('preview')"
+                                    title="Live Pixel-Perfect Rendered Email Preview">
                                     <i class="bi bi-eye me-1"></i> Live Rendered View
                                 </button>
                             </div>
                         </div>
 
-                        <div id="editor-wrapper" class="border rounded" style="overflow: hidden; border-color: var(--border-color) !important;">
+                        <div id="editor-wrapper" class="border rounded"
+                            style="overflow: hidden; border-color: var(--border-color) !important;">
                             <!-- Visual Quill Editor -->
                             <div id="quill-wrapper">
                                 <div id="editor-container"></div>
@@ -453,52 +579,69 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 
                             <!-- Raw HTML Code Editor (Preserves Tables & CSS losslessly) -->
                             <div id="html-wrapper" class="d-none">
-                                <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size: 0.75rem;">
+                                <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2"
+                                    style="font-size: 0.75rem;">
                                     <div class="text-zinc-600">
-                                        <i class="bi bi-shield-check text-success me-1"></i> <strong>Lossless HTML Mode:</strong> Full email tables, inline styles, hero images & structures are preserved 100% untouched.
+                                        <i class="bi bi-shield-check text-success me-1"></i> <strong>Lossless HTML
+                                            Mode:</strong> Full email tables, inline styles, hero images & structures
+                                        are preserved 100% untouched.
                                     </div>
                                     <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-xs btn-outline-primary" onclick="setEditorMode('preview')">
+                                        <button type="button" class="btn btn-xs btn-outline-primary"
+                                            onclick="setEditorMode('preview')">
                                             <i class="bi bi-eye me-1"></i> View Rendered Preview
                                         </button>
                                     </div>
                                 </div>
-                                <textarea id="html-source-editor" class="form-control font-monospace border-0 p-3" rows="16" style="font-size: 0.8rem; line-height: 1.5; background: #fafafa; border-radius: 0; outline: none; box-shadow: none;" placeholder="Paste or edit raw HTML email template code here..."></textarea>
+                                <textarea id="html-source-editor" class="form-control font-monospace border-0 p-3"
+                                    rows="16"
+                                    style="font-size: 0.8rem; line-height: 1.5; background: #fafafa; border-radius: 0; outline: none; box-shadow: none;"
+                                    placeholder="Paste or edit raw HTML email template code here..."></textarea>
                             </div>
 
                             <!-- Live Rendered View -->
                             <div id="preview-wrapper" class="d-none">
-                                <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size: 0.75rem;">
+                                <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2"
+                                    style="font-size: 0.75rem;">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="text-zinc-600 fw-semibold">View as:</span>
                                         <div class="btn-group btn-group-sm">
-                                            <button type="button" class="btn btn-xs btn-outline-secondary active" id="btn-vp-desktop" onclick="setPreviewViewport('desktop')">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary active"
+                                                id="btn-vp-desktop" onclick="setPreviewViewport('desktop')">
                                                 <i class="bi bi-laptop me-1"></i> Desktop (600px)
                                             </button>
-                                            <button type="button" class="btn btn-xs btn-outline-secondary" id="btn-vp-mobile" onclick="setPreviewViewport('mobile')">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary"
+                                                id="btn-vp-mobile" onclick="setPreviewViewport('mobile')">
                                                 <i class="bi bi-phone me-1"></i> Mobile (380px)
                                             </button>
-                                            <button type="button" class="btn btn-xs btn-outline-secondary" id="btn-vp-full" onclick="setPreviewViewport('full')">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary"
+                                                id="btn-vp-full" onclick="setPreviewViewport('full')">
                                                 <i class="bi bi-arrows-fullscreen me-1"></i> Full Width
                                             </button>
                                         </div>
                                     </div>
                                     <div>
-                                        <button type="button" class="btn btn-xs btn-outline-primary" onclick="setEditorMode('html')">
+                                        <button type="button" class="btn btn-xs btn-outline-primary"
+                                            onclick="setEditorMode('html')">
                                             <i class="bi bi-pencil me-1"></i> Edit HTML Source
                                         </button>
                                     </div>
                                 </div>
-                                <div class="p-3" style="background-color: #f4f7f9; min-height: 380px; max-height: 600px; overflow-y: auto;">
-                                    <div id="editor-live-preview-box" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); overflow: hidden;">
+                                <div class="p-3"
+                                    style="background-color: #f4f7f9; min-height: 380px; max-height: 600px; overflow-y: auto;">
+                                    <div id="editor-live-preview-box"
+                                        style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); overflow: hidden;">
                                         <!-- Rendered HTML will appear here -->
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-text text-zinc-500 d-flex justify-content-between align-items-center mt-1" style="font-size: 0.74rem;">
-                            <span><code>@{{FirstName}}</code> maps to the recipient's first name. For full marketing templates with tables, HTML Source mode delivers pixel-perfect rendering in Gmail & Outlook.</span>
+                        <div class="form-text text-zinc-500 d-flex justify-content-between align-items-center mt-1"
+                            style="font-size: 0.74rem;">
+                            <span><code>@{{FirstName}}</code> maps to the recipient's first name. For full marketing
+                                templates with tables, HTML Source mode delivers pixel-perfect rendering in Gmail &
+                                Outlook.</span>
                             <span id="editor-type-indicator">Quill Rich Text / HTML Engine</span>
                         </div>
                     </div>
@@ -507,38 +650,48 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label for="signature-select" class="form-label mb-0 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                                <label for="signature-select" class="form-label mb-0 fw-semibold text-zinc-700"
+                                    style="font-size: 0.8rem;">
                                     <i class="bi bi-pen me-1 text-primary"></i> Email Signature
                                 </label>
-                                <a href="{{ route('signatures.index') }}" target="_blank" class="text-decoration-none text-primary" style="font-size: 0.75rem;">
+                                <a href="{{ route('signatures.index') }}" target="_blank"
+                                    class="text-decoration-none text-primary" style="font-size: 0.75rem;">
                                     <i class="bi bi-gear me-1"></i> Manage Signatures
                                 </a>
                             </div>
                             <div class="input-group">
-                                <select id="signature-select" class="form-select" onchange="onSignatureSelectionChange()">
+                                <select id="signature-select" class="form-select"
+                                    onchange="onSignatureSelectionChange()">
                                     <option value="">-- No Signature Selected --</option>
                                 </select>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-insert-sig" onclick="insertSelectedSignature()" title="Insert Signature into Body Editor" disabled>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-insert-sig"
+                                    onclick="insertSelectedSignature()" title="Insert Signature into Body Editor"
+                                    disabled>
                                     <i class="bi bi-box-arrow-in-down me-1"></i> Insert
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-sig" onclick="previewSelectedSignature()" title="Preview Signature" disabled>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-sig"
+                                    onclick="previewSelectedSignature()" title="Preview Signature" disabled>
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>
                             <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
-                                The selected signature is auto-attached to outbound emails or substituted where <code>@{{Signature}}</code> appears.
+                                The selected signature is auto-attached to outbound emails or substituted where
+                                <code>@{{Signature}}</code> appears.
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
-                            <label for="schedule-datetime" class="form-label mb-1 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
+                            <label for="schedule-datetime" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
                                 <i class="bi bi-clock me-1 text-primary"></i> Schedule Send (Atlanta EST/EDT)
                             </label>
                             <div class="input-group">
                                 <input type="datetime-local" id="schedule-datetime" class="form-control">
-                                <button class="btn btn-outline-secondary" type="button" onclick="showTimezoneChecker()"><i class="bi bi-globe"></i> Timezones</button>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="showTimezoneChecker()"><i class="bi bi-globe"></i> Timezones</button>
                             </div>
-                            <div class="form-text text-zinc-500" style="font-size: 0.72rem;">Leave empty to dispatch as soon as campaign is approved.</div>
+                            <div class="form-text text-zinc-500" style="font-size: 0.72rem;">Leave empty to dispatch as
+                                soon as campaign is approved.</div>
                         </div>
                     </div>
 
@@ -560,7 +713,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     <div class="col-12 d-none" id="validation-summary-card">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold text-zinc-900"><i class="bi bi-shield-lock me-1.5"></i> Pre-Send Compliance Summary</span>
+                <span class="fw-semibold text-zinc-900"><i class="bi bi-shield-lock me-1.5"></i> Pre-Send Compliance
+                    Summary</span>
                 <span class="badge bg-secondary-soft" id="val-badge-total">0 Deliverable</span>
             </div>
             <div class="card-body">
@@ -613,13 +767,18 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 <div class="accordion mb-3" id="blockedDetailsAccordion">
                     <div class="accordion-item border-0">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed fw-medium text-rose-700 bg-rose-soft py-2 px-3 rounded-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBlockedList" style="font-size: 0.8rem;">
+                            <button
+                                class="accordion-button collapsed fw-medium text-rose-700 bg-rose-soft py-2 px-3 rounded-2"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseBlockedList"
+                                style="font-size: 0.8rem;">
                                 View Blocked Records Breakdown
                             </button>
                         </h2>
-                        <div id="collapseBlockedList" class="accordion-collapse collapse" data-bs-parent="#blockedDetailsAccordion">
+                        <div id="collapseBlockedList" class="accordion-collapse collapse"
+                            data-bs-parent="#blockedDetailsAccordion">
                             <div class="accordion-body px-0 py-2">
-                                <ul class="list-group list-group-flush" id="validation-error-list" style="max-height: 250px; overflow-y: auto;">
+                                <ul class="list-group list-group-flush" id="validation-error-list"
+                                    style="max-height: 250px; overflow-y: auto;">
                                     <!-- Populated dynamically -->
                                 </ul>
                             </div>
@@ -644,11 +803,14 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header py-3 px-4" style="border-bottom: 1px solid var(--border-color);">
-                <h6 class="modal-title fw-semibold text-zinc-900"><i class="bi bi-globe me-1.5"></i> Timezone Conversion Matrix</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem;"></button>
+                <h6 class="modal-title fw-semibold text-zinc-900"><i class="bi bi-globe me-1.5"></i> Timezone Conversion
+                    Matrix</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                    style="font-size: 0.75rem;"></button>
             </div>
             <div class="modal-body py-3 px-4">
-                <p class="text-zinc-500 mb-3" style="font-size: 0.78rem;">Converted from scheduled Atlanta time: <strong class="text-zinc-900" id="tz-atlanta-input-label">N/A</strong></p>
+                <p class="text-zinc-500 mb-3" style="font-size: 0.78rem;">Converted from scheduled Atlanta time: <strong
+                        class="text-zinc-900" id="tz-atlanta-input-label">N/A</strong></p>
                 <div class="table-responsive border-0">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
@@ -683,32 +845,40 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <label class="form-label fw-semibold text-zinc-700" style="font-size: 0.8rem;">
                         Template Name <span class="text-danger">*</span>
                     </label>
-                    <input type="text" class="form-control" id="tmpl_modal_name" placeholder="e.g. Sales Intro - Healthcare" required>
+                    <input type="text" class="form-control" id="tmpl_modal_name"
+                        placeholder="e.g. Sales Intro - Healthcare" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold text-zinc-700" style="font-size: 0.8rem;">
                         Default Subject Line <span class="text-danger">*</span>
                     </label>
-                    <input type="text" class="form-control" id="tmpl_modal_subject" placeholder="e.g. Partnership Opportunity for @{{CompanyName}}" required>
+                    <input type="text" class="form-control" id="tmpl_modal_subject"
+                        placeholder="e.g. Partnership Opportunity for @{{CompanyName}}" required>
                 </div>
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label fw-semibold text-zinc-700 mb-0" style="font-size: 0.8rem;">
                             Template Body (HTML / Text) <span class="text-danger">*</span>
                         </label>
-                        <button type="button" class="btn btn-outline-secondary btn-xs" onclick="copyEditorContentToTemplateModal()">
+                        <button type="button" class="btn btn-outline-secondary btn-xs"
+                            onclick="copyEditorContentToTemplateModal()">
                             <i class="bi bi-clipboard me-1"></i> Copy from Main Editor
                         </button>
                     </div>
-                    <textarea class="form-control font-monospace" id="tmpl_modal_body" rows="8" placeholder="<p>Hi @{{FirstName}},</p><p>I noticed your work at @{{CompanyName}}...</p>" required style="font-size: 0.825rem;"></textarea>
+                    <textarea class="form-control font-monospace" id="tmpl_modal_body" rows="8"
+                        placeholder="<p>Hi @{{FirstName}},</p><p>I noticed your work at @{{CompanyName}}...</p>"
+                        required style="font-size: 0.825rem;"></textarea>
                     <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
-                        Supports merge tags: <code>@{{FirstName}}</code>, <code>@{{LastName}}</code>, <code>@{{FullName}}</code>, <code>@{{CompanyName}}</code>, <code>@{{Email}}</code>, <code>@{{Phone}}</code>, <code>@{{Signature}}</code>.
+                        Supports merge tags: <code>@{{FirstName}}</code>, <code>@{{LastName}}</code>,
+                        <code>@{{FullName}}</code>, <code>@{{CompanyName}}</code>, <code>@{{Email}}</code>,
+                        <code>@{{Phone}}</code>, <code>@{{Signature}}</code>.
                     </div>
                 </div>
             </div>
             <div class="modal-footer border-top pt-3">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm px-4" id="btn-save-template-modal" onclick="saveTemplateFromModal()">
+                <button type="button" class="btn btn-primary btn-sm px-4" id="btn-save-template-modal"
+                    onclick="saveTemplateFromModal()">
                     <i class="bi bi-check-lg me-1"></i> Save Template
                 </button>
             </div>
@@ -717,7 +887,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 </div>
 
 <!-- Modal: Preview Template -->
-<div class="modal fade" id="templatePreviewModal" tabindex="-1" aria-labelledby="templatePreviewModalLabel" aria-hidden="true">
+<div class="modal fade" id="templatePreviewModal" tabindex="-1" aria-labelledby="templatePreviewModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content" style="border-radius: var(--radius-card);">
             <div class="modal-header border-bottom pb-3">
@@ -728,12 +899,15 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             </div>
             <div class="modal-body p-4">
                 <div class="mb-3">
-                    <span class="text-zinc-500 fw-semibold" style="font-size: 0.75rem; text-transform: uppercase;">Subject Line:</span>
+                    <span class="text-zinc-500 fw-semibold"
+                        style="font-size: 0.75rem; text-transform: uppercase;">Subject Line:</span>
                     <div class="p-2 bg-light rounded border fw-medium text-zinc-900 mt-1" id="prev_tmpl_subject"></div>
                 </div>
                 <div>
-                    <span class="text-zinc-500 fw-semibold" style="font-size: 0.75rem; text-transform: uppercase;">Body Content:</span>
-                    <div class="p-3 bg-white rounded border mt-1" id="prev_tmpl_body" style="min-height: 200px; max-height: 400px; overflow-y: auto;"></div>
+                    <span class="text-zinc-500 fw-semibold" style="font-size: 0.75rem; text-transform: uppercase;">Body
+                        Content:</span>
+                    <div class="p-3 bg-white rounded border mt-1" id="prev_tmpl_body"
+                        style="min-height: 200px; max-height: 400px; overflow-y: auto;"></div>
                 </div>
             </div>
             <div class="modal-footer border-top pt-3">
@@ -747,7 +921,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 </div>
 
 <!-- Modal: Preview Signature -->
-<div class="modal fade" id="signaturePreviewModal" tabindex="-1" aria-labelledby="signaturePreviewModalLabel" aria-hidden="true">
+<div class="modal fade" id="signaturePreviewModal" tabindex="-1" aria-labelledby="signaturePreviewModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius: var(--radius-card);">
             <div class="modal-header border-bottom pb-3">
@@ -761,7 +936,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             </div>
             <div class="modal-footer border-top pt-3">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="insertSelectedSignature(); bootstrap.Modal.getInstance(document.getElementById('signaturePreviewModal')).hide();">
+                <button type="button" class="btn btn-primary btn-sm"
+                    onclick="insertSelectedSignature(); bootstrap.Modal.getInstance(document.getElementById('signaturePreviewModal')).hide();">
                     <i class="bi bi-box-arrow-in-down me-1"></i> Insert into Editor
                 </button>
             </div>
@@ -770,7 +946,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 </div>
 
 <!-- Modal: Live Email Preview (Personalized per Recipient) -->
-<div class="modal fade" id="campaignPreviewModal" tabindex="-1" aria-labelledby="campaignPreviewModalLabel" aria-hidden="true">
+<div class="modal fade" id="campaignPreviewModal" tabindex="-1" aria-labelledby="campaignPreviewModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content" style="border-radius: var(--radius-card);">
             <div class="modal-header border-bottom pb-3">
@@ -788,13 +965,15 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         <label class="form-label fw-semibold text-zinc-700" style="font-size: 0.8rem;">
                             <i class="bi bi-person-check me-1 text-primary"></i> Preview as Recipient:
                         </label>
-                        <select id="prev_recipient_select" class="form-select form-select-sm" onchange="refreshLivePreviewModal()">
+                        <select id="prev_recipient_select" class="form-select form-select-sm"
+                            onchange="refreshLivePreviewModal()">
                             <!-- Populated with selected recipients or sample -->
                         </select>
                     </div>
                     <div class="col-12 col-md-5">
                         <div class="p-2 rounded bg-light border text-zinc-600" style="font-size: 0.75rem;">
-                            <div><strong>Recipient Email:</strong> <span id="prev_rec_email" class="font-monospace text-primary"></span></div>
+                            <div><strong>Recipient Email:</strong> <span id="prev_rec_email"
+                                    class="font-monospace text-primary"></span></div>
                             <div><strong>Company / Account:</strong> <span id="prev_rec_company"></span></div>
                         </div>
                     </div>
@@ -802,26 +981,34 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 
                 <div class="border rounded p-3 mb-3 bg-light">
                     <div class="row g-2 align-items-center">
-                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">FROM:</div>
-                        <div class="col text-zinc-900 fw-medium" style="font-size: 0.825rem;" id="prev_from_field">rma@proitbuyer.com</div>
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">FROM:
+                        </div>
+                        <div class="col text-zinc-900 fw-medium" style="font-size: 0.825rem;" id="prev_from_field">
+                            rma@proitbuyer.com</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1">
-                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">TO:</div>
-                        <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;" id="prev_to_field">john.doe@example.com</div>
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">TO:
+                        </div>
+                        <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;"
+                            id="prev_to_field">john.doe@example.com</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1 pt-1 border-top">
-                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">SUBJECT:</div>
-                        <div class="col text-zinc-900 fw-bold" style="font-size: 0.875rem;" id="prev_subject_field"></div>
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">
+                            SUBJECT:</div>
+                        <div class="col text-zinc-900 fw-bold" style="font-size: 0.875rem;" id="prev_subject_field">
+                        </div>
                     </div>
                 </div>
 
-                <div class="border rounded p-4 bg-white shadow-2xs" style="min-height: 250px; max-height: 450px; overflow-y: auto;">
+                <div class="border rounded p-4 bg-white shadow-2xs"
+                    style="min-height: 250px; max-height: 450px; overflow-y: auto;">
                     <div id="prev_body_field" class="email-preview-rendered-body"></div>
                 </div>
             </div>
             <div class="modal-footer border-top pt-3">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary btn-sm px-4" onclick="bootstrap.Modal.getInstance(document.getElementById('campaignPreviewModal')).hide(); runPreSendValidation();">
+                <button type="button" class="btn btn-primary btn-sm px-4"
+                    onclick="bootstrap.Modal.getInstance(document.getElementById('campaignPreviewModal')).hide(); runPreSendValidation();">
                     <i class="bi bi-shield-check me-1"></i> Proceed to Verify & Dispatch
                 </button>
             </div>
