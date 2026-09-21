@@ -630,18 +630,22 @@
                     <i class="bi bi-grid"></i> Dashboard
                 </a>
             </li>
+            @canany(['bulk-mail.create', 'bulk-mail', 'campaign.new', 'campaign.create', '/campaign/new'])
             <li class="nav-item">
                 <a class="nav-link {{ (request()->routeIs('campaign_create_view') && request()->query('mode') !== 'paste' && !request()->routeIs('campaign_bulk_view')) ? 'active' : '' }}"
                     href="{{ route('campaign_create_view') }}">
                     <i class="bi bi-pencil-square"></i> Create Campaign
                 </a>
             </li>
+            @endcanany
+            @can('bulk-mail')
             <li class="nav-item">
                 <a class="nav-link {{ (request()->routeIs('campaign_bulk_view') || request()->query('mode') === 'paste') ? 'active' : '' }}"
                     href="{{ route('campaign_bulk_view') }}">
                     <i class="bi bi-envelope-at"></i> Bulk Email
                 </a>
             </li>
+            @endcan
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('campaign_list_view') ? 'active' : '' }}"
                     href="{{ route('campaign_list_view') }}">
@@ -672,9 +676,10 @@
             $username = session('username') ?? (Auth::check() ? Auth::user()->username : 'User');
             $currentUser = Auth::user() ?: \App\Models\User::find(session('user_id'));
             $isTeamManager = $currentUser ? $currentUser->isTeamManager() : false;
+            $isAdmin = $userRole === 'admin' || ($currentUser && method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Admin'));
             @endphp
 
-            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager)
+            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager || ($currentUser && method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Manager')))
             <li class="nav-item-header">Management</li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"
@@ -684,8 +689,14 @@
             </li>
             @endif
 
-            @if($userRole === 'admin')
+            @if($isAdmin)
             <li class="nav-item-header">Administration</li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"
+                    href="{{ route('admin.roles.index') }}">
+                    <i class="bi bi-shield-lock"></i> Roles & Permissions
+                </a>
+            </li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('admin_users_view') ? 'active' : '' }}"
                     href="{{ route('admin_users_view') }}">

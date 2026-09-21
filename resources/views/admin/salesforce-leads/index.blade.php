@@ -34,27 +34,55 @@
         </div>
 
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <!-- Manual Sync Form -->
+            <!-- Sync Today Form -->
+            <form action="{{ route('admin.salesforce_leads.sync') }}" method="POST" id="today-sync-form" class="d-inline">
+                @csrf
+                <input type="hidden" name="today" value="1">
+                <button type="submit" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center gap-1.5" id="sync-today-btn" onclick="this.disabled=true; this.innerHTML='<span class=\"spinner-border spinner-border-sm me-1\"></span> Syncing Today...'; this.form.submit();">
+                    <i class="bi bi-calendar-check"></i>
+                    <span>Sync Today's Leads</span>
+                </button>
+            </form>
+
+            <!-- Sync Latest Incremental Form -->
             <form action="{{ route('admin.salesforce_leads.sync') }}" method="POST" id="manual-sync-form" class="d-inline">
                 @csrf
-                <button type="submit" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center gap-1.5" id="sync-now-btn" onclick="this.disabled=true; this.innerHTML='<span class=\"spinner-border spinner-border-sm me-1\"></span> Syncing...'; this.form.submit();">
+                <button type="submit" class="btn btn-outline-primary btn-sm shadow-sm d-flex align-items-center gap-1.5" id="sync-now-btn" onclick="this.disabled=true; this.innerHTML='<span class=\"spinner-border spinner-border-sm me-1\"></span> Syncing...'; this.form.submit();">
                     <i class="bi bi-arrow-repeat"></i>
-                    <span>Sync Leads Now</span>
+                    <span>Sync Latest Leads</span>
                 </button>
             </form>
 
             <!-- Full Sync Option Dropdown -->
             <div class="dropdown">
-                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Sync options">
                     <i class="bi bi-gear"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 0.8125rem;">
                     <li>
                         <form action="{{ route('admin.salesforce_leads.sync') }}" method="POST">
                             @csrf
+                            <input type="hidden" name="today" value="1">
+                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2">
+                                <i class="bi bi-calendar-event"></i> Sync Today's Leads Only
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <form action="{{ route('admin.salesforce_leads.sync') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2">
+                                <i class="bi bi-clock-history"></i> Sync Latest (Incremental)
+                            </button>
+                        </form>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form action="{{ route('admin.salesforce_leads.sync') }}" method="POST">
+                            @csrf
                             <input type="hidden" name="full" value="1">
-                            <button type="submit" class="dropdown-item text-danger d-flex align-items-center gap-2" onclick="return confirm('Force full sync will scan all available Salesforce records. Proceed?');">
-                                <i class="bi bi-arrow-clockwise"></i> Force Full Resync
+                            <button type="submit" class="dropdown-item text-danger d-flex align-items-center gap-2" onclick="return confirm('Force full sync will scan all available Salesforce records (starting from latest down to oldest). Proceed?');">
+                                <i class="bi bi-arrow-clockwise"></i> Force Full Resync (Latest to Oldest)
                             </button>
                         </form>
                     </li>
@@ -226,8 +254,9 @@
                             <th style="min-width: 120px;">Phone</th>
                             <th style="min-width: 100px;">Status</th>
                             <th style="min-width: 140px;">Owner Verification</th>
-                            <th style="min-width: 140px;">Salesforce Owner</th>
-                            <th style="min-width: 140px;">Prime Owner (SF User)</th>
+                            <th style="min-width: 130px;">Salesforce Owner</th>
+                            <th style="min-width: 130px;">Custom Owner</th>
+                            <th style="min-width: 140px;">Local SF User</th>
                             <th style="min-width: 130px;">SF Modified</th>
                             <th class="pe-4 text-end" style="min-width: 100px;">Action</th>
                         </tr>
@@ -320,7 +349,20 @@
                                 @endif
                             </td>
                             <td>
-                                @if($lead->primeOwner)
+                                @if($lead->custom_owner)
+                                    <span class="badge bg-light border text-zinc-900 fw-medium" title="Custom_Owner__c: {{ $lead->custom_owner }}">
+                                        <i class="bi bi-person-gear text-primary me-1"></i>{{ $lead->custom_owner }}
+                                    </span>
+                                @else
+                                    <span class="text-zinc-400 fst-italic">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($lead->salesforceOwner)
+                                    <a href="{{ route('admin.salesforce_sf_users.index', ['search' => $lead->salesforceOwner->name]) }}" class="text-decoration-none fw-medium text-zinc-900 d-inline-flex align-items-center gap-1" title="Matched SF User: {{ $lead->salesforceOwner->name }}">
+                                        <i class="bi bi-person-check-fill text-success"></i> {{ $lead->salesforceOwner->name }}
+                                    </a>
+                                @elseif($lead->primeOwner)
                                     <a href="{{ route('admin.salesforce_sf_users.index', ['search' => $lead->primeOwner->name]) }}" class="text-decoration-none fw-medium text-zinc-900 d-inline-flex align-items-center gap-1" title="Prime Owner: {{ $lead->primeOwner->name }}">
                                         <i class="bi bi-person-badge text-primary"></i> {{ $lead->primeOwner->name }}
                                     </a>
@@ -343,7 +385,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="text-center py-5">
+                            <td colspan="11" class="text-center py-5">
                                 <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 48px; height: 48px;">
                                     <i class="bi bi-inbox text-muted fs-4"></i>
                                 </div>
@@ -419,6 +461,7 @@ function openLeadModal(leadId) {
         const lead = data.lead;
         const owner = data.owner;
         const primeOwner = data.prime_owner;
+        const salesforceOwner = data.salesforce_owner;
         const campaigns = data.campaign_members || [];
 
         titleSfid.innerHTML = `<span class="badge bg-primary-soft me-2">SF ID: ${escapeHtml(lead.salesforce_id || '-')}</span> <span class="badge bg-secondary-soft">Local ID: #${lead.id}</span>`;
@@ -473,12 +516,20 @@ function openLeadModal(leadId) {
                     <div class="row g-2 text-secondary small">
                         <div class="col-sm-6">
                             <span class="text-muted">Assigned Owner:</span> 
-                            <strong class="text-zinc-900">${escapeHtml(lead.owner_name || (owner ? owner.name : (lead.owner_id || 'Unassigned')))}</strong>
+                            <strong class="text-zinc-900">${escapeHtml(lead.owner_name || (salesforceOwner ? salesforceOwner.name : (owner ? owner.name : (lead.owner_id || 'Unassigned'))))}</strong>
                             ${lead.owner_email ? `<div class="font-monospace text-muted" style="font-size: 0.75rem;">${escapeHtml(lead.owner_email)}</div>` : ''}
                         </div>
                         <div class="col-sm-6">
                             <span class="text-muted">Salesforce Owner ID:</span> 
                             <code class="text-zinc-800">${escapeHtml(lead.owner_id || '-')}</code>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted">Custom Owner (SF):</span> 
+                            <strong class="text-zinc-900">${escapeHtml(lead.custom_owner || 'None')}</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted">Matched Local SF User:</span> 
+                            <strong class="text-zinc-900 text-success">${escapeHtml(salesforceOwner ? salesforceOwner.name : (primeOwner ? primeOwner.name : 'Unmatched'))}</strong>
                         </div>
                         <div class="col-sm-6">
                             <span class="text-muted">Prime Owner (SF_User__c):</span> 

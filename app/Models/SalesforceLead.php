@@ -27,6 +27,7 @@ class SalesforceLead extends Model
         'lead_source',
         'industry',
         'status',
+        'is_converted',
         'street',
         'city',
         'state',
@@ -34,8 +35,10 @@ class SalesforceLead extends Model
         'country',
         'owner_id',
         'prime_owner_id',
+        'salesforce_sf_user_id',
         'secondary_owner',
         'custom_owner',
+        'Custom_Owner__c',
         'owner_name',
         'owner_email',
         'owner_verification_status',
@@ -48,6 +51,7 @@ class SalesforceLead extends Model
     ];
 
     protected $casts = [
+        'is_converted' => 'boolean',
         'salesforce_created_at' => 'datetime',
         'salesforce_updated_at' => 'datetime',
         'synced_at' => 'datetime',
@@ -69,6 +73,14 @@ class SalesforceLead extends Model
     public function primeOwner(): BelongsTo
     {
         return $this->belongsTo(SalesforceSfUser::class, 'prime_owner_id', 'salesforce_id');
+    }
+
+    /**
+     * Relationship: Matched local Salesforce SF User record (via Custom_Owner__c or local FK)
+     */
+    public function salesforceOwner(): BelongsTo
+    {
+        return $this->belongsTo(SalesforceSfUser::class, 'salesforce_sf_user_id');
     }
 
     /**
@@ -102,6 +114,7 @@ class SalesforceLead extends Model
               ->orWhere('owner_email', 'like', $term)
               ->orWhere('secondary_owner', 'like', $term)
               ->orWhere('custom_owner', 'like', $term)
+              ->orWhere('Custom_Owner__c', 'like', $term)
               ->orWhere('salesforce_id', 'like', $term);
         });
     }
@@ -164,5 +177,41 @@ class SalesforceLead extends Model
         }
 
         return $query->where('owner_verification_status', trim($status));
+    }
+
+    /**
+     * Scope to filter by matched Salesforce SF User ID.
+     */
+    public function scopeFilterSalesforceSfUser(Builder $query, ?int $sfUserId): Builder
+    {
+        if (empty($sfUserId)) {
+            return $query;
+        }
+
+        return $query->where('salesforce_sf_user_id', $sfUserId);
+    }
+
+    /**
+     * Scope to filter by Custom Owner name.
+     */
+    public function scopeFilterCustomOwner(Builder $query, ?string $customOwner): Builder
+    {
+        if (empty(trim((string)$customOwner))) {
+            return $query;
+        }
+
+        $val = trim($customOwner);
+        return $query->where(function ($q) use ($val) {
+            $q->where('custom_owner', $val)
+              ->orWhere('Custom_Owner__c', $val);
+        });
+    }
+
+    /**
+     * Scope to filter only unconverted leads (IsConverted = false).
+     */
+    public function scopeUnconverted(Builder $query): Builder
+    {
+        return $query->where('is_converted', false);
     }
 }

@@ -56,31 +56,31 @@ class AdminController extends Controller
         }
 
         if ($request->isMethod('get')) {
-            $users = DB::table('users as u')
-                ->leftJoin('users as m', 'u.manager_id', '=', 'm.id')
-                ->leftJoin('servers as s', 'u.assigned_server_id', '=', 's.id')
-                ->leftJoin('sending_domains as d', 'u.assigned_domain_id', '=', 'd.id')
-                ->select(
-                    'u.id',
-                    'u.emp_id',
-                    'u.username',
-                    'u.name',
-                    'u.email',
-                    'u.role',
-                    'u.manager_id',
-                    'u.is_blocked',
-                    'm.username as manager_username',
-                    'm.name as manager_name',
-                    'm.email as manager_email',
-                    'u.created_at',
-                    'u.assigned_server_id',
-                    'u.assigned_domain_id',
-                    's.name as server_name',
-                    'd.domain_name',
-                    'u.daily_limit'
-                )
-                ->orderBy('u.created_at', 'desc')
-                ->get();
+            $users = User::with(['roles', 'manager', 'assignedServer', 'assignedDomain'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($u) {
+                    return [
+                        'id' => $u->id,
+                        'emp_id' => $u->emp_id,
+                        'username' => $u->username,
+                        'name' => $u->name,
+                        'email' => $u->email,
+                        'role' => $u->role,
+                        'spatie_role' => $u->roles->first()?->name ?? ($u->role === 'user' ? 'Employee' : ucfirst($u->role)),
+                        'manager_id' => $u->manager_id,
+                        'is_blocked' => $u->is_blocked,
+                        'manager_username' => $u->manager?->username,
+                        'manager_name' => $u->manager?->name,
+                        'manager_email' => $u->manager?->email,
+                        'created_at' => $u->created_at,
+                        'assigned_server_id' => $u->assigned_server_id,
+                        'assigned_domain_id' => $u->assigned_domain_id,
+                        'server_name' => $u->assignedServer?->name,
+                        'domain_name' => $u->assignedDomain?->domain_name,
+                        'daily_limit' => $u->daily_limit,
+                    ];
+                });
 
             return response()->json($users);
         }
@@ -90,7 +90,21 @@ class AdminController extends Controller
             $username = $request->input('username');
             $email = $request->input('email');
             $password = $request->input('password');
-            $role = $request->input('role', 'user');
+            $roleInput = $request->input('role', 'Employee');
+            
+            // Normalize role
+            $spatieRole = match (strtolower(trim($roleInput))) {
+                'admin' => 'Admin',
+                'manager' => 'Manager',
+                'user', 'employee' => 'Employee',
+                default => 'Employee',
+            };
+            $legacyRole = match ($spatieRole) {
+                'Admin' => 'admin',
+                'Manager' => 'manager',
+                default => 'user',
+            };
+
             $managerId = $request->input('manager_id') ?: null;
             $assignedServerId = $request->input('assigned_server_id') ?: null;
             $assignedDomainId = $request->input('assigned_domain_id') ?: null;
@@ -100,8 +114,8 @@ class AdminController extends Controller
                 return response()->json(['error' => 'Username, password, and email address are required'], 400);
             }
 
-            if ($role === 'user' && !$managerId) {
-                return response()->json(['error' => 'Manager selection is required for user role.'], 400);
+            if (($legacyRole === 'user' || $spatieRole === 'Employee') && !$managerId) {
+                return response()->json(['error' => 'Manager selection is required for employee role.'], 400);
             }
 
             if (User::where('email', $email)->exists()) {
@@ -118,7 +132,7 @@ class AdminController extends Controller
                 'name' => $username,
                 'email' => $email,
                 'password' => Hash::make($password),
-                'role' => $role,
+                'role' => $legacyRole,
                 'manager_id' => $managerId,
                 'assigned_server_id' => $assignedServerId,
                 'assigned_domain_id' => $assignedDomainId,
@@ -126,10 +140,13 @@ class AdminController extends Controller
                 'daily_limit' => $dailyLimit,
             ]);
 
+            // Assign Spatie Role
+            $newUser->assignRole($spatieRole);
+
             $this->auditService->logActivity(
                 $admin->id,
                 'Create User',
-                "Created user {$username} ({$role}) with daily limit {$dailyLimit}",
+                "Created user {$username} ({$spatieRole}) with daily limit {$dailyLimit}",
                 $request->ip()
             );
 
@@ -174,11 +191,26 @@ class AdminController extends Controller
                 return response()->json(['error' => 'Username already exists.'], 400);
             }
 
+            if (!empty($role)) {
+                $spatieRole = match (strtolower(trim($role))) {
+                    'admin' => 'Admin',
+                    'manager' => 'Manager',
+                    'user', 'employee' => 'Employee',
+                    default => 'Employee',
+                };
+                $legacyRole = match ($spatieRole) {
+                    'Admin' => 'admin',
+                    'Manager' => 'manager',
+                    default => 'user',
+                };
+                $user->role = $legacyRole;
+                $user->syncRoles([$spatieRole]);
+            }
+
             $user->emp_id = $empId;
             $user->username = $username;
             $user->name = $username;
             $user->email = $email;
-            $user->role = $role;
             $user->manager_id = $managerId;
             $user->assigned_server_id = $assignedServerId;
             $user->assigned_domain_id = $assignedDomainId;

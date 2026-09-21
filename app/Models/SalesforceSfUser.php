@@ -90,6 +90,14 @@ class SalesforceSfUser extends Model
     }
 
     /**
+     * Relationship: Leads assigned to this SF User (via salesforce_sf_user_id)
+     */
+    public function leads(): HasMany
+    {
+        return $this->hasMany(SalesforceLead::class, 'salesforce_sf_user_id');
+    }
+
+    /**
      * Scope to search SF Users by name, emp_name, full_name_in, email, emp_code, process, or salesforce_id.
      */
     public function scopeSearch(Builder $query, ?string $search): Builder

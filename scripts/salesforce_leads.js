@@ -90,12 +90,13 @@ async function main() {
         await conn.login(username.trim(), password.trim());
 
         // Build SOQL Query
-        let whereClause = '';
+        let whereConditions = ['IsConverted = false'];
         if (search) {
             // Escape single quotes for SOQL injection prevention
             const escapedSearch = search.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            whereClause = ` WHERE Name LIKE '%${escapedSearch}%' OR Company LIKE '%${escapedSearch}%' OR Email LIKE '%${escapedSearch}%' OR Status LIKE '%${escapedSearch}%'`;
+            whereConditions.push(`(Name LIKE '%${escapedSearch}%' OR Company LIKE '%${escapedSearch}%' OR Email LIKE '%${escapedSearch}%' OR Status LIKE '%${escapedSearch}%')`);
         }
+        const whereClause = ` WHERE ${whereConditions.join(' AND ')}`;
 
         // 1. Fetch total count
         let totalCount = 0;
@@ -123,6 +124,10 @@ async function main() {
                 Status,
                 LeadSource,
                 OwnerId,
+                Prime_Owner__c,
+                Secondary_Owner__c,
+                Custom_Owner__c,
+                IsConverted,
                 CreatedDate
             FROM Lead
             ${whereClause}
@@ -153,6 +158,10 @@ async function main() {
             Status: r.Status || 'New',
             LeadSource: r.LeadSource || '',
             OwnerId: r.OwnerId || '',
+            PrimeOwnerId: r.Prime_Owner__c || '',
+            SecondaryOwner: r.Secondary_Owner__c || '',
+            CustomOwner: r.Custom_Owner__c || '',
+            IsConverted: r.IsConverted === true || r.IsConverted === 'true',
             CreatedDate: r.CreatedDate || ''
         }));
 

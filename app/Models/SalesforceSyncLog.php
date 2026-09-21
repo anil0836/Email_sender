@@ -22,6 +22,8 @@ class SalesforceSyncLog extends Model
         'records_updated',
         'records_skipped',
         'records_failed',
+        'owners_mapped',
+        'owners_not_mapped',
         'last_modified_checkpoint',
         'error_message',
     ];

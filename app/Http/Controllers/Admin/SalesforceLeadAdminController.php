@@ -37,13 +37,16 @@ class SalesforceLeadAdminController extends Controller
             $perPage = 25;
         }
 
+        $customOwner = $request->input('custom_owner');
+
         $query = SalesforceLead::query()
-            ->with(['owner', 'primeOwner'])
+            ->with(['owner', 'primeOwner', 'salesforceOwner'])
             ->search($search)
             ->filterStatus($status)
             ->filterLeadSource($leadSource)
             ->filterOwner($ownerId)
             ->filterPrimeOwner($primeOwnerId)
+            ->filterCustomOwner($customOwner)
             ->filterOwnerVerificationStatus($verificationStatus);
 
         $leads = $query->orderBy($sortBy, $sortDir)
@@ -102,7 +105,7 @@ class SalesforceLeadAdminController extends Controller
      */
     public function show(Request $request, string|int $id): JsonResponse|View
     {
-        $lead = SalesforceLead::with(['owner', 'primeOwner', 'campaignMembers.campaign'])
+        $lead = SalesforceLead::with(['owner', 'primeOwner', 'salesforceOwner', 'campaignMembers.campaign'])
             ->where('id', is_numeric($id) ? (int)$id : -1)
             ->orWhere('salesforce_id', $id)
             ->firstOrFail();
@@ -112,6 +115,7 @@ class SalesforceLeadAdminController extends Controller
                 'lead' => $lead,
                 'owner' => $lead->owner,
                 'prime_owner' => $lead->primeOwner,
+                'salesforce_owner' => $lead->salesforceOwner,
                 'campaign_members' => $lead->campaignMembers,
             ]);
         }
@@ -127,7 +131,9 @@ class SalesforceLeadAdminController extends Controller
     public function manualSync(Request $request, SalesforceLeadSyncService $syncService): RedirectResponse|JsonResponse
     {
         $forceFull = $request->boolean('full', false);
-        $result = $syncService->syncLeads($forceFull, 'manual');
+        $todayOnly = $request->boolean('today', false);
+        $order = $request->input('order', 'DESC');
+        $result = $syncService->syncLeads($forceFull, 'manual', null, $todayOnly, $order);
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json($result);

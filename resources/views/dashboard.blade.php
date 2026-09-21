@@ -234,9 +234,11 @@
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="fw-semibold text-zinc-900"><i class="bi bi-envelope me-1.5 text-zinc-500"></i> Outbound Campaigns</span>
+                    @can('bulk-mail.create')
                     <a href="{{ route('campaign_create_view') }}" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-lg"></i> New Campaign
                     </a>
+                    @endcan
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive border-0" style="max-height: 380px;">

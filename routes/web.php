@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminRolePermissionController;
 use App\Http\Controllers\Admin\SalesforceAccountAdminController;
 use App\Http\Controllers\Admin\SalesforceContactAdminController;
 use App\Http\Controllers\Admin\SalesforceLeadAdminController;
@@ -33,9 +34,16 @@ Route::post('/api/simulator/trigger-webhook', [SimulatorController::class, 'apiT
 Route::middleware(['app_auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard_view');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/campaign/new', [CampaignController::class, 'createView'])->name('campaign_create_view');
-    Route::get('/campaign/create', [CampaignController::class, 'createView']);
-    Route::get('/campaign/bulk', [CampaignController::class, 'bulkEmailView'])->name('campaign_bulk_view');
+
+    // Bulk Mail & Campaign Creation Routes (Protected by Spatie Bulk-Mail & Campaign permissions)
+    Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new'])->group(function () {
+        Route::get('/campaign/new', [CampaignController::class, 'createView'])->name('campaign_create_view');
+        Route::get('/campaign/create', [CampaignController::class, 'createView']);
+    });
+    Route::middleware(['permission:bulk-mail|bulk-mail.view'])->group(function () {
+        Route::get('/campaign/bulk', [CampaignController::class, 'bulkEmailView'])->name('campaign_bulk_view');
+    });
+
     Route::get('/campaign/list', [CampaignController::class, 'listView'])->name('campaign_list_view');
     Route::get('/campaign/{campaign_id}', [CampaignController::class, 'detailView'])->name('campaign_detail_view');
     
@@ -84,6 +92,16 @@ Route::middleware(['app_auth'])->group(function () {
         Route::get('/admin/salesforce-sf-users', [SalesforceSfUserAdminController::class, 'index'])->name('admin.salesforce_sf_users.index');
         Route::post('/admin/salesforce-sf-users/sync', [SalesforceSfUserAdminController::class, 'manualSync'])->name('admin.salesforce_sf_users.sync');
         Route::get('/admin/salesforce-sf-users/sync-status', [SalesforceSfUserAdminController::class, 'syncStatus'])->name('admin.salesforce_sf_users.status');
+
+        // Role & Permission Management (Spatie)
+        Route::get('/admin/roles-permissions', [AdminRolePermissionController::class, 'index'])->name('admin.roles.index');
+        Route::get('/api/admin/roles-permissions', [AdminRolePermissionController::class, 'apiData'])->name('api.admin.roles_permissions');
+        Route::post('/api/admin/roles/{role}/permissions', [AdminRolePermissionController::class, 'syncRolePermissions'])->name('api.admin.roles.sync_permissions');
+        Route::post('/api/admin/roles', [AdminRolePermissionController::class, 'createRole'])->name('api.admin.roles.create');
+        Route::post('/api/admin/permissions', [AdminRolePermissionController::class, 'createPermission'])->name('api.admin.permissions.create');
+        Route::delete('/api/admin/permissions/{permission}', [AdminRolePermissionController::class, 'deletePermission'])->name('api.admin.permissions.delete');
+        Route::post('/api/admin/users/{user}/assign-role', [AdminRolePermissionController::class, 'assignUserRole'])->name('api.admin.users.assign_role');
+        Route::post('/api/admin/roles-permissions/reset-cache', [AdminRolePermissionController::class, 'resetCache'])->name('api.admin.roles.reset_cache');
     });
 
     // --- AUTHENTICATED JSON API ENDPOINTS ---
@@ -98,8 +116,15 @@ Route::middleware(['app_auth'])->group(function () {
     // Salesforce & Campaign Compose APIs
     Route::get('/api/salesforce/recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.recipients');
     Route::get('/api/salesforce/campaign-recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.campaign_recipients');
-    Route::post('/api/campaign/validate', [CampaignController::class, 'apiValidate'])->name('api.campaign.validate');
-    Route::post('/api/campaign/send', [CampaignController::class, 'apiSend'])->name('api.campaign.send');
+
+    // Bulk Mail APIs (Protected by Spatie Bulk-Mail permissions)
+    Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new'])->group(function () {
+        Route::post('/api/campaign/validate', [CampaignController::class, 'apiValidate'])->name('api.campaign.validate');
+    });
+    Route::middleware(['permission:bulk-mail|bulk-mail.send'])->group(function () {
+        Route::post('/api/campaign/send', [CampaignController::class, 'apiSend'])->name('api.campaign.send');
+    });
+
     Route::get('/api/campaign/{campaign_id}', [CampaignController::class, 'apiDetail'])->name('api.campaign.detail');
     Route::get('/api/campaigns/dropdown', [CampaignController::class, 'apiDropdown'])->name('api.campaigns.dropdown');
     Route::post('/api/campaign/approve', [CampaignController::class, 'apiApprove'])->name('api.campaign.approve');
