@@ -141,6 +141,7 @@ class CampaignProcessingService
                 // Send via Pabbly if configured, or simulate if testing
                 if (!empty($pabblyApiKey) && !app()->environment('testing')) {
                     try {
+                        $replyToEmail = $campaign->reply_to ?: config('pabbly.reply_to', 'support@b2bexportsllc.com');
                         $pabblyResult = $this->pabblyService->sendEmail(
                             $email,
                             $recipientName,
@@ -148,7 +149,8 @@ class CampaignProcessingService
                             $finalBody,
                             $fromEmail,
                             $fromName,
-                            $deliveryServerId
+                            $deliveryServerId,
+                            $replyToEmail
                         );
 
                         $providerMsgId = $pabblyResult['pabbly_campaign_id'] ?? $providerMsgId;

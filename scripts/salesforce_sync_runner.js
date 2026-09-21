@@ -11,6 +11,8 @@ function parseArgs() {
         since: null,
         limit: null,
         full: false,
+        today: false,
+        order: 'DESC',
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -25,6 +27,11 @@ function parseArgs() {
             i++;
         } else if (args[i] === '--full') {
             params.full = true;
+        } else if (args[i] === '--today' || args[i] === '--from-today') {
+            params.today = true;
+        } else if (args[i] === '--order' && args[i + 1]) {
+            params.order = args[i + 1].trim().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+            i++;
         }
     }
     return params;
@@ -56,6 +63,7 @@ const OBJECT_CONFIGS = {
             'Phone', 'MobilePhone', 'Website', 'LeadSource', 'Industry', 'Status',
             'Street', 'City', 'State', 'PostalCode', 'Country', 'OwnerId',
             'Prime_Owner__c', 'Secondary_Owner__c', 'Custom_Owner__c',
+            'IsConverted',
             'CreatedDate', 'LastModifiedDate'
         ],
         mapRecord: (r) => ({
@@ -81,6 +89,9 @@ const OBJECT_CONFIGS = {
             prime_owner_id: r.Prime_Owner__c || '',
             secondary_owner: r.Secondary_Owner__c || '',
             custom_owner: r.Custom_Owner__c || '',
+            Custom_Owner__c: r.Custom_Owner__c || '',
+            is_converted: r.IsConverted === true || r.IsConverted === 'true',
+            IsConverted: r.IsConverted === true || r.IsConverted === 'true',
             salesforce_created_at: r.CreatedDate || null,
             salesforce_updated_at: r.LastModifiedDate || null,
         })
@@ -225,7 +236,7 @@ OBJECT_CONFIGS['SF_User'] = OBJECT_CONFIGS['SF_User__c'];
 OBJECT_CONFIGS['Sf_User'] = OBJECT_CONFIGS['SF_User__c'];
 
 async function main() {
-    const { object, since, limit, full } = parseArgs();
+    const { object, since, limit, full, today, order } = parseArgs();
 
     let config = OBJECT_CONFIGS[object];
     if (!config) {
@@ -263,11 +274,17 @@ async function main() {
 
         await conn.login(username.trim(), password.trim());
 
-        let whereClause = '';
-        if (!full && since) {
-            const cleanSince = since.includes('T') ? since : `${since}T00:00:00Z`;
-            whereClause = ` WHERE LastModifiedDate > ${cleanSince}`;
+        let whereConditions = [];
+        if (config.sfObjectName === 'Lead') {
+            whereConditions.push('IsConverted = false');
         }
+        if (today) {
+            whereConditions.push('LastModifiedDate >= TODAY');
+        } else if (!full && since) {
+            const cleanSince = since.includes('T') ? since : `${since}T00:00:00Z`;
+            whereConditions.push(`LastModifiedDate > ${cleanSince}`);
+        }
+        const whereClause = whereConditions.length > 0 ? ` WHERE ${whereConditions.join(' AND ')}` : '';
 
         let limitClause = '';
         if (limit && limit > 0) {
@@ -275,7 +292,8 @@ async function main() {
         }
 
         const sfObj = config.sfObjectName;
-        const soql = `SELECT ${config.fields.join(', ')} FROM ${sfObj}${whereClause} ORDER BY LastModifiedDate ASC${limitClause}`.trim();
+        const sortOrder = order || 'DESC';
+        const soql = `SELECT ${config.fields.join(', ')} FROM ${sfObj}${whereClause} ORDER BY LastModifiedDate ${sortOrder}${limitClause}`.trim();
 
         const records = [];
         let maxLastModified = null;

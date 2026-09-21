@@ -742,7 +742,8 @@
                 const dateStr = new Date(c.created_at).toLocaleString();
                 const teamName = c.team || 'Unassigned';
                 const managerName = c.manager_sf_name || c.manager_local_username || 'None';
-                document.getElementById('camp-meta').innerText = `From: ${c.from_address} • Domain: ${c.sending_domain} • Team: ${teamName} • Manager: ${managerName} • Created: ${dateStr}`;
+                const replyTo = c.reply_to || 'support@b2bexportsllc.com';
+                document.getElementById('camp-meta').innerText = `From: ${c.from_address} • Reply-To: ${replyTo} • Domain: ${c.sending_domain} • Team: ${teamName} • Manager: ${managerName} • Created: ${dateStr}`;
 
                 document.getElementById('camp-body-content').innerHTML = c.body || '<i>(No body content)</i>';
 

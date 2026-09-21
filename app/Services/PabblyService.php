@@ -14,6 +14,7 @@ class PabblyService
     protected string $deliveryServerId;
     protected string $fromEmail;
     protected string $fromName;
+    protected string $replyTo;
 
     public function __construct()
     {
@@ -22,6 +23,7 @@ class PabblyService
         $this->deliveryServerId = config('pabbly.delivery_server_id', 'send-with-us');
         $this->fromEmail = config('pabbly.from_email', 'rma@proitbuyer.com');
         $this->fromName = config('pabbly.from_name', 'anil patel');
+        $this->replyTo = config('pabbly.reply_to', 'support@b2bexportsllc.com');
     }
 
     /**
@@ -34,7 +36,8 @@ class PabblyService
         string $htmlBody,
         ?string $fromEmail = null,
         ?string $fromName = null,
-        ?string $deliveryServerId = null
+        ?string $deliveryServerId = null,
+        ?string $replyTo = null
     ): array {
         return $this->sendBulk(
             [$recipientEmail],
@@ -42,7 +45,8 @@ class PabblyService
             $htmlBody,
             $fromEmail,
             $fromName,
-            $deliveryServerId
+            $deliveryServerId,
+            $replyTo
         );
     }
 
@@ -55,7 +59,8 @@ class PabblyService
         string $htmlBody,
         ?string $fromEmail = null,
         ?string $fromName = null,
-        ?string $deliveryServerId = null
+        ?string $deliveryServerId = null,
+        ?string $replyTo = null
     ): array {
         if (empty($this->apiKey)) {
             throw new RuntimeException('PABBLY_API_KEY is not configured in .env');
@@ -64,6 +69,7 @@ class PabblyService
         $senderEmail = $fromEmail ?: $this->fromEmail;
         $senderName = $fromName ?: $this->fromName;
         $serverId = $deliveryServerId ?: $this->deliveryServerId;
+        $replyToEmail = $replyTo ?: $this->replyTo;
         $campaignName = 'Campaign - ' . substr($subject, 0, 30) . ' (' . date('Y-m-d H:i:s') . ')';
 
         // 1. Create Campaign in Pabbly
@@ -72,6 +78,8 @@ class PabblyService
                 'campaignName' => $campaignName,
                 'senderName' => $senderName,
                 'subject' => $subject,
+                'replyToEmail' => $replyToEmail,
+                'replyTo' => $replyToEmail,
                 'preheaderText' => substr(strip_tags($htmlBody), 0, 100),
             ],
             'builderType' => 'HTML',
@@ -103,6 +111,8 @@ class PabblyService
             'emails' => array_values($recipientEmails),
             'senderEmail' => $senderEmail,
             'fromName' => $senderName,
+            'replyToEmail' => $replyToEmail,
+            'replyTo' => $replyToEmail,
             'subject' => $subject,
         ];
 

@@ -56,7 +56,27 @@ class CheckAppAuth
         // Role check if specified
         if (!empty($roles)) {
             $allowedRoles = is_array($roles) ? $roles : explode(',', $roles);
-            if (!in_array($user->role, $allowedRoles)) {
+            
+            $hasAccess = in_array($user->role, $allowedRoles);
+
+            if (!$hasAccess && method_exists($user, 'hasRole')) {
+                foreach ($allowedRoles as $roleToCheck) {
+                    $normalized = strtolower(trim($roleToCheck));
+                    $spatieVariants = match($normalized) {
+                        'admin' => ['Admin', 'admin'],
+                        'manager' => ['Manager', 'manager'],
+                        'user', 'employee' => ['Employee', 'employee', 'User', 'user'],
+                        default => [ucfirst($normalized), $normalized],
+                    };
+
+                    if ($user->hasAnyRole($spatieVariants)) {
+                        $hasAccess = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$hasAccess) {
                 // If manager role is allowed, check if the user is a team manager
                 if (in_array('manager', $allowedRoles) && $user->isTeamManager()) {
                     return $next($request);

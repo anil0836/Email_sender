@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     protected $fillable = [
         'emp_id',
@@ -37,6 +38,44 @@ class User extends Authenticatable
             'is_blocked' => 'boolean',
             'daily_limit' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            $user->syncSpatieRoleFromColumn();
+        });
+
+        static::saved(function (User $user) {
+            if ($user->wasChanged('role')) {
+                $user->syncSpatieRoleFromColumn();
+            }
+        });
+    }
+
+    /**
+     * Map and synchronize legacy role column to Spatie roles.
+     * Maps 'user' or 'employee' to 'Employee', 'manager' to 'Manager', and 'admin' to 'Admin'.
+     */
+    public function syncSpatieRoleFromColumn(): void
+    {
+        try {
+            $role = strtolower(trim((string) $this->role));
+            $targetRole = match ($role) {
+                'admin' => 'Admin',
+                'manager' => 'Manager',
+                'user', 'employee' => 'Employee',
+                default => !empty($role) ? ucfirst($role) : 'Employee',
+            };
+
+            if (\Spatie\Permission\Models\Role::where('name', $targetRole)->where('guard_name', 'web')->exists()) {
+                if (!$this->hasRole($targetRole)) {
+                    $this->assignRole($targetRole);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignore during early migrations or if permission tables are not ready
+        }
     }
 
     public function manager()

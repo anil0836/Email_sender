@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import jsforce from 'jsforce';
 
 /**
@@ -9,6 +10,8 @@ function parseArgs() {
         since: null,
         limit: null,
         full: false,
+        today: false,
+        order: 'DESC',
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -20,6 +23,11 @@ function parseArgs() {
             i++;
         } else if (args[i] === '--full') {
             params.full = true;
+        } else if (args[i] === '--today' || args[i] === '--from-today') {
+            params.today = true;
+        } else if (args[i] === '--order' && args[i + 1]) {
+            params.order = args[i + 1].trim().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+            i++;
         }
     }
     return params;
@@ -44,7 +52,7 @@ function sanitizeErrorMessage(err, loginUrl, username, password) {
 }
 
 async function main() {
-    const { since, limit, full } = parseArgs();
+    const { since, limit, full, today, order } = parseArgs();
 
     const loginUrl = process.env.SF_LOGIN_URL || process.env.SALESFORCE_LOGIN_URL || 'https://login.salesforce.com';
     const username = process.env.SF_USERNAME || process.env.SALESFORCE_USERNAME || '';
@@ -88,23 +96,31 @@ async function main() {
             'PostalCode',
             'Country',
             'OwnerId',
+            'Prime_Owner__c',
+            'Secondary_Owner__c',
+            'Custom_Owner__c',
+            'IsConverted',
             'CreatedDate',
             'LastModifiedDate'
         ];
 
-        let whereClause = '';
-        if (!full && since) {
+        let whereConditions = ['IsConverted = false'];
+        if (today) {
+            whereConditions.push('LastModifiedDate >= TODAY');
+        } else if (!full && since) {
             // ISO 8601 string for SOQL (e.g. 2026-09-16T12:00:00Z)
             const cleanSince = since.includes('T') ? since : `${since}T00:00:00Z`;
-            whereClause = ` WHERE LastModifiedDate > ${cleanSince}`;
+            whereConditions.push(`LastModifiedDate > ${cleanSince}`);
         }
+        const whereClause = ` WHERE ${whereConditions.join(' AND ')}`;
 
         let limitClause = '';
         if (limit && limit > 0) {
             limitClause = ` LIMIT ${limit}`;
         }
 
-        const soql = `SELECT ${fields.join(', ')} FROM Lead${whereClause} ORDER BY LastModifiedDate ASC${limitClause}`.trim();
+        const sortOrder = order || 'DESC';
+        const soql = `SELECT ${fields.join(', ')} FROM Lead${whereClause} ORDER BY LastModifiedDate ${sortOrder}${limitClause}`.trim();
 
         const records = [];
         let maxLastModified = null;
@@ -132,6 +148,12 @@ async function main() {
                         postal_code: r.PostalCode || '',
                         country: r.Country || '',
                         owner_id: r.OwnerId || '',
+                        prime_owner_id: r.Prime_Owner__c || '',
+                        secondary_owner: r.Secondary_Owner__c || '',
+                        custom_owner: r.Custom_Owner__c || '',
+                        Custom_Owner__c: r.Custom_Owner__c || '',
+                        is_converted: r.IsConverted === true || r.IsConverted === 'true',
+                        IsConverted: r.IsConverted === true || r.IsConverted === 'true',
                         salesforce_created_at: r.CreatedDate || null,
                         salesforce_updated_at: r.LastModifiedDate || null,
                     };

@@ -9,4 +9,5 @@ return [
     'from_name' => env('PABBLY_FROM_NAME', 'anil patel'),
     'to_email' => env('PABBLY_TO_EMAIL', 'arpit@retrotech.in'),
     'to_name' => env('PABBLY_TO_NAME', 'Recipient name'),
+    'reply_to' => env('PABBLY_REPLY_TO', 'support@b2bexportsllc.com'),
 ];

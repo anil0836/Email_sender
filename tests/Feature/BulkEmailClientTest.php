@@ -9,11 +9,13 @@ use App\Models\SalesforceMockRecord;
 use App\Models\SendingDomain;
 use App\Models\User;
 use App\Services\CampaignProcessingService;
+use App\Services\PabblyService;
 use App\Services\SalesforceService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BulkEmailClientTest extends TestCase
@@ -740,6 +742,132 @@ class BulkEmailClientTest extends TestCase
         $resNew->assertStatus(200);
         $resNew->assertSee('Create Campaign');
         $resNew->assertSee('CRM Directory');
+    }
+
+    public function test_campaign_creation_and_bulk_views_contain_reply_to_field(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        // 1. Check /campaign/new
+        $resNew = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->get('/campaign/new');
+        $resNew->assertStatus(200);
+        $resNew->assertSee('Reply-To Email');
+        $resNew->assertSee('support@b2bexportsllc.com');
+        $resNew->assertSee('id="reply-to"', false);
+
+        // 2. Check /campaign/bulk
+        $resBulk = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->get('/campaign/bulk');
+        $resBulk->assertStatus(200);
+        $resBulk->assertSee('Reply-To Email');
+        $resBulk->assertSee('support@b2bexportsllc.com');
+        $resBulk->assertSee('id="reply-to"', false);
+    }
+
+    public function test_campaign_creation_persists_default_reply_to_support_email(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        $payload = [
+            'subject' => 'Test Default Reply-To Support',
+            'body' => 'Hello from bulk email testing',
+            'sending_domain' => 'domain.com',
+            'from_address' => 'rma@proitbuyer.com',
+            // reply_to omitted to verify default
+            'recipient_emails' => ['lead1@proitbuyer.com'],
+        ];
+
+        $res = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/campaign/send', $payload);
+
+        $res->assertStatus(200);
+        $res->assertJson(['success' => true]);
+
+        $campaignId = $res->json('campaign_id');
+        $campaign = Campaign::find($campaignId);
+        $this->assertNotNull($campaign);
+        $this->assertEquals('support@b2bexportsllc.com', $campaign->reply_to);
+    }
+
+    public function test_campaign_creation_persists_custom_reply_to(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        $payload = [
+            'subject' => 'Test Custom Reply-To',
+            'body' => 'Hello with custom reply to',
+            'sending_domain' => 'domain.com',
+            'from_address' => 'rma@proitbuyer.com',
+            'reply_to' => 'custom-replies@example.com',
+            'recipient_emails' => ['lead1@proitbuyer.com'],
+        ];
+
+        $res = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/campaign/send', $payload);
+
+        $res->assertStatus(200);
+        $res->assertJson(['success' => true]);
+
+        $campaignId = $res->json('campaign_id');
+        $campaign = Campaign::find($campaignId);
+        $this->assertNotNull($campaign);
+        $this->assertEquals('custom-replies@example.com', $campaign->reply_to);
+    }
+
+    public function test_pabbly_service_payload_includes_reply_to(): void
+    {
+        config(['pabbly.api_key' => 'test_api_key']);
+        config(['pabbly.reply_to' => 'support@b2bexportsllc.com']);
+
+        Http::fake([
+            'https://emails.pabbly.com/api/v2/campaigns' => Http::response([
+                'status' => 'success',
+                'data' => ['_id' => 'pabbly_camp_123'],
+            ], 200),
+            'https://emails.pabbly.com/api/v2/campaigns/send-to-individual' => Http::response([
+                'status' => 'success',
+                'data' => ['queued' => 1],
+            ], 200),
+        ]);
+
+        $pabbly = new PabblyService();
+        $result = $pabbly->sendEmail(
+            'customer@example.com',
+            'Customer Name',
+            'Test Subject',
+            '<p>Test Body</p>',
+            'sender@proitbuyer.com',
+            'Sender Name',
+            'send-with-us',
+            'support@b2bexportsllc.com'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('pabbly_camp_123', $result['pabbly_campaign_id']);
+
+        // Verify POST /campaigns received replyToEmail & replyTo
+        Http::assertSent(function ($request) {
+            if ($request->url() === 'https://emails.pabbly.com/api/v2/campaigns') {
+                $details = $request['campaignDetails'] ?? [];
+                return ($details['replyToEmail'] ?? null) === 'support@b2bexportsllc.com'
+                    && ($details['replyTo'] ?? null) === 'support@b2bexportsllc.com';
+            }
+            return true;
+        });
+
+        // Verify POST /campaigns/send-to-individual received replyToEmail & replyTo
+        Http::assertSent(function ($request) {
+            if ($request->url() === 'https://emails.pabbly.com/api/v2/campaigns/send-to-individual') {
+                return ($request['replyToEmail'] ?? null) === 'support@b2bexportsllc.com'
+                    && ($request['replyTo'] ?? null) === 'support@b2bexportsllc.com';
+            }
+            return true;
+        });
     }
 }
 

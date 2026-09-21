@@ -59,6 +59,9 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        // Run Spatie Role & Permission Seeder
+        $this->call(RolePermissionSeeder::class);
+
         // 2. Servers
         if (Server::count() === 0) {
             Server::create([

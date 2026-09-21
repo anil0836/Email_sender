@@ -32,6 +32,21 @@ class CampaignController extends Controller
      */
     public function createView(Request $request)
     {
+        $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        if (
+            !$user->can('bulk-mail.create') &&
+            !$user->can('bulk-mail') &&
+            !$user->can('campaign.new') &&
+            !$user->can('campaign.create') &&
+            !$user->can('/campaign/new')
+        ) {
+            return redirect()->route('dashboard_view')->with('danger', 'Unauthorized. You do not have permission to create bulk campaigns.');
+        }
+
         $mode = $request->query('mode', 'crm');
         return view('campaigns.create', compact('mode'));
     }
@@ -41,6 +56,15 @@ class CampaignController extends Controller
      */
     public function bulkEmailView(Request $request)
     {
+        $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        if (!$user->can('bulk-mail.view') && !$user->can('bulk-mail')) {
+            return redirect()->route('dashboard_view')->with('danger', 'Unauthorized. You do not have permission to access the bulk email tool.');
+        }
+
         $mode = 'paste';
         return view('campaigns.create', compact('mode'));
     }
@@ -102,10 +126,24 @@ class CampaignController extends Controller
      */
     public function apiValidate(Request $request)
     {
+        $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        if (
+            !$user->can('bulk-mail.create') &&
+            !$user->can('bulk-mail') &&
+            !$user->can('campaign.new') &&
+            !$user->can('campaign.create') &&
+            !$user->can('/campaign/new')
+        ) {
+            return response()->json(['error' => 'Unauthorized. You do not have permission to compose or validate bulk campaigns.'], 403);
+        }
+
         $recipientIds = $request->input('recipient_ids', []);
         $recipientEmails = $request->input('recipient_emails', []);
-        $user = Auth::user() ?: User::find(session('user_id'));
-        $appUsername = $user ? $user->username : 'admin';
+        $appUsername = $user->username ?: 'admin';
 
         if (empty($recipientIds) && empty($recipientEmails)) {
             return response()->json(['error' => 'No recipients selected or emails pasted.'], 400);
@@ -253,6 +291,14 @@ class CampaignController extends Controller
     public function apiSend(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        if (!$user->can('bulk-mail.send') && !$user->can('bulk-mail')) {
+            return response()->json(['error' => 'Unauthorized. You do not have permission to send bulk emails.'], 403);
+        }
+
         $userId = $user->id;
         $appUsername = $user->username;
         $userRole = $user->role;
@@ -261,7 +307,10 @@ class CampaignController extends Controller
         $body = $request->input('body');
         $sendingDomain = $request->input('sending_domain');
         $fromAddress = $request->input('from_address');
-        $replyTo = session('email') ?: $user->email;
+        $replyTo = trim((string) $request->input('reply_to'));
+        if (empty($replyTo)) {
+            $replyTo = config('pabbly.reply_to', 'support@b2bexportsllc.com');
+        }
         $recipientIds = $request->input('recipient_ids', []);
         $recipientEmails = $request->input('recipient_emails', []);
         $attachments = $request->input('attachments', []);
@@ -312,7 +361,7 @@ class CampaignController extends Controller
         }
 
         if (!$replyTo) {
-            $replyTo = $fromAddress;
+            $replyTo = config('pabbly.reply_to', 'support@b2bexportsllc.com');
         }
 
         // 3. Schedule time validation

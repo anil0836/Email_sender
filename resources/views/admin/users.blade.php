@@ -32,7 +32,7 @@
                         <div class="col-md-4 col-sm-6">
                             <label for="new-role" class="form-label mb-1">Application Role</label>
                             <select class="form-select" id="new-role" onchange="toggleManagerDropdown('new')">
-                                <option value="user" selected>User (Outbound Sender)</option>
+                                <option value="user" selected>Employee (Outbound Sender)</option>
                                 <option value="manager">Manager (Approver)</option>
                                 <option value="admin">Admin (Full Access)</option>
                             </select>
@@ -168,7 +168,7 @@
                     <div class="mb-2.5">
                         <label for="edit-role" class="form-label mb-1">Role</label>
                         <select class="form-select" id="edit-role" onchange="toggleManagerDropdown('edit')">
-                            <option value="user">User (Outbound Sender)</option>
+                            <option value="user">Employee (Outbound Sender)</option>
                             <option value="manager">Manager (Approver)</option>
                             <option value="admin">Admin (Full Access)</option>
                         </select>
@@ -235,12 +235,13 @@
                     const isCurrentUser = u.id == currentUserId;
                     
                     let roleBadge = '';
-                    if (u.role === 'admin') {
+                    const displayRole = u.spatie_role || (u.role === 'admin' ? 'Admin' : (u.role === 'manager' ? 'Manager' : 'Employee'));
+                    if (displayRole === 'Admin') {
                         roleBadge = '<span class="badge bg-danger-soft">Admin</span>';
-                    } else if (u.role === 'manager') {
+                    } else if (displayRole === 'Manager') {
                         roleBadge = '<span class="badge bg-success-soft">Manager</span>';
                     } else {
-                        roleBadge = '<span class="badge bg-secondary-soft">User</span>';
+                        roleBadge = '<span class="badge bg-secondary-soft">Employee</span>';
                     }
 
                     const statusBadge = u.is_blocked == 1
@@ -300,7 +301,7 @@
         const role = document.getElementById(`${context}-role`).value;
         const container = document.getElementById(`${context}-manager-select-container`);
         const select = document.getElementById(`${context}-manager`);
-        if (role === 'user') {
+        if (role === 'user' || role === 'Employee') {
             container.style.display = 'block';
             select.required = true;
         } else {

@@ -18,6 +18,8 @@ class SyncSalesforceAllCommand extends Command
      */
     protected $signature = 'salesforce:sync-all
                             {--full : Force full sync ignoring latest checkpoints}
+                            {--today : Only synchronize records starting from today}
+                            {--from-today : Alias for --today}
                             {--limit= : Limit the number of records per object}';
 
     /**
@@ -42,6 +44,7 @@ class SyncSalesforceAllCommand extends Command
         $this->info('====================================================');
 
         $forceFull = (bool) $this->option('full');
+        $todayOnly = (bool) $this->option('today') || (bool) $this->option('from-today');
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
 
         // 1. Sync Standard Users
@@ -81,8 +84,8 @@ class SyncSalesforceAllCommand extends Command
         }
 
         // 5. Sync Leads
-        $this->line('--> [5/5] Syncing Salesforce Leads...');
-        $leadResult = $leadService->syncLeads($forceFull, 'artisan', $limit);
+        $this->line('--> [5/5] Syncing Salesforce Leads' . ($todayOnly ? ' (Today Only)...' : '...'));
+        $leadResult = $leadService->syncLeads($forceFull, 'artisan', $limit, $todayOnly);
         if ($leadResult['success'] ?? false) {
             $this->info("    ✓ Leads: {$leadResult['created']} created, {$leadResult['updated']} updated ({$leadResult['total_fetched']} fetched)");
         } else {
