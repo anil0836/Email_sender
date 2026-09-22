@@ -658,12 +658,12 @@
                     <i class="bi bi-pen"></i> Signatures
                 </a>
             </li>
-            <li class="nav-item">
+            {{-- <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('replies_view') ? 'active' : '' }}"
                     href="{{ route('replies_view') }}">
                     <i class="bi bi-inbox"></i> Inbound Replies
                 </a>
-            </li>
+            </li> --}}
             {{-- <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('salesforce.leads*') ? 'active' : '' }}"
                     href="{{ route('salesforce.leads') }}">
@@ -676,10 +676,12 @@
             $username = session('username') ?? (Auth::check() ? Auth::user()->username : 'User');
             $currentUser = Auth::user() ?: \App\Models\User::find(session('user_id'));
             $isTeamManager = $currentUser ? $currentUser->isTeamManager() : false;
-            $isAdmin = $userRole === 'admin' || ($currentUser && method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Admin'));
+            $isAdmin = $userRole === 'admin' || ($currentUser && method_exists($currentUser, 'hasRole') &&
+            $currentUser->hasRole('Admin'));
             @endphp
 
-            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager || ($currentUser && method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Manager')))
+            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager || ($currentUser &&
+            method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Manager')))
             <li class="nav-item-header">Management</li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"
