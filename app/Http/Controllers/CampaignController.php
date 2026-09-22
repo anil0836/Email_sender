@@ -215,17 +215,32 @@ class CampaignController extends Controller
             }
         }
 
-        // 2. Process pasted raw email list
+        // 2. Process pasted raw email list / CSV upload
         foreach ($recipientEmails as $rawEmail) {
             $email = trim($rawEmail);
             if (empty($email)) {
                 continue;
             }
 
-            if (isset($seenEmails[$email])) {
+            $normalizedEmail = strtolower($email);
+
+            if (isset($seenEmails[$normalizedEmail])) {
                 $duplicates[] = [
                     'id' => 'N/A',
                     'name' => 'Duplicate Entry',
+                    'email' => $email,
+                    'record_type' => 'Contact',
+                    'owner_verification_status' => 'verified',
+                ];
+                continue;
+            }
+
+            // Direct Global Suppression Check for CSV / raw entries
+            if (\App\Models\GlobalSuppression::isSuppressed($normalizedEmail)) {
+                $seenEmails[$normalizedEmail] = true;
+                $blockedReasons['GLOBAL_SUPPRESSION'][] = [
+                    'id' => 'N/A',
+                    'name' => 'Suppressed Recipient (CSV / Pasted)',
                     'email' => $email,
                     'record_type' => 'Contact',
                     'owner_verification_status' => 'verified',
@@ -246,7 +261,7 @@ class CampaignController extends Controller
                 continue;
             }
 
-            $recEmail = $record['email'];
+            $recEmail = strtolower(trim($record['email']));
             $recName = !empty($record['name']) ? $record['name'] : trim("{$record['first_name']} {$record['last_name']}");
             $seenEmails[$recEmail] = true;
 
@@ -428,8 +443,16 @@ class CampaignController extends Controller
                 continue;
             }
 
-            if (isset($seenEmails[$email])) {
+            $normalizedEmail = strtolower($email);
+
+            if (isset($seenEmails[$normalizedEmail])) {
                 $blockedRecords[] = ['N/A', 'COMPLIANCE_RULE', 'Contact', 'unknown_owner', $email, null, null];
+                continue;
+            }
+
+            if (\App\Models\GlobalSuppression::isSuppressed($normalizedEmail)) {
+                $seenEmails[$normalizedEmail] = true;
+                $blockedRecords[] = ['N/A', 'GLOBAL_SUPPRESSION', 'Contact', $appUsername, $email, null, null];
                 continue;
             }
 

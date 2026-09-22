@@ -1130,18 +1130,11 @@
     }
 
     window.onload = function() {
-<<<<<<< HEAD
+        if (typeof initSidebar === 'function') {
+            initSidebar();
+        }
         fetchCampaignDetails();
         pollInterval = setInterval(fetchCampaignDetails, 3000);
     };
 </script>
 @endsection
-
-=======
-        initSidebar();
-        fetchCampaignDetails();
-        pollInterval = setInterval(fetchCampaignDetails, 3000);
-    };
-    </script>
-    @endsection
->>>>>>> origin/Email0002

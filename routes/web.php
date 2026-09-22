@@ -12,6 +12,7 @@ use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\RepliesController;
+use App\Http\Controllers\PabblyWebhookController;
 use App\Http\Controllers\SalesforceLeadController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\SimulatorController;
@@ -29,6 +30,7 @@ Route::get('/track/open/{token}', [TrackingController::class, 'trackOpen'])->nam
 Route::get('/track/click/{token}', [TrackingController::class, 'trackClick'])->name('track_click');
 Route::match(['get', 'post'], '/track/unsubscribe/{token}', [TrackingController::class, 'trackUnsubscribe'])->name('track_unsubscribe');
 Route::post('/api/simulator/trigger-webhook', [SimulatorController::class, 'apiTriggerWebhook'])->name('provider_webhook');
+Route::post('/api/webhooks/pabbly', [PabblyWebhookController::class, 'handleWebhook'])->name('pabbly.webhook');
 
 // --- AUTHENTICATED WEB UI ROUTES ---
 Route::middleware(['app_auth'])->group(function () {

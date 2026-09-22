@@ -189,7 +189,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             <div class="card-body">
                 <!-- Segmented Control Tabs -->
                 <div class="mb-3">
-                    <ul class="nav segmented-control" id="recipients-tab" role="tablist">
+                    <!-- <ul class="nav segmented-control" id="recipients-tab" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link {{ $isPasteMode ? '' : 'active' }}" id="crm-tab"
                                 data-bs-toggle="pill" data-bs-target="#crm-pane" type="button" role="tab"
@@ -200,7 +200,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 data-bs-toggle="pill" data-bs-target="#paste-pane" type="button" role="tab"
                                 onclick="switchRecipientMethod('paste')">Paste Raw List</button>
                         </li>
-                    </ul>
+                    </ul> -->
                 </div>
 
                 <div class="tab-content" id="recipients-tab-content">
@@ -232,11 +232,11 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                             for="crm-filter-contact"><i
                                                 class="bi bi-person-lines-fill me-1"></i>Contacts</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                        <!-- <input type="radio" class="btn-check" name="crm-type-filter"
                                             id="crm-filter-account" value="Account"
                                             onchange="filterRecipientsType('Account')">
                                         <label class="btn btn-outline-secondary btn-xs fw-medium"
-                                            for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label>
+                                            for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label> -->
                                     </div>
                                 </div>
 
