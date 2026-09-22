@@ -12,48 +12,39 @@
         border-radius: var(--radius-input);
         background-color: #ffffff;
     }
-
     /* Quill custom font family dropdown labels */
     .ql-snow .ql-picker.ql-font .ql-picker-label::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item::before {
         content: 'Default' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="abadi"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="abadi"]::before {
         content: 'Abadi' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="inter"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="inter"]::before {
         content: 'Inter' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
         content: 'Arial' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="courier-new"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier-new"]::before {
         content: 'Courier New' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before {
         content: 'Georgia' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="tahoma"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="tahoma"]::before {
         content: 'Tahoma' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before {
         content: 'Times New Roman' !important;
     }
-
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before {
         content: 'Verdana' !important;
@@ -64,42 +55,34 @@
     .ql-snow .ql-picker.ql-size .ql-picker-item::before {
         content: '14px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before {
         content: '10px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
         content: '12px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before {
         content: '14px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before {
         content: '16px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before {
         content: '18px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
         content: '20px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before {
         content: '24px' !important;
     }
-
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before {
         content: '32px' !important;
@@ -111,7 +94,6 @@
         border-top-right-radius: var(--radius-input);
         background-color: #fafafa;
     }
-
     .ql-container.ql-snow {
         border: 1px solid var(--border-color) !important;
         border-top: none !important;
@@ -158,7 +140,6 @@
         gap: 3px;
         border: 1px solid var(--border-color);
     }
-
     .segmented-control .nav-link {
         border-radius: 6px;
         padding: 0.35rem 0.85rem;
@@ -168,7 +149,6 @@
         transition: all 0.15s ease;
         border: 1px solid transparent;
     }
-
     .segmented-control .nav-link.active {
         background: #ffffff;
         color: #4338ca;
@@ -209,7 +189,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             <div class="card-body">
                 <!-- Segmented Control Tabs -->
                 <div class="mb-3">
-                    <ul class="nav segmented-control" id="recipients-tab" role="tablist">
+                    <!-- <ul class="nav segmented-control" id="recipients-tab" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link {{ $isPasteMode ? '' : 'active' }}" id="crm-tab"
                                 data-bs-toggle="pill" data-bs-target="#crm-pane" type="button" role="tab"
@@ -220,7 +200,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 data-bs-toggle="pill" data-bs-target="#paste-pane" type="button" role="tab"
                                 onclick="switchRecipientMethod('paste')">Paste Raw List</button>
                         </li>
-                    </ul>
+                    </ul> -->
                 </div>
 
                 <div class="tab-content" id="recipients-tab-content">
@@ -252,11 +232,11 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                             for="crm-filter-contact"><i
                                                 class="bi bi-person-lines-fill me-1"></i>Contacts</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                        <!-- <input type="radio" class="btn-check" name="crm-type-filter"
                                             id="crm-filter-account" value="Account"
                                             onchange="filterRecipientsType('Account')">
                                         <label class="btn btn-outline-secondary btn-xs fw-medium"
-                                            for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label>
+                                            for="crm-filter-account"><i class="bi bi-building me-1"></i>Accounts</label> -->
                                     </div>
                                 </div>
 
@@ -329,7 +309,6 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 </div>
                             </div>
                         </div>
-
                         <!-- Search & Quick Selection Bar -->
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-8 col-sm-7">

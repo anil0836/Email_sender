@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -237,7 +236,6 @@
         const savedTheme = localStorage.getItem('selected-theme') || 'indigo';
         changeTheme(savedTheme);
     </script>
-
     <style>
         :root {
             --primary-color: #4f46e5;
@@ -601,7 +599,6 @@
             background: #d4d4d8;
             border-radius: 999px;
         }
-
         ::-webkit-scrollbar-thumb:hover {
             background: #a1a1aa;
         }
@@ -614,7 +611,6 @@
     </style>
     @yield('extra_head')
 </head>
-
 <body>
 
     @if(session('user_id') || Auth::check())

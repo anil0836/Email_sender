@@ -293,8 +293,8 @@ class SalesforceService
             return [false, 'EMAIL_OPT_OUT', $record];
         }
 
-        // 3. Application-level global suppression check
-        if ($email && GlobalSuppression::where('email', $email)->exists()) {
+        // 3. Application-level global suppression check (Normalized & Case-Insensitive)
+        if ($email && GlobalSuppression::isSuppressed($email)) {
             return [false, 'GLOBAL_SUPPRESSION', $record];
         }
 

@@ -9,7 +9,6 @@
         display: inline-block;
         transition: transform 0.15s ease, opacity 0.15s ease;
     }
-
     .stat-number-link:hover {
         opacity: 0.8;
         transform: scale(1.06);
@@ -815,11 +814,15 @@
                 document.getElementById('camp-sender-username').innerText = c.creator_username || 'Unknown';
                 document.getElementById('camp-sender-empid').innerText = c.creator_emp_id || 'N/A';
 
+<<<<<<< HEAD
+                if (c.status === 'pending_approval' && (currentUserRole === 'admin' || c.manager_id === currentUserId)) {
+=======
                 if (c.status === 'pending_approval' &&
                     (currentUserRole === 'admin' ||
                      currentUserRole === 'manager' ||
                      c.manager_user_id === currentUserId ||
                      c.manager_id === currentUserId)) {
+>>>>>>> origin/Email0002
                     approvalCard.classList.remove('d-none');
                 } else {
                     approvalCard.classList.add('d-none');
@@ -1127,9 +1130,11 @@
     }
 
     window.onload = function() {
-        initSidebar();
+        if (typeof initSidebar === 'function') {
+            initSidebar();
+        }
         fetchCampaignDetails();
         pollInterval = setInterval(fetchCampaignDetails, 3000);
     };
-    </script>
-    @endsection
+</script>
+@endsection
