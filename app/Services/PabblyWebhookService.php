@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Log;
 class PabblyWebhookService
 {
     public function __construct(
-        protected SalesforceService $sfService
+        protected SalesforceService $sfService,
+        protected EmailSuppressionService $suppressionService
     ) {}
 
     /**
@@ -44,6 +45,9 @@ class PabblyWebhookService
             'email_unsubscribed', 'unsubscribed', 'unsubscribe', 'subscriber_unsubscribed' => 
                 $this->handleUnsubscribe($email, $campaignId, $messageId, $payload),
 
+            'spam_complaint', 'complaint', 'abuse' => 
+                $this->handleComplaint($email, $campaignId, $messageId, $payload),
+
             'email_delivered', 'delivered', 'delivery' => 
                 $this->handleDelivered($email, $messageId, $payload),
 
@@ -74,14 +78,17 @@ class PabblyWebhookService
             ];
         }
 
-        DB::transaction(function () use ($email, $campaignId, $messageId, $payload) {
-            // 1. Add to Global Suppression List (Idempotent)
-            GlobalSuppression::recordUnsubscribe(
+        $externalEventId = $payload['event_id'] ?? $payload['id'] ?? null;
+
+        DB::transaction(function () use ($email, $campaignId, $messageId, $externalEventId, $payload) {
+            // 1. Add to Global Suppression List via EmailSuppressionService (Idempotent)
+            $this->suppressionService->suppress(
                 email: $email,
                 reason: 'Unsubscribed via Pabbly Webhook',
                 source: 'pabbly_webhook',
                 campaignId: $campaignId,
-                providerMessageId: $messageId,
+                messageId: $messageId,
+                externalEventId: $externalEventId,
                 metadata: $payload
             );
 
@@ -119,8 +126,51 @@ class PabblyWebhookService
         return [
             'success' => true,
             'event' => 'unsubscribed',
-            'email' => $email,
+            'email' => strtolower(trim($email)),
             'message' => "Recipient {$email} permanently added to suppression list.",
+        ];
+    }
+
+    /**
+     * Complaint / Spam Abuse Handler.
+     */
+    protected function handleComplaint(?string $email, ?string $campaignId, ?string $messageId, array $payload): array
+    {
+        if (empty($email)) {
+            Log::warning('[PABBLY WEBHOOK] Complaint received without email address.');
+            return ['success' => false, 'error' => 'Email address missing from payload.'];
+        }
+
+        $externalEventId = $payload['event_id'] ?? $payload['id'] ?? null;
+
+        DB::transaction(function () use ($email, $campaignId, $messageId, $externalEventId, $payload) {
+            $this->suppressionService->suppress(
+                email: $email,
+                reason: 'Spam Complaint via Pabbly Webhook',
+                source: 'pabbly_webhook',
+                campaignId: $campaignId,
+                messageId: $messageId,
+                externalEventId: $externalEventId,
+                metadata: $payload
+            );
+
+            RecipientLog::where('email', $email)->update([
+                'delivery_status' => 'spam_complaint',
+                'decision' => 'blocked',
+                'decision_reason' => 'COMPLIANCE_RULE',
+            ]);
+        });
+
+        Log::warning("[PABBLY WEBHOOK] Spam Complaint: {$email}", [
+            'campaign_id' => $campaignId,
+            'message_id' => $messageId,
+        ]);
+
+        return [
+            'success' => true,
+            'event' => 'complaint',
+            'email' => strtolower(trim($email)),
+            'message' => "Recipient {$email} suppressed due to spam complaint.",
         ];
     }
 
@@ -129,16 +179,42 @@ class PabblyWebhookService
      */
     protected function handleDelivered(?string $email, ?string $messageId, array $payload): array
     {
+        $log = null;
         if ($messageId) {
-            RecipientLog::where('provider_message_id', $messageId)
-                ->whereIn('delivery_status', ['sent', 'queued'])
-                ->update(['delivery_status' => 'delivered']);
+            $log = RecipientLog::where('provider_message_id', $messageId)->first();
         } elseif ($email) {
-            RecipientLog::where('email', $email)
-                ->whereIn('delivery_status', ['sent', 'queued'])
-                ->latest()
-                ->first()
-                ?->update(['delivery_status' => 'delivered']);
+            $log = RecipientLog::where('email', $email)->latest()->first();
+        }
+
+        if ($log) {
+            $country = $payload['data']['country'] ?? ($payload['data']['subscriber']['country'] ?? ($payload['country'] ?? null));
+            $region = $payload['data']['region'] ?? ($payload['data']['state'] ?? ($payload['data']['subscriber']['state'] ?? ($payload['region'] ?? ($payload['state'] ?? null))));
+            $city = $payload['data']['city'] ?? ($payload['data']['subscriber']['city'] ?? ($payload['city'] ?? null));
+
+            if (!$country || !$city) {
+                $resolved = $this->resolveRecipientLocation($log);
+                $country = $country ?: ($resolved['country'] ?? null);
+                $region = $region ?: ($resolved['region'] ?? null);
+                $city = $city ?: ($resolved['city'] ?? null);
+            }
+
+            $updates = [];
+            if (in_array($log->delivery_status, ['sent', 'queued'])) {
+                $updates['delivery_status'] = 'delivered';
+            }
+            if ($country && empty($log->country)) {
+                $updates['country'] = $country;
+            }
+            if ($region && empty($log->region)) {
+                $updates['region'] = $region;
+            }
+            if ($city && empty($log->city)) {
+                $updates['city'] = $city;
+            }
+
+            if (!empty($updates)) {
+                $log->update($updates);
+            }
         }
 
         Log::info("[PABBLY WEBHOOK] Delivered: {$email}");
@@ -159,21 +235,144 @@ class PabblyWebhookService
         }
 
         if ($log) {
+            $country = $payload['data']['country'] ?? ($payload['data']['subscriber']['country'] ?? ($payload['country'] ?? null));
+            $region = $payload['data']['region'] ?? ($payload['data']['state'] ?? ($payload['data']['subscriber']['state'] ?? ($payload['region'] ?? ($payload['state'] ?? null))));
+            $city = $payload['data']['city'] ?? ($payload['data']['subscriber']['city'] ?? ($payload['city'] ?? null));
+
+            if (!$country || !$city) {
+                $resolved = $this->resolveRecipientLocation($log);
+                $country = $country ?: ($resolved['country'] ?? null);
+                $region = $region ?: ($resolved['region'] ?? null);
+                $city = $city ?: ($resolved['city'] ?? null);
+            }
+
+            $logUpdates = [];
             if (in_array($log->delivery_status, ['sent', 'delivered'])) {
-                $log->update(['delivery_status' => 'opened']);
+                $logUpdates['delivery_status'] = 'opened';
+            }
+            if ($country && empty($log->country)) {
+                $logUpdates['country'] = $country;
+            }
+            if ($region && empty($log->region)) {
+                $logUpdates['region'] = $region;
+            }
+            if ($city && empty($log->city)) {
+                $logUpdates['city'] = $city;
+            }
+
+            if (!empty($logUpdates)) {
+                $log->update($logUpdates);
             }
 
             RecipientOpen::create([
                 'recipient_log_id' => $log->id,
                 'opened_at' => Carbon::now(),
-                'ip_address' => request()->ip() ?? 'Pabbly-Webhook',
+                'ip_address' => request()->ip() ?? ($payload['data']['ip'] ?? ($payload['ip'] ?? 'Pabbly-Webhook')),
                 'user_agent' => 'Pabbly Webhook',
+                'country' => $country,
+                'region' => $region,
+                'city' => $city,
             ]);
         }
 
         Log::info("[PABBLY WEBHOOK] Opened: {$email}");
 
         return ['success' => true, 'event' => 'opened', 'email' => $email];
+    }
+
+    /**
+     * Resolve recipient location from Salesforce contact, lead, or mock record.
+     */
+    protected function resolveRecipientLocation(RecipientLog $log): array
+    {
+        // 1. If log already has location
+        if (!empty($log->country)) {
+            return [
+                'country' => $log->country,
+                'region' => $log->region,
+                'city' => $log->city,
+            ];
+        }
+
+        // 2. Lookup Contact
+        if ($log->salesforce_record_id && $log->salesforce_object === 'Contact') {
+            $contact = DB::table('salesforce_contacts')
+                ->where('salesforce_id', $log->salesforce_record_id)
+                ->first();
+            if ($contact && (!empty($contact->mailing_country) || !empty($contact->mailing_city))) {
+                return [
+                    'country' => $contact->mailing_country ?: '',
+                    'region' => $contact->mailing_state ?: '',
+                    'city' => $contact->mailing_city ?: '',
+                ];
+            }
+        }
+
+        // 3. Lookup Lead
+        if ($log->salesforce_record_id && $log->salesforce_object === 'Lead') {
+            $lead = DB::table('salesforce_leads')
+                ->where('salesforce_id', $log->salesforce_record_id)
+                ->first();
+            if ($lead && (!empty($lead->country) || !empty($lead->city))) {
+                return [
+                    'country' => $lead->country ?: '',
+                    'region' => $lead->state ?: '',
+                    'city' => $lead->city ?: '',
+                ];
+            }
+        }
+
+        // 4. Lookup by email across contacts / leads / mock
+        if (!empty($log->email)) {
+            $contactByEmail = DB::table('salesforce_contacts')
+                ->where('email', $log->email)
+                ->first();
+            if ($contactByEmail && (!empty($contactByEmail->mailing_country) || !empty($contactByEmail->mailing_city))) {
+                return [
+                    'country' => $contactByEmail->mailing_country ?: '',
+                    'region' => $contactByEmail->mailing_state ?: '',
+                    'city' => $contactByEmail->mailing_city ?: '',
+                ];
+            }
+
+            $leadByEmail = DB::table('salesforce_leads')
+                ->where('email', $log->email)
+                ->first();
+            if ($leadByEmail && (!empty($leadByEmail->country) || !empty($leadByEmail->city))) {
+                return [
+                    'country' => $leadByEmail->country ?: '',
+                    'region' => $leadByEmail->state ?: '',
+                    'city' => $leadByEmail->city ?: '',
+                ];
+            }
+
+            $mockByEmail = DB::table('salesforce_mock_records')
+                ->where('email', $log->email)
+                ->first();
+            if ($mockByEmail && !empty($mockByEmail->country)) {
+                return [
+                    'country' => $mockByEmail->country ?: '',
+                    'region' => $mockByEmail->region ?: '',
+                    'city' => '',
+                ];
+            }
+        }
+
+        // 5. Lookup mock by record ID
+        if ($log->salesforce_record_id) {
+            $mock = DB::table('salesforce_mock_records')
+                ->where('id', $log->salesforce_record_id)
+                ->first();
+            if ($mock && !empty($mock->country)) {
+                return [
+                    'country' => $mock->country ?: '',
+                    'region' => $mock->region ?: '',
+                    'city' => '',
+                ];
+            }
+        }
+
+        return ['country' => null, 'region' => null, 'city' => null];
     }
 
     /**

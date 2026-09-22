@@ -74,6 +74,28 @@ class CampaignProcessingService
                 $recordId = $recipient->salesforce_record_id;
                 $email = $recipient->email;
 
+                // MANDATORY DIRECT SUPPRESSION CHECK (RACE-CONDITION SHIELD)
+                if (app(EmailSuppressionService::class)->isSuppressed($email)) {
+                    Log::warning("[CampaignProcessing] Immediate send-time suppression caught: {$email} is suppressed.");
+
+                    $recipient->update([
+                        'decision' => 'blocked',
+                        'decision_reason' => 'GLOBAL_SUPPRESSION',
+                        'delivery_status' => 'blocked',
+                        'validated_at' => Carbon::now(),
+                    ]);
+
+                    if ($recipient->campaign_member_id) {
+                        \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                            'status' => 'blocked',
+                        ]);
+                    }
+
+                    $campaign->decrement('total_approved');
+                    $campaign->increment('total_blocked');
+                    continue;
+                }
+
                 // MANDATORY FINAL SEND-TIME REVALIDATION AGAINST SALESFORCE CRM
                 if ($recordId && $recordId !== 'N/A' && !str_starts_with($recordId, '003SF0000000_')) {
                     [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibility($recordId, $appUsername);

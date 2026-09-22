@@ -808,24 +808,24 @@
 
                 const alertContainer = document.getElementById('approval-alert-container');
                 const approvalCard = document.getElementById('manager-approval-card');
-                const currentUserId = {{ session('user_id', Auth::id() ?? 0) }};
-                const currentUserRole = "{{ session('role', Auth::user()->role ?? '') }}";
+                const currentUserId = {{ (int) (session('user_id') ?: (Auth::id() ?? 0)) }};
+                const currentUserRole = "{{ session('role', Auth::user()?->role ?? '') }}";
 
-                document.getElementById('camp-sender-username').innerText = c.creator_username || 'Unknown';
-                document.getElementById('camp-sender-empid').innerText = c.creator_emp_id || 'N/A';
+                const senderUsername = document.getElementById('camp-sender-username');
+                if (senderUsername) senderUsername.innerText = c.creator_username || 'Unknown';
+                const senderEmpId = document.getElementById('camp-sender-empid');
+                if (senderEmpId) senderEmpId.innerText = c.creator_emp_id || 'N/A';
 
-<<<<<<< HEAD
-                if (c.status === 'pending_approval' && (currentUserRole === 'admin' || c.manager_id === currentUserId)) {
-=======
-                if (c.status === 'pending_approval' &&
-                    (currentUserRole === 'admin' ||
-                     currentUserRole === 'manager' ||
-                     c.manager_user_id === currentUserId ||
-                     c.manager_id === currentUserId)) {
->>>>>>> origin/Email0002
-                    approvalCard.classList.remove('d-none');
-                } else {
-                    approvalCard.classList.add('d-none');
+                if (approvalCard) {
+                    if (c.status === 'pending_approval' &&
+                        (currentUserRole === 'admin' ||
+                         currentUserRole === 'manager' ||
+                         c.manager_user_id === currentUserId ||
+                         c.manager_id === currentUserId)) {
+                        approvalCard.classList.remove('d-none');
+                    } else {
+                        approvalCard.classList.add('d-none');
+                    }
                 }
 
                 if (c.status === 'pending_approval') {

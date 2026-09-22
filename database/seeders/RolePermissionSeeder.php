@@ -41,6 +41,12 @@ class RolePermissionSeeder extends Seeder
             'team-campaigns.view',
             'users.manage',
             'infrastructure.manage',
+
+            // Global Suppression & Unsubscribe Permissions
+            'email-suppressions.view',
+            'email-suppressions.create',
+            'email-suppressions.import',
+            'email-suppressions.resubscribe',
         ];
 
         foreach ($permissions as $permissionName) {

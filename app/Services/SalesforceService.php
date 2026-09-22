@@ -148,6 +148,7 @@ class SalesforceService
             'consent_status' => 'valid',
             'lawful_basis' => 'Legitimate Interest',
             'deal_category' => $lead->industry ?: 'General',
+            'city' => $lead->city ?: '',
             'region' => $lead->state ?: 'Global',
             'country' => $lead->country ?: '',
         ];
@@ -184,6 +185,7 @@ class SalesforceService
             'consent_status' => 'valid',
             'lawful_basis' => 'Consent',
             'deal_category' => $contact->department ?: 'General',
+            'city' => $contact->mailing_city ?: '',
             'region' => $contact->mailing_state ?: 'Global',
             'country' => $contact->mailing_country ?: '',
         ];

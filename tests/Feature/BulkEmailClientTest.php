@@ -665,6 +665,8 @@ class BulkEmailClientTest extends TestCase
         $res->assertStatus(200);
         $data = $res->json();
         $this->assertArrayHasKey('counters', $data);
+        $this->assertArrayHasKey('unsubscribed', $data['counters']);
+        $this->assertArrayHasKey('opened', $data['counters']);
         $this->assertArrayHasKey('geo_data', $data);
         $this->assertArrayHasKey('timeline_data', $data);
         $this->assertArrayHasKey('recent_campaigns', $data);
@@ -676,6 +678,22 @@ class BulkEmailClientTest extends TestCase
         $res->assertStatus(200);
         $recipients = $res->json();
         $this->assertIsArray($recipients);
+
+        // 3. Unsubscribed recipient list drilldown
+        $resUnsub = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->getJson('/api/dashboard/recipient-list?status=unsubscribed');
+        $resUnsub->assertStatus(200);
+        $unsubRecipients = $resUnsub->json();
+        $this->assertIsArray($unsubRecipients);
+
+        // 4. Opened recipient list drilldown
+        $resOpened = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->getJson('/api/dashboard/recipient-list?status=opened');
+        $resOpened->assertStatus(200);
+        $openedRecipients = $resOpened->json();
+        $this->assertIsArray($openedRecipients);
     }
 
     public function test_all_blade_views_render_successfully(): void
@@ -790,7 +808,7 @@ class BulkEmailClientTest extends TestCase
         $campaignId = $res->json('campaign_id');
         $campaign = Campaign::find($campaignId);
         $this->assertNotNull($campaign);
-        $this->assertEquals('support@b2bexportsllc.com', $campaign->reply_to);
+        $this->assertEquals(config('pabbly.reply_to', 'support@b2bexportsllc.com'), $campaign->reply_to);
     }
 
     public function test_campaign_creation_persists_custom_reply_to(): void

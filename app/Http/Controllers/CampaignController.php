@@ -543,6 +543,9 @@ class CampaignController extends Controller
                 'owner_verification_status' => $member->owner_verification_status,
                 'decision' => 'approved',
                 'delivery_status' => $status,
+                'country' => !empty($rec['country']) ? $rec['country'] : null,
+                'region' => !empty($rec['region']) ? $rec['region'] : null,
+                'city' => !empty($rec['city']) ? $rec['city'] : null,
                 'tracking_token' => (string) Str::uuid(),
             ]);
         }
@@ -577,6 +580,9 @@ class CampaignController extends Controller
                 'decision' => 'blocked',
                 'decision_reason' => $reason,
                 'delivery_status' => 'blocked',
+                'country' => !empty($recordData['country']) ? $recordData['country'] : null,
+                'region' => !empty($recordData['region']) ? $recordData['region'] : null,
+                'city' => !empty($recordData['city']) ? $recordData['city'] : null,
                 'tracking_token' => (string) Str::uuid(),
             ]);
         }

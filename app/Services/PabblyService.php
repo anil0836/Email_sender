@@ -143,4 +143,58 @@ class PabblyService
             'response' => $sendData,
         ];
     }
+
+    /**
+     * Get campaign details and delivery statistics from Pabbly API.
+     */
+    public function getCampaignDetails(string $pabblyCampaignId): ?array
+    {
+        if (empty($this->apiKey)) {
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+            ])->timeout(15)->get("{$this->baseUrl}/campaigns/{$pabblyCampaignId}");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::warning("[PabblyService] getCampaignDetails returned status {$response->status()}: " . $response->body());
+            return null;
+        } catch (Exception $e) {
+            Log::error("[PabblyService] getCampaignDetails exception: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get subscriber statistics and engagement from Pabbly API.
+     */
+    public function getSubscriberStats(string $subscriberIdOrEmail): ?array
+    {
+        if (empty($this->apiKey)) {
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+            ])->timeout(15)->get("{$this->baseUrl}/subscribers/{$subscriberIdOrEmail}");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return null;
+        } catch (Exception $e) {
+            Log::error("[PabblyService] getSubscriberStats exception: " . $e->getMessage());
+            return null;
+        }
+    }
 }
+

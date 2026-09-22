@@ -364,6 +364,7 @@ class DatabaseSeeder extends Seeder
                     }
 
                     $sentTime = $createdAt->copy()->addMinutes(rand(1, 10));
+                    $loc = $geoLocations[array_rand($geoLocations)];
 
                     $log = RecipientLog::create([
                         'campaign_id' => $campaignId,
@@ -376,6 +377,9 @@ class DatabaseSeeder extends Seeder
                         'delivery_status' => $status,
                         'provider_message_id' => 'msg-' . Str::random(12),
                         'error_message' => $err,
+                        'country' => $loc[0],
+                        'region' => $loc[1],
+                        'city' => $loc[2],
                         'tracking_token' => (string) Str::uuid(),
                         'validated_at' => $createdAt,
                         'sent_at' => $sentTime,
@@ -385,7 +389,6 @@ class DatabaseSeeder extends Seeder
 
                     if (in_array($status, ['opened', 'spam_complaint'])) {
                         $openTime = $sentTime->copy()->addMinutes(rand(5, 300));
-                        $loc = $geoLocations[array_rand($geoLocations)];
 
                         RecipientOpen::create([
                             'recipient_log_id' => $log->id,

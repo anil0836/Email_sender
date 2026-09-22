@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\AdminRolePermissionController;
 use App\Http\Controllers\Admin\SalesforceAccountAdminController;
 use App\Http\Controllers\Admin\SalesforceContactAdminController;
 use App\Http\Controllers\Admin\SalesforceLeadAdminController;
+use App\Http\Controllers\Admin\EmailSuppressionAdminController;
+use App\Http\Controllers\Admin\EmailSuppressionImportController;
 use App\Http\Controllers\Admin\SalesforceSfUserAdminController;
 use App\Http\Controllers\Admin\SalesforceUserAdminController;
 use App\Http\Controllers\AdminController;
@@ -104,6 +106,15 @@ Route::middleware(['app_auth'])->group(function () {
         Route::delete('/api/admin/permissions/{permission}', [AdminRolePermissionController::class, 'deletePermission'])->name('api.admin.permissions.delete');
         Route::post('/api/admin/users/{user}/assign-role', [AdminRolePermissionController::class, 'assignUserRole'])->name('api.admin.users.assign_role');
         Route::post('/api/admin/roles-permissions/reset-cache', [AdminRolePermissionController::class, 'resetCache'])->name('api.admin.roles.reset_cache');
+
+        // Global Email Suppression & Compliance Management
+        Route::get('/admin/email-suppressions', [EmailSuppressionAdminController::class, 'index'])->name('admin.suppressions.index');
+        Route::post('/admin/email-suppressions', [EmailSuppressionAdminController::class, 'store'])->name('admin.suppressions.store');
+        Route::post('/admin/email-suppressions/{id}/resubscribe', [EmailSuppressionAdminController::class, 'resubscribe'])->name('admin.suppressions.resubscribe');
+        Route::get('/admin/email-suppressions/export', [EmailSuppressionAdminController::class, 'export'])->name('admin.suppressions.export');
+        Route::get('/admin/email-suppressions/import', [EmailSuppressionImportController::class, 'showImportForm'])->name('admin.suppressions.import');
+        Route::post('/admin/email-suppressions/import', [EmailSuppressionImportController::class, 'importCsv'])->name('admin.suppressions.import.post');
+        Route::get('/admin/email-suppressions/sample-csv', [EmailSuppressionImportController::class, 'downloadSample'])->name('admin.suppressions.sample');
     });
 
     // --- AUTHENTICATED JSON API ENDPOINTS ---

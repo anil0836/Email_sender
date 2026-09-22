@@ -711,6 +711,18 @@
                     <i class="bi bi-hdd-network"></i> IPs & Domains
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.suppressions.index') ? 'active' : '' }}"
+                    href="{{ route('admin.suppressions.index') }}">
+                    <i class="bi bi-shield-x"></i> Email Suppressions
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.suppressions.import') ? 'active' : '' }}"
+                    href="{{ route('admin.suppressions.import') }}">
+                    <i class="bi bi-file-earmark-arrow-up"></i> Import Suppression CSV
+                </a>
+            </li>
             <li class="nav-item-header">Salesforce Sync</li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('admin.salesforce_leads*') ? 'active' : '' }}"
