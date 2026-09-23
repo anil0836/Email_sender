@@ -46,6 +46,7 @@ Route::middleware(['app_auth'])->group(function () {
     });
     Route::middleware(['permission:bulk-mail|bulk-mail.view'])->group(function () {
         Route::get('/campaign/bulk', [CampaignController::class, 'bulkEmailView'])->name('campaign_bulk_view');
+        Route::get('/campaign/sample-csv', [CampaignController::class, 'downloadSampleCsv'])->name('campaign.sample_csv');
     });
 
     Route::get('/campaign/list', [CampaignController::class, 'listView'])->name('campaign_list_view');
@@ -131,8 +132,9 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/api/salesforce/campaign-recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.campaign_recipients');
 
     // Bulk Mail APIs (Protected by Spatie Bulk-Mail permissions)
-    Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new'])->group(function () {
+    Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new|bulk-mail.view'])->group(function () {
         Route::post('/api/campaign/validate', [CampaignController::class, 'apiValidate'])->name('api.campaign.validate');
+        Route::post('/api/campaign/parse-csv', [CampaignController::class, 'apiParseCsv'])->name('api.campaign.parse_csv');
     });
     Route::middleware(['permission:bulk-mail|bulk-mail.send'])->group(function () {
         Route::post('/api/campaign/send', [CampaignController::class, 'apiSend'])->name('api.campaign.send');

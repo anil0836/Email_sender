@@ -175,12 +175,10 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <h6 class="mb-0 fw-semibold text-zinc-900">
                         <i
                             class="bi {{ $isPasteMode ? 'bi-envelope-at text-indigo-600' : 'bi-people text-indigo-600' }} me-1.5"></i>
-                        {{ $isPasteMode ? 'Bulk Email Recipients (Paste Raw List)' : 'Configure Recipients' }}
+                        {{ $isPasteMode ? 'Bulk Email Recipients (Paste List or Upload CSV)' : 'Configure Recipients' }}
                     </h6>
                     <small class="text-zinc-500" style="font-size: 0.76rem;">
-                        {{ $isPasteMode ? 'Paste email addresses directly. Opt-out, suppression, and compliance records
-                        will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and
-                        consent checks are applied automatically.' }}
+                        {{ $isPasteMode ? 'Upload a CSV file or paste email addresses directly. Opt-out, suppression, and compliance records will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and consent checks are applied automatically.' }}
                     </small>
                 </div>
                 <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">{{
@@ -336,18 +334,96 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         </div>
                     </div>
 
-                    <!-- Tab 2: Paste Email List -->
+                    <!-- Tab 2: Paste Email List & CSV Upload -->
                     <div class="tab-pane fade {{ $isPasteMode ? 'show active' : '' }}" id="paste-pane" role="tabpanel">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <p class="text-zinc-500 mb-0" style="font-size: 0.78rem;">Paste email addresses line-by-line
-                                or comma-separated. Opt-out and compliance records will be verified automatically.</p>
-                            <span class="badge bg-primary-soft text-indigo-700 fw-semibold" id="pasted-email-counter">0
-                                detected</span>
+                        <!-- CSV File Upload Dropzone Card -->
+                        <div class="p-3 mb-3 bg-zinc-50 rounded-3" style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-semibold text-zinc-900" style="font-size: 0.82rem;">
+                                        <i class="bi bi-file-earmark-spreadsheet-fill text-indigo-600 me-1"></i> Upload Recipient CSV / Text File
+                                    </span>
+                                    <span class="badge bg-white text-zinc-600 border" style="font-size: 0.7rem;">.csv, .txt, .tsv</span>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <a href="{{ route('campaign.sample_csv') }}" class="btn btn-outline-secondary btn-xs" title="Download formatted sample CSV template">
+                                        <i class="bi bi-download me-1"></i> Sample CSV
+                                    </a>
+                                    <button type="button" class="btn btn-primary btn-xs" onclick="document.getElementById('csv-file-input').click()">
+                                        <i class="bi bi-folder2-open me-1"></i> Browse File
+                                    </button>
+                                    <input type="file" id="csv-file-input" accept=".csv,.txt,.tsv" class="d-none" onchange="handleCsvFileInput(this.files)">
+                                </div>
+                            </div>
+
+                            <!-- Interactive Drag-and-Drop Area -->
+                            <div id="csv-dropzone" class="p-3 text-center rounded-3 position-relative" 
+                                style="border: 2px dashed #cbd5e1; background-color: #ffffff; cursor: pointer; transition: all 0.2s ease;"
+                                onclick="document.getElementById('csv-file-input').click()">
+                                <i class="bi bi-cloud-arrow-up text-indigo-600 fs-3 d-block mb-1"></i>
+                                <div class="fw-semibold text-zinc-800" style="font-size: 0.84rem;">
+                                    Drag and drop your CSV file here, or <span class="text-indigo-600 text-decoration-underline">browse to choose</span>
+                                </div>
+                                <small class="text-zinc-500 d-block mt-0.5" style="font-size: 0.74rem;">
+                                    Auto-detects email columns (<code class="text-indigo-700">email</code>, <code class="text-indigo-700">recipient</code>, etc.) or scans multi-column sheets. Up to 10MB.
+                                </small>
+                            </div>
+
+                            <!-- Upload Status & Summary Box (Hidden until file parsed) -->
+                            <div id="csv-status-card" class="d-none mt-2 p-2.5 rounded-2 bg-white border border-indigo-200">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-success-soft text-success p-1 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+                                            <i class="bi bi-check2 text-success fw-bold"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold text-zinc-900" style="font-size: 0.8rem;">
+                                                <span id="csv-status-filename">filename.csv</span>
+                                                <span class="badge bg-success-soft text-emerald-800 ms-1" id="csv-status-count-badge">0 Emails Extracted</span>
+                                            </div>
+                                            <small class="text-zinc-500" style="font-size: 0.72rem;" id="csv-status-details">
+                                                Parsed 0 rows. Duplicates removed.
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-secondary btn-xs active" id="btn-import-replace" onclick="setImportMode('replace')">Replace List</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-xs" id="btn-import-append" onclick="setImportMode('append')">Append</button>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-danger btn-xs" onclick="clearCsvImport()" title="Remove imported file">
+                                            <i class="bi bi-x-circle me-1"></i> Clear File
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Divider / Raw Paste Area Header -->
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <div>
+                                <span class="fw-semibold text-zinc-800" style="font-size: 0.8rem;">
+                                    <i class="bi bi-pencil-square text-zinc-500 me-1"></i> Recipient Email List (Manual or CSV Extracted)
+                                </span>
+                                <small class="text-zinc-500 d-block" style="font-size: 0.74rem;">
+                                    One email per line or separated by commas. Opt-out and compliance records will be verified automatically.
+                                </small>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="cleanAndDeduplicatePasted()" title="Remove duplicate emails and normalize format">
+                                    <i class="bi bi-magic me-1"></i> Clean &amp; Dedupe
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="clearPastedList()" title="Clear all email text">
+                                    <i class="bi bi-trash me-1"></i> Clear
+                                </button>
+                                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2 py-1" id="pasted-email-counter">0 detected</span>
+                            </div>
+                        </div>
+
                         <div>
                             <textarea class="form-control font-monospace" id="pasted-emails" rows="6"
                                 placeholder="john.doe@company.com&#10;jane.smith@partner.net&#10;david@leads.com"
-                                style="font-size: 0.82rem;" oninput="updatePastedCount()"></textarea>
+                                style="font-size: 0.82rem; line-height: 1.5;" oninput="updatePastedCount()"></textarea>
                         </div>
                     </div>
                 </div>
@@ -1241,6 +1317,300 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         if (recipientMethod === 'paste') {
             document.getElementById('selected-count').innerText = `${emails.length} Emails Detected`;
         }
+    }
+
+    // --- CSV File Upload, Drag-and-Drop & Email Extraction ---
+    let lastParsedCsvEmails = [];
+    let importMode = 'replace'; // 'replace' or 'append'
+    let currentCsvFileName = '';
+    let currentCsvTotalRows = 0;
+
+    function handleCsvFileInput(files) {
+        if (!files || files.length === 0) return;
+        parseCsvFileClient(files[0]);
+    }
+
+    function initCsvDropzone() {
+        const dropzone = document.getElementById('csv-dropzone');
+        if (!dropzone) return;
+
+        ['dragenter', 'dragover'].forEach(name => {
+            dropzone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = '#6366f1';
+                dropzone.style.backgroundColor = '#eef2ff';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+            dropzone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = '#cbd5e1';
+                dropzone.style.backgroundColor = '#ffffff';
+            });
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                parseCsvFileClient(e.dataTransfer.files[0]);
+            }
+        });
+    }
+
+    function parseCsvFileClient(file) {
+        if (!file) return;
+
+        const validExtensions = ['.csv', '.txt', '.tsv'];
+        const fileName = file.name;
+        const fileExt = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+
+        if (!validExtensions.includes(fileExt)) {
+            alert("Please upload a valid .csv, .txt, or .tsv file.");
+            return;
+        }
+
+        currentCsvFileName = fileName;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            processCsvContent(content, fileName);
+        };
+        reader.onerror = function() {
+            uploadCsvToServer(file);
+        };
+        reader.readAsText(file);
+    }
+
+    function parseCsvLine(line) {
+        const result = [];
+        let insideQuote = false;
+        let entry = '';
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') {
+                if (insideQuote && line[i + 1] === '"') {
+                    entry += '"';
+                    i++;
+                } else {
+                    insideQuote = !insideQuote;
+                }
+            } else if ((c === ',' || c === '\t' || c === ';') && !insideQuote) {
+                result.push(entry.trim());
+                entry = '';
+            } else {
+                entry += c;
+            }
+        }
+        result.push(entry.trim());
+        return result;
+    }
+
+    function processCsvContent(text, fileName) {
+        if (!text || !text.trim()) {
+            alert("The uploaded file appears to be empty.");
+            return;
+        }
+
+        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+        if (lines.length === 0) {
+            alert("No data lines found in the uploaded file.");
+            return;
+        }
+
+        currentCsvTotalRows = lines.length;
+
+        // Parse first line to check for headers
+        const headerRow = parseCsvLine(lines[0]);
+        let emailColIdx = -1;
+        const headerKeywords = ['email', 'e-mail', 'mail', 'email address', 'email_address', 'recipient', 'recipient_email', 'contact email', 'contact_email', 'work email'];
+
+        headerRow.forEach((col, idx) => {
+            const clean = col.trim().toLowerCase().replace(/[\"\'\`]/g, '');
+            if (headerKeywords.includes(clean)) {
+                emailColIdx = idx;
+            }
+        });
+
+        const extractedEmails = [];
+        const seen = new Set();
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
+
+        const startIdx = (emailColIdx !== -1) ? 1 : 0;
+
+        for (let i = startIdx; i < lines.length; i++) {
+            const row = parseCsvLine(lines[i]);
+            if (emailColIdx !== -1 && row[emailColIdx] !== undefined) {
+                const cell = row[emailColIdx].replace(/[\"\'\`]/g, '').trim();
+                if (emailRegex.test(cell)) {
+                    const norm = cell.toLowerCase();
+                    if (!seen.has(norm)) {
+                        seen.add(norm);
+                        extractedEmails.push(cell);
+                    }
+                }
+            } else {
+                row.forEach(cell => {
+                    const cleaned = cell.replace(/[\"\'\`]/g, '').trim();
+                    if (emailRegex.test(cleaned)) {
+                        const norm = cleaned.toLowerCase();
+                        if (!seen.has(norm)) {
+                            seen.add(norm);
+                            extractedEmails.push(cleaned);
+                        }
+                    } else {
+                        const matches = cleaned.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+                        if (matches) {
+                            matches.forEach(m => {
+                                const norm = m.toLowerCase();
+                                if (!seen.has(norm)) {
+                                    seen.add(norm);
+                                    extractedEmails.push(m);
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
+        // Fallback global regex scan if no emails found yet
+        if (extractedEmails.length === 0) {
+            const globalMatches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+            if (globalMatches) {
+                globalMatches.forEach(m => {
+                    const norm = m.toLowerCase();
+                    if (!seen.has(norm)) {
+                        seen.add(norm);
+                        extractedEmails.push(m);
+                    }
+                });
+            }
+        }
+
+        if (extractedEmails.length === 0) {
+            alert("No valid email addresses could be detected in this file.");
+            return;
+        }
+
+        lastParsedCsvEmails = extractedEmails;
+        applyParsedEmailsToTextarea(extractedEmails, fileName, lines.length);
+    }
+
+    function applyParsedEmailsToTextarea(emails, fileName, totalRows) {
+        const ta = document.getElementById('pasted-emails');
+        if (!ta) return;
+
+        if (importMode === 'append' && ta.value.trim().length > 0) {
+            const existing = ta.value.trim().split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0);
+            const combinedSet = new Set(existing.map(e => e.toLowerCase()));
+            const toAdd = [];
+            emails.forEach(e => {
+                if (!combinedSet.has(e.toLowerCase())) {
+                    combinedSet.add(e.toLowerCase());
+                    toAdd.push(e);
+                }
+            });
+            ta.value = existing.join('\n') + (toAdd.length > 0 ? '\n' + toAdd.join('\n') : '');
+        } else {
+            ta.value = emails.join('\n');
+        }
+
+        const statusCard = document.getElementById('csv-status-card');
+        const statusFileName = document.getElementById('csv-status-filename');
+        const statusCountBadge = document.getElementById('csv-status-count-badge');
+        const statusDetails = document.getElementById('csv-status-details');
+
+        if (statusCard) {
+            statusCard.classList.remove('d-none');
+            if (statusFileName) statusFileName.textContent = fileName || 'Uploaded File';
+            if (statusCountBadge) statusCountBadge.textContent = `${emails.length} Emails Extracted`;
+            if (statusDetails) statusDetails.textContent = `Parsed ${totalRows || emails.length} rows. Cleaned and deduplicated.`;
+        }
+
+        updatePastedCount();
+    }
+
+    function setImportMode(mode) {
+        importMode = mode;
+        const btnReplace = document.getElementById('btn-import-replace');
+        const btnAppend = document.getElementById('btn-import-append');
+        if (btnReplace && btnAppend) {
+            if (mode === 'replace') {
+                btnReplace.classList.add('active');
+                btnAppend.classList.remove('active');
+            } else {
+                btnAppend.classList.add('active');
+                btnReplace.classList.remove('active');
+            }
+        }
+        if (lastParsedCsvEmails.length > 0) {
+            applyParsedEmailsToTextarea(lastParsedCsvEmails, currentCsvFileName, currentCsvTotalRows);
+        }
+    }
+
+    function clearCsvImport() {
+        lastParsedCsvEmails = [];
+        currentCsvFileName = '';
+        currentCsvTotalRows = 0;
+        const input = document.getElementById('csv-file-input');
+        if (input) input.value = '';
+        const statusCard = document.getElementById('csv-status-card');
+        if (statusCard) statusCard.classList.add('d-none');
+    }
+
+    function clearPastedList() {
+        const ta = document.getElementById('pasted-emails');
+        if (ta) {
+            ta.value = '';
+            updatePastedCount();
+        }
+        clearCsvImport();
+    }
+
+    function cleanAndDeduplicatePasted() {
+        const ta = document.getElementById('pasted-emails');
+        if (!ta || !ta.value.trim()) return;
+        const emails = ta.value.split(/[\n,;\t]+/).map(e => e.trim()).filter(e => e.length > 0 && e.includes('@'));
+        const seen = new Set();
+        const cleaned = [];
+        emails.forEach(e => {
+            const norm = e.toLowerCase();
+            if (!seen.has(norm)) {
+                seen.add(norm);
+                cleaned.push(e);
+            }
+        });
+        ta.value = cleaned.join('\n');
+        updatePastedCount();
+    }
+
+    function uploadCsvToServer(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('_token', '{{ csrf_token() }}');
+
+        fetch('/api/campaign/parse-csv', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.emails) {
+                lastParsedCsvEmails = data.emails;
+                currentCsvFileName = data.filename;
+                currentCsvTotalRows = data.total_rows;
+                applyParsedEmailsToTextarea(data.emails, data.filename, data.total_rows);
+            } else {
+                alert(data.message || "Failed to parse CSV file.");
+            }
+        })
+        .catch(err => {
+            console.error("CSV upload error:", err);
+            alert("Error uploading CSV file.");
+        });
     }
 
     function loadSendingDomains() {
@@ -2151,6 +2521,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         if (recipientMethod === 'paste') {
             updatePastedCount();
         }
+
+        initCsvDropzone();
 
         // Prevent closing of bootstrap dropdowns when clicking checkboxes inside them
         document.querySelectorAll('.dropdown-menu').forEach(menu => {

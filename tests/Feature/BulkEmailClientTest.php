@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class BulkEmailClientTest extends TestCase
@@ -886,6 +887,67 @@ class BulkEmailClientTest extends TestCase
             }
             return true;
         });
+    }
+
+    public function test_bulk_email_view_contains_csv_upload_elements(): void
+    {
+        $user = User::where('username', 'user')->first();
+
+        $response = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user'])
+            ->get('/campaign/bulk');
+
+        $response->assertStatus(200);
+        $response->assertSee('Upload Recipient CSV');
+        $response->assertSee('csv-dropzone');
+        $response->assertSee('csv-file-input');
+        $response->assertSee('Sample CSV');
+        $response->assertSee('Clean & Dedupe');
+        $response->assertSee('initCsvDropzone');
+    }
+
+    public function test_download_sample_csv(): void
+    {
+        $user = User::where('username', 'user')->first();
+
+        $response = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user'])
+            ->get('/campaign/sample-csv');
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertStringContainsString('Email,First Name,Last Name,Company,Title', $content);
+        $this->assertStringContainsString('john.doe@example.com', $content);
+    }
+
+    public function test_parse_csv_api_endpoint(): void
+    {
+        $user = User::where('username', 'user')->first();
+
+        $csvData = "Email,First Name,Last Name\n" .
+                   "alpha@example.com,Alpha,User\n" .
+                   "beta@example.com,Beta,User\n" .
+                   "alpha@example.com,Duplicate,User\n"; // duplicate to test deduplication
+
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvData);
+
+        $response = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user'])
+            ->post('/api/campaign/parse-csv', [
+                'file' => $file,
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'filename' => 'recipients.csv',
+            'detected_count' => 2,
+        ]);
+
+        $emails = $response->json('emails');
+        $this->assertContains('alpha@example.com', $emails);
+        $this->assertContains('beta@example.com', $emails);
     }
 }
 

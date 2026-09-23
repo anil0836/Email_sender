@@ -969,4 +969,111 @@ class CampaignController extends Controller
             'Content-Disposition' => "attachment; filename=\"{$decodedFilename}\"",
         ]);
     }
+
+    /**
+     * Download sample CSV template for bulk recipient import.
+     */
+    public function downloadSampleCsv()
+    {
+        $csvContent = "Email,First Name,Last Name,Company,Title\n" .
+            "john.doe@example.com,John,Doe,Acme Corporation,Procurement Manager\n" .
+            "jane.smith@example.com,Jane,Smith,Global Logistics,Director of Operations\n" .
+            "michael.brown@example.com,Michael,Brown,Apex Technologies,VP Sales\n" .
+            "sarah.connor@example.com,Sarah,Connor,Cyberdyne Systems,Head of IT\n" .
+            "david.clark@example.com,David,Clark,Summit Partners,Senior Buyer\n";
+
+        return response($csvContent, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="bulk_recipients_sample.csv"',
+        ]);
+    }
+
+    /**
+     * Parse an uploaded CSV / TXT file for valid email addresses.
+     */
+    public function apiParseCsv(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|max:10240', // Max 10MB
+        ]);
+
+        $file = $request->file('file');
+        $filePath = $file->getRealPath();
+        $filename = $file->getClientOriginalName();
+
+        $emails = [];
+        $seen = [];
+        $totalRows = 0;
+
+        if (($handle = fopen($filePath, 'r')) !== false) {
+            $firstRow = fgetcsv($handle);
+            $emailColIndex = null;
+
+            if ($firstRow !== false) {
+                $totalRows++;
+                foreach ($firstRow as $idx => $cell) {
+                    $cleanedHeader = strtolower(trim((string)$cell));
+                    if (in_array($cleanedHeader, ['email', 'e-mail', 'mail', 'email address', 'email_address', 'recipient', 'contact email', 'contact_email', 'work email'])) {
+                        $emailColIndex = $idx;
+                        break;
+                    }
+                }
+
+                if ($emailColIndex === null) {
+                    foreach ($firstRow as $cell) {
+                        $trimmed = trim((string)$cell);
+                        if (filter_var($trimmed, FILTER_VALIDATE_EMAIL)) {
+                            $norm = strtolower($trimmed);
+                            if (!isset($seen[$norm])) {
+                                $seen[$norm] = true;
+                                $emails[] = $norm;
+                            }
+                        }
+                    }
+                }
+            }
+
+            while (($row = fgetcsv($handle)) !== false) {
+                $totalRows++;
+                if ($emailColIndex !== null && isset($row[$emailColIndex])) {
+                    $val = trim((string)$row[$emailColIndex]);
+                    if (filter_var($val, FILTER_VALIDATE_EMAIL)) {
+                        $norm = strtolower($val);
+                        if (!isset($seen[$norm])) {
+                            $seen[$norm] = true;
+                            $emails[] = $norm;
+                        }
+                    }
+                } else {
+                    foreach ($row as $cell) {
+                        $val = trim((string)$cell);
+                        if (filter_var($val, FILTER_VALIDATE_EMAIL)) {
+                            $norm = strtolower($val);
+                            if (!isset($seen[$norm])) {
+                                $seen[$norm] = true;
+                                $emails[] = $norm;
+                            }
+                        } elseif (preg_match_all('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $val, $matches)) {
+                            foreach ($matches[0] as $match) {
+                                $norm = strtolower(trim($match));
+                                if (!isset($seen[$norm])) {
+                                    $seen[$norm] = true;
+                                    $emails[] = $norm;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            fclose($handle);
+        }
+
+        return response()->json([
+            'success' => true,
+            'filename' => $filename,
+            'total_rows' => $totalRows,
+            'detected_count' => count($emails),
+            'emails' => $emails,
+        ]);
+    }
 }
