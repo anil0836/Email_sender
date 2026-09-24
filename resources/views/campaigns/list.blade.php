@@ -37,7 +37,7 @@
 
 @php
     $totalCount = $campaigns->count();
-    $pendingCount = $campaigns->where('status', 'pending_approval')->count();
+    $pendingCount = $campaigns->whereIn('status', ['pending_approval', 'pending_line_manager', 'pending_manager'])->count();
     $sentCount = $campaigns->whereIn('status', ['queued', 'sending', 'completed'])->count();
     $scheduledCount = $campaigns->where('status', 'scheduled')->count();
     $rejectedCount = $campaigns->where('status', 'rejected')->count();
@@ -167,7 +167,7 @@
                         <tbody id="campaigns-table-body">
                             @forelse($campaigns as $c)
                             @php
-                                $isPending = ($c->status === 'pending_approval');
+                                $isPending = in_array($c->status, ['pending_approval', 'pending_line_manager', 'pending_manager']);
                                 $isSent = in_array($c->status, ['queued', 'sending', 'completed']);
                                 $isScheduled = ($c->status === 'scheduled');
                                 $isRejected = ($c->status === 'rejected');
@@ -190,7 +190,11 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @if($c->status === 'pending_approval')
+                                    @if($c->status === 'pending_line_manager')
+                                        <span class="badge bg-warning-soft text-amber-900"><i class="bi bi-clock me-1"></i>Pending Line Manager</span>
+                                    @elseif($c->status === 'pending_manager')
+                                        <span class="badge bg-warning-soft text-amber-900"><i class="bi bi-clock me-1"></i>Pending Manager</span>
+                                    @elseif($c->status === 'pending_approval')
                                         <span class="badge bg-warning-soft text-amber-900"><i class="bi bi-clock me-1"></i>Pending Approval</span>
                                     @elseif($c->status === 'queued')
                                         <span class="badge bg-primary-soft text-indigo-700"><i class="bi bi-send me-1"></i>Queued</span>
@@ -232,27 +236,50 @@
                                     </div>
                                 </td>
                                 <td>
-                                    @if($c->status === 'pending_approval')
+                                    @if($c->status === 'pending_line_manager')
                                         <div class="text-amber-800 fw-medium d-flex align-items-center gap-1" style="font-size: 0.76rem;">
-                                            <i class="bi bi-hourglass-split"></i> Awaiting Manager Review
+                                            <i class="bi bi-hourglass-split"></i> Awaiting Line Manager
+                                        </div>
+                                        @if($c->currentApprover)
+                                            <div class="text-zinc-500" style="font-size: 0.7rem;">
+                                                Approver: {{ $c->currentApprover->name ?: $c->currentApprover->username }}
+                                            </div>
+                                        @endif
+                                    @elseif($c->status === 'pending_manager')
+                                        <div class="text-amber-800 fw-medium d-flex align-items-center gap-1" style="font-size: 0.76rem;">
+                                            <i class="bi bi-hourglass-split"></i> Awaiting Manager
+                                        </div>
+                                        @if($c->currentApprover)
+                                            <div class="text-zinc-500" style="font-size: 0.7rem;">
+                                                Approver: {{ $c->currentApprover->name ?: $c->currentApprover->username }}
+                                            </div>
+                                        @endif
+                                    @elseif($c->status === 'pending_approval')
+                                        <div class="text-amber-800 fw-medium d-flex align-items-center gap-1" style="font-size: 0.76rem;">
+                                            <i class="bi bi-hourglass-split"></i> Awaiting Review
                                         </div>
                                     @elseif($c->status === 'rejected')
                                         <div class="text-rose-700 fw-medium" style="font-size: 0.76rem;">
                                             <i class="bi bi-x-circle me-1"></i> Rejected
-                                            @if($c->approver)
-                                                by {{ $c->approver->username }}
+                                            @if($c->rejecter)
+                                                by {{ $c->rejecter->name ?: $c->rejecter->username }}
+                                            @elseif($c->approver)
+                                                by {{ $c->approver->name ?: $c->approver->username }}
                                             @endif
                                         </div>
-                                        @if($c->approval_remark)
-                                            <div class="text-zinc-500 text-truncate" style="font-size: 0.7rem; max-width: 180px;" title="{{ $c->approval_remark }}">
-                                                "{{ $c->approval_remark }}"
+                                        @php
+                                            $rejectionComment = $c->rejection_reason ?: $c->approval_remark;
+                                        @endphp
+                                        @if($rejectionComment)
+                                            <div class="text-zinc-500 text-truncate" style="font-size: 0.7rem; max-width: 180px;" title="{{ $rejectionComment }}">
+                                                "{{ $rejectionComment }}"
                                             </div>
                                         @endif
                                     @elseif($c->approved_by || in_array($c->status, ['queued', 'sending', 'completed']))
                                         <div class="text-emerald-700 fw-medium" style="font-size: 0.76rem;">
                                             <i class="bi bi-check-circle me-1"></i> Authorized
                                             @if($c->approver)
-                                                by {{ $c->approver->username }}
+                                                by {{ $c->approver->name ?: $c->approver->username }}
                                             @endif
                                         </div>
                                         @if($c->approval_at)

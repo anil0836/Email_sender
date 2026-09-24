@@ -42,7 +42,7 @@ class SalesforceService
     public function getSalesforceRecord(string $recordId): ?array
     {
         // 1. Check in salesforce_leads
-        $lead = SalesforceLead::with(['owner', 'primeOwner'])
+        $lead = SalesforceLead::with(['owner', 'primeOwner', 'salesforceOwner'])
             ->where('salesforce_id', $recordId)
             ->orWhere('id', is_numeric($recordId) ? (int)$recordId : -1)
             ->first();
@@ -52,7 +52,7 @@ class SalesforceService
         }
 
         // 2. Check in salesforce_contacts
-        $contact = SalesforceContact::with(['owner', 'primeOwner', 'account'])
+        $contact = SalesforceContact::with(['owner', 'primeOwner', 'salesforceOwner', 'account'])
             ->where('salesforce_id', $recordId)
             ->orWhere('id', is_numeric($recordId) ? (int)$recordId : -1)
             ->first();
@@ -90,7 +90,7 @@ class SalesforceService
         $cleanEmail = trim($email);
 
         // 1. Check in salesforce_leads
-        $lead = SalesforceLead::with(['owner', 'primeOwner'])
+        $lead = SalesforceLead::with(['owner', 'primeOwner', 'salesforceOwner'])
             ->where('email', $cleanEmail)
             ->first();
 
@@ -99,7 +99,7 @@ class SalesforceService
         }
 
         // 2. Check in salesforce_contacts
-        $contact = SalesforceContact::with(['owner', 'primeOwner', 'account'])
+        $contact = SalesforceContact::with(['owner', 'primeOwner', 'salesforceOwner', 'account'])
             ->where('email', $cleanEmail)
             ->first();
 
@@ -123,8 +123,8 @@ class SalesforceService
      */
     public function formatLeadRecord(SalesforceLead $lead): array
     {
-        $ownerName = $lead->owner_name ?: ($lead->owner ? $lead->owner->name : ($lead->primeOwner ? $lead->primeOwner->name : ''));
-        $ownerEmail = $lead->owner_email ?: ($lead->owner ? $lead->owner->email : ($lead->primeOwner ? $lead->primeOwner->emp_email : ''));
+        $ownerName = $lead->owner_name ?: ($lead->salesforceOwner ? $lead->salesforceOwner->name : ($lead->owner ? $lead->owner->name : ($lead->primeOwner ? $lead->primeOwner->name : '')));
+        $ownerEmail = $lead->owner_email ?: ($lead->salesforceOwner ? $lead->salesforceOwner->emp_email : ($lead->owner ? $lead->owner->email : ($lead->primeOwner ? $lead->primeOwner->emp_email : '')));
 
         return [
             'id' => $lead->salesforce_id,
@@ -139,8 +139,11 @@ class SalesforceService
             'owner_id' => $lead->owner_id ?: ($lead->prime_owner_id ?: ''),
             'salesforce_owner_id' => $lead->owner_id,
             'prime_owner_id' => $lead->prime_owner_id,
+            'salesforce_sf_user_id' => $lead->salesforce_sf_user_id,
             'owner_name' => $ownerName,
             'owner_email' => $ownerEmail,
+            'custom_owner' => $lead->custom_owner ?: ($lead->Custom_Owner__c ?: ''),
+            'Custom_Owner__c' => $lead->Custom_Owner__c ?: ($lead->custom_owner ?: ''),
             'owner_verification_status' => $lead->owner_verification_status ?: 'verified',
             'last_owner_verified_at' => $lead->last_owner_verified_at ? $lead->last_owner_verified_at->toIso8601String() : null,
             'opted_out' => false,
@@ -160,8 +163,8 @@ class SalesforceService
      */
     public function formatContactRecord(SalesforceContact $contact): array
     {
-        $ownerName = $contact->owner_name ?: ($contact->owner ? $contact->owner->name : ($contact->primeOwner ? $contact->primeOwner->name : ''));
-        $ownerEmail = $contact->owner_email ?: ($contact->owner ? $contact->owner->email : ($contact->primeOwner ? $contact->primeOwner->emp_email : ''));
+        $ownerName = $contact->owner_name ?: ($contact->salesforceOwner ? $contact->salesforceOwner->name : ($contact->owner ? $contact->owner->name : ($contact->primeOwner ? $contact->primeOwner->name : '')));
+        $ownerEmail = $contact->owner_email ?: ($contact->salesforceOwner ? $contact->salesforceOwner->emp_email : ($contact->owner ? $contact->owner->email : ($contact->primeOwner ? $contact->primeOwner->emp_email : '')));
         $company = $contact->account ? $contact->account->name : '';
 
         return [
@@ -177,8 +180,11 @@ class SalesforceService
             'owner_id' => $contact->owner_id ?: ($contact->prime_owner_id ?: ''),
             'salesforce_owner_id' => $contact->owner_id,
             'prime_owner_id' => $contact->prime_owner_id,
+            'salesforce_sf_user_id' => $contact->salesforce_sf_user_id,
             'owner_name' => $ownerName,
             'owner_email' => $ownerEmail,
+            'custom_owner' => $contact->Custom_Owner__c ?: '',
+            'Custom_Owner__c' => $contact->Custom_Owner__c ?: '',
             'owner_verification_status' => $contact->owner_verification_status ?: 'verified',
             'last_owner_verified_at' => $contact->last_owner_verified_at ? $contact->last_owner_verified_at->toIso8601String() : null,
             'opted_out' => false,
@@ -283,6 +289,18 @@ class SalesforceService
             // Check if mapped to a SalesforceSfUser custom prime owner
             $sfCustom = SalesforceSfUser::where('salesforce_id', $primeOwnerId)->first();
             if ($sfCustom && ($sfCustom->emp_email === $currentUser->email || $sfCustom->emp_code === $currentUser->emp_id)) {
+                $isOwnerMatch = true;
+            }
+            // Check if mapped to a SalesforceSfUser by foreign key
+            if (!empty($record['salesforce_sf_user_id'])) {
+                $sfUserOwner = SalesforceSfUser::find($record['salesforce_sf_user_id']);
+                if ($sfUserOwner && ($sfUserOwner->emp_email === $currentUser->email || $sfUserOwner->emp_code === $currentUser->emp_id)) {
+                    $isOwnerMatch = true;
+                }
+            }
+            // Check if Custom_Owner__c matches current user name or emp_name
+            $customOwnerVal = strtolower(trim((string)($record['custom_owner'] ?? ($record['Custom_Owner__c'] ?? ''))));
+            if (!empty($customOwnerVal) && (strtolower(trim($currentUser->name)) === $customOwnerVal || strtolower(trim($currentUser->username)) === $customOwnerVal)) {
                 $isOwnerMatch = true;
             }
         }

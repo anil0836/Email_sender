@@ -203,9 +203,19 @@ class TeamService
             }
         }
 
-        // 3. Check direct subordinates via local users table (if role === 'manager')
-        if ($localUser && $localUser->role === 'manager') {
-            $subordinateIds = User::where('manager_id', $localUser->id)->pluck('id');
+        // 3. Check direct subordinates via local users table (if role === 'manager' or 'line_manager')
+        if ($localUser && in_array($localUser->role, ['manager', 'line_manager'])) {
+            $subordinateIds = User::where('manager_id', $localUser->id)->pluck('id')->toArray();
+            
+            // If manager, also check recursive subordinates (e.g. users under line managers)
+            if ($localUser->role === 'manager' && !empty($subordinateIds)) {
+                $subLineManagerIds = User::whereIn('id', $subordinateIds)->where('role', 'line_manager')->pluck('id')->toArray();
+                if (!empty($subLineManagerIds)) {
+                    $subUserIds = User::whereIn('manager_id', $subLineManagerIds)->pluck('id')->toArray();
+                    $subordinateIds = array_unique(array_merge($subordinateIds, $subUserIds));
+                }
+            }
+
             foreach ($subordinateIds as $subId) {
                 $subTeam = $this->resolveUserTeam($subId);
                 if ($subTeam && !in_array($subTeam, $managedTeams)) {
@@ -234,7 +244,7 @@ class TeamService
         }
 
         $localUser = $user instanceof User ? $user : User::find($user);
-        if ($localUser && ($localUser->role === 'admin' || $localUser->role === 'manager')) {
+        if ($localUser && in_array($localUser->role, ['admin', 'manager', 'line_manager'])) {
             return true;
         }
 
@@ -248,7 +258,7 @@ class TeamService
     public function getTeamMembersForManager(User $user): Collection
     {
         if ($user->role === 'admin') {
-            return User::where('role', 'user')->select('id', 'username', 'emp_id', 'email', 'name', 'role')->get();
+            return User::whereIn('role', ['user', 'line_manager'])->select('id', 'username', 'emp_id', 'email', 'name', 'role')->get();
         }
 
         $teams = $this->getManagedTeamsForUser($user);
@@ -258,8 +268,16 @@ class TeamService
         $sfCodes = SalesforceSfUser::whereIn('team', $teams)->whereNotNull('emp_code')->pluck('emp_code')->toArray();
         $sfNames = SalesforceSfUser::whereIn('team', $teams)->whereNotNull('name')->pluck('name')->toArray();
 
-        $members = User::where(function ($q) use ($user, $teams, $sfEmails, $sfCodes, $sfNames) {
-            $q->where('manager_id', $user->id)
+        // Direct and recursive subordinates
+        $directSubordinateIds = User::where('manager_id', $user->id)->pluck('id')->toArray();
+        $allSubordinateIds = $directSubordinateIds;
+        if ($user->role === 'manager' && !empty($directSubordinateIds)) {
+            $subSubIds = User::whereIn('manager_id', $directSubordinateIds)->pluck('id')->toArray();
+            $allSubordinateIds = array_unique(array_merge($allSubordinateIds, $subSubIds));
+        }
+
+        $members = User::where(function ($q) use ($user, $teams, $sfEmails, $sfCodes, $sfNames, $allSubordinateIds) {
+            $q->whereIn('id', $allSubordinateIds)
               ->orWhereIn('email', $sfEmails)
               ->orWhereIn('emp_id', $sfCodes)
               ->orWhereIn('username', $sfNames);

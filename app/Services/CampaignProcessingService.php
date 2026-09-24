@@ -31,15 +31,23 @@ class CampaignProcessingService
 
         // Find campaigns in 'queued', 'sending', or 'scheduled' (whose time has arrived)
         $campaigns = Campaign::with('user')
-            ->whereIn('status', ['queued', 'sending'])
-            ->orWhere(function ($query) use ($now) {
-                $query->where('status', 'scheduled')
-                      ->where('scheduled_at', '<=', $now);
+            ->where(function ($query) use ($now) {
+                $query->whereIn('status', ['queued', 'sending'])
+                      ->orWhere(function ($q) use ($now) {
+                          $q->where('status', 'scheduled')
+                            ->where('scheduled_at', '<=', $now);
+                      });
             })
             ->orderBy('created_at', 'asc')
             ->get();
 
         foreach ($campaigns as $campaign) {
+            // STRICT SEND-TIME APPROVAL SHIELD: Must be fully approved to send emails
+            if (!$campaign->isFullyApproved()) {
+                Log::warning("[CampaignProcessing] Campaign {$campaign->id} is not fully approved. Status: {$campaign->status}. Skipping sending.");
+                continue;
+            }
+
             $campaignId = $campaign->id;
             $appUsername = $campaign->user ? $campaign->user->username : 'admin';
             $sendingDomain = $campaign->sending_domain;

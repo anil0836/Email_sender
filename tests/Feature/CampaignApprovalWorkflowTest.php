@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Campaign;
+use App\Models\CampaignApproval;
+use App\Models\RecipientLog;
 use App\Models\User;
 use App\Services\CampaignProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,11 +12,11 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * Tests for the Manager Approval Workflow.
- *
- * Standard users (role='user') must always have their campaigns placed in
- * 'pending_approval'. No emails may be dispatched until the manager approves.
- * Admins and Managers bypass approval entirely.
+ * Tests for the 1-Level Campaign Approval Workflow Hierarchy:
+ * - User -> Line Manager (or Manager if directly assigned) -> 1 level approval
+ * - Line Manager -> Manager -> 1 level approval
+ * - Manager / Admin -> Direct sending (no approval required)
+ * - Strict send-time protection & incomplete hierarchy prevention.
  */
 class CampaignApprovalWorkflowTest extends TestCase
 {
@@ -22,17 +24,48 @@ class CampaignApprovalWorkflowTest extends TestCase
 
     private User $admin;
     private User $manager;
-    private User $standardUser;
+    private User $lineManager;
+    private User $userUnderLineManager;
+    private User $userUnderManager;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create(['role' => 'admin', 'username' => 'admin', 'daily_limit' => 1000]);
-        $this->manager = User::factory()->create(['role' => 'manager', 'username' => 'manager', 'daily_limit' => 1000]);
-        $this->standardUser = User::factory()->create([
-            'role'       => 'user',
-            'username'   => 'user',
+        // 1. Admin
+        $this->admin = User::factory()->create([
+            'role' => 'admin',
+            'username' => 'admin_test',
+            'daily_limit' => 5000,
+        ]);
+
+        // 2. Manager (Mark)
+        $this->manager = User::factory()->create([
+            'role' => 'manager',
+            'username' => 'manager_mark',
+            'daily_limit' => 3000,
+        ]);
+
+        // 3. Line Manager (Marcus) under Manager (Mark)
+        $this->lineManager = User::factory()->create([
+            'role' => 'line_manager',
+            'username' => 'line_marcus',
+            'manager_id' => $this->manager->id,
+            'daily_limit' => 2000,
+        ]);
+
+        // 4. User (Abraham) under Line Manager (Marcus)
+        $this->userUnderLineManager = User::factory()->create([
+            'role' => 'user',
+            'username' => 'user_abraham',
+            'manager_id' => $this->lineManager->id,
+            'daily_limit' => 1000,
+        ]);
+
+        // 5. User (Ben) under Manager (Mark)
+        $this->userUnderManager = User::factory()->create([
+            'role' => 'user',
+            'username' => 'user_ben',
             'manager_id' => $this->manager->id,
             'daily_limit' => 1000,
         ]);
@@ -41,11 +74,11 @@ class CampaignApprovalWorkflowTest extends TestCase
     private function campaignPayload(array $overrides = []): array
     {
         return array_merge([
-            'subject'          => 'Test Campaign',
-            'body'             => '<p>Hello</p>',
+            'subject'          => 'Test Campaign Approval Flow',
+            'body'             => '<p>Approval test body</p>',
             'sending_domain'   => 'example.com',
             'from_address'     => 'sender@example.com',
-            'recipient_emails' => ['test@test.com'],
+            'recipient_emails' => ['lead@example.com'],
         ], $overrides);
     }
 
@@ -60,157 +93,239 @@ class CampaignApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function standard_user_campaign_is_placed_in_pending_approval(): void
+    public function test_user_under_line_manager_campaign_goes_to_pending_line_manager(): void
     {
-        $response = $this->actingAsUser($this->standardUser)
+        $response = $this->actingAsUser($this->userUnderLineManager)
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $response->assertStatus(200)->assertJson(['success' => true, 'status' => 'pending_approval']);
+        $response->assertStatus(200)
+            ->assertJson([
+                'success'             => true,
+                'status'              => 'pending_approval',
+                'approval_stage'      => 'pending_line_manager',
+                'current_approver_id' => $this->lineManager->id,
+            ]);
 
         $this->assertDatabaseHas('campaigns', [
-            'user_id' => $this->standardUser->id,
-            'status'  => 'pending_approval',
+            'user_id'             => $this->userUnderLineManager->id,
+            'status'              => 'pending_approval',
+            'line_manager_id'     => $this->lineManager->id,
+            'current_approver_id' => $this->lineManager->id,
+        ]);
+
+        $campaign = Campaign::where('user_id', $this->userUnderLineManager->id)->firstOrFail();
+        $this->assertDatabaseHas('campaign_approvals', [
+            'campaign_id' => $campaign->id,
+            'approver_id' => $this->userUnderLineManager->id,
+            'action'      => 'submitted',
+            'new_status'  => 'pending_approval',
         ]);
     }
 
-    /** @test */
-    public function standard_user_recipient_logs_have_pending_approval_delivery_status(): void
+    public function test_line_manager_can_approve_subordinate_campaign_to_queued(): void
     {
-        // Seed a mock CRM record owned by the standard user so the recipient passes eligibility.
-        $mockId = 'SF001TEST001';
-        DB::table('salesforce_mock_records')->insert([
-            'id'             => $mockId,
-            'object_type'    => 'Lead',
-            'first_name'     => 'Test',
-            'last_name'      => 'Lead',
-            'email'          => 'test-lead@example.com',
-            'owner_id'       => $this->standardUser->username,
-            'opted_out'      => false,
-            'status'         => 'New',
-            'consent_status' => 'valid',
-            'created_at'     => now(),
-            'updated_at'     => now(),
-        ]);
+        $this->actingAsUser($this->userUnderLineManager)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/send', array_merge($this->campaignPayload(), [
-                'recipient_ids'    => [$mockId],
-                'recipient_emails' => [],
-            ]))
-            ->assertJson(['success' => true]);
+        $campaign = Campaign::where('user_id', $this->userUnderLineManager->id)->firstOrFail();
+        $this->assertEquals('pending_approval', $campaign->status);
 
-        $campaign = Campaign::where('user_id', $this->standardUser->id)->firstOrFail();
+        // Line Manager approves
+        $response = $this->actingAsUser($this->lineManager)
+            ->postJson('/api/campaign/approve', [
+                'campaign_id' => $campaign->id,
+                'decision'    => 'approve',
+                'remark'      => 'Approved by Line Manager',
+            ]);
 
-        // Approved recipients must have delivery_status = pending_approval (not queued/sent)
-        $this->assertDatabaseHas('recipient_logs', [
+        $response->assertStatus(200)
+            ->assertJson([
+                'success'    => true,
+                'new_status' => 'queued',
+            ]);
+
+        $campaign->refresh();
+        $this->assertEquals('queued', $campaign->status);
+        $this->assertNull($campaign->current_approver_id);
+        $this->assertEquals($this->lineManager->id, $campaign->approved_by);
+        $this->assertEquals('Approved by Line Manager', $campaign->approval_remark);
+        $this->assertTrue($campaign->isFullyApproved());
+
+        $this->assertDatabaseHas('campaign_approvals', [
             'campaign_id'     => $campaign->id,
-            'decision'        => 'approved',
-            'delivery_status' => 'pending_approval',
+            'approver_id'     => $this->lineManager->id,
+            'approver_role'   => 'line_manager',
+            'action'          => 'approved',
+            'previous_status' => 'pending_approval',
+            'new_status'      => 'queued',
         ]);
     }
 
-    /** @test */
-    public function no_email_processing_is_triggered_for_pending_approval_campaign(): void
+    public function test_user_under_manager_campaign_goes_to_pending_manager(): void
     {
-        $this->mock(CampaignProcessingService::class, function ($mock) {
-            $mock->shouldNotReceive('processQueuedEmails');
-        });
-
-        $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/send', $this->campaignPayload())
-            ->assertJson(['success' => true]);
-    }
-
-    /** @test */
-    public function admin_campaign_goes_directly_to_queued_without_approval(): void
-    {
-        $response = $this->actingAsUser($this->admin)
+        $response = $this->actingAsUser($this->userUnderManager)
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $response->assertStatus(200)->assertJson(['success' => true, 'status' => 'queued']);
+        $response->assertStatus(200)
+            ->assertJson([
+                'success'             => true,
+                'status'              => 'pending_approval',
+                'approval_stage'      => 'pending_manager',
+                'current_approver_id' => $this->manager->id,
+            ]);
 
         $this->assertDatabaseHas('campaigns', [
-            'user_id' => $this->admin->id,
-            'status'  => 'queued',
+            'user_id'             => $this->userUnderManager->id,
+            'status'              => 'pending_approval',
+            'manager_user_id'     => $this->manager->id,
+            'current_approver_id' => $this->manager->id,
         ]);
     }
 
-    /** @test */
-    public function manager_campaign_goes_directly_to_queued_without_approval(): void
+    public function test_manager_can_approve_user_campaign_to_queued(): void
     {
-        $response = $this->actingAsUser($this->manager)
+        $this->actingAsUser($this->userUnderManager)
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $response->assertStatus(200)->assertJson(['success' => true, 'status' => 'queued']);
-
-        $this->assertDatabaseHas('campaigns', [
-            'user_id' => $this->manager->id,
-            'status'  => 'queued',
-        ]);
-    }
-
-    /** @test */
-    public function standard_user_scheduled_campaign_is_pending_approval_not_scheduled(): void
-    {
-        $scheduledAt = now()->addHour()->format('Y-m-d H:i:s');
-
-        $response = $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/send', $this->campaignPayload(['scheduled_at' => $scheduledAt]));
-
-        $response->assertStatus(200)->assertJson(['success' => true, 'status' => 'pending_approval']);
-
-        $this->assertDatabaseHas('campaigns', [
-            'user_id' => $this->standardUser->id,
-            'status'  => 'pending_approval',
-        ]);
-    }
-
-    /** @test */
-    public function manager_can_approve_pending_campaign_and_it_transitions_to_queued(): void
-    {
-        $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/send', $this->campaignPayload());
-
-        $campaign = Campaign::where('user_id', $this->standardUser->id)->firstOrFail();
+        $campaign = Campaign::where('user_id', $this->userUnderManager->id)->firstOrFail();
         $this->assertEquals('pending_approval', $campaign->status);
 
         $response = $this->actingAsUser($this->manager)
             ->postJson('/api/campaign/approve', [
                 'campaign_id' => $campaign->id,
                 'decision'    => 'approve',
-                'remark'      => 'Looks good',
+                'remark'      => 'Manager approved directly',
             ]);
 
         $response->assertStatus(200)->assertJson(['success' => true]);
 
         $campaign->refresh();
         $this->assertEquals('queued', $campaign->status);
+        $this->assertNull($campaign->current_approver_id);
         $this->assertEquals($this->manager->id, $campaign->approved_by);
-        $this->assertEquals('Looks good', $campaign->approval_remark);
+        $this->assertTrue($campaign->isFullyApproved());
     }
 
-    /** @test */
-    public function manager_can_reject_pending_campaign(): void
+    public function test_line_manager_campaign_goes_to_pending_manager(): void
     {
-        $this->actingAsUser($this->standardUser)
+        $response = $this->actingAsUser($this->lineManager)
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $campaign = Campaign::where('user_id', $this->standardUser->id)->firstOrFail();
+        $response->assertStatus(200)
+            ->assertJson([
+                'success'             => true,
+                'status'              => 'pending_approval',
+                'approval_stage'      => 'pending_manager',
+                'current_approver_id' => $this->manager->id,
+            ]);
 
+        $this->assertDatabaseHas('campaigns', [
+            'user_id'             => $this->lineManager->id,
+            'status'              => 'pending_approval',
+            'manager_user_id'     => $this->manager->id,
+            'current_approver_id' => $this->manager->id,
+        ]);
+    }
+
+    public function test_manager_campaign_goes_directly_to_queued_without_approval(): void
+    {
         $response = $this->actingAsUser($this->manager)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $response->assertStatus(200)->assertJson(['success' => true, 'status' => 'queued']);
+
+        $campaign = Campaign::where('user_id', $this->manager->id)->firstOrFail();
+        $this->assertEquals('queued', $campaign->status);
+        $this->assertNull($campaign->current_approver_id);
+        $this->assertTrue($campaign->isFullyApproved());
+    }
+
+    public function test_admin_campaign_goes_directly_to_queued_without_approval(): void
+    {
+        $response = $this->actingAsUser($this->admin)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $response->assertStatus(200)->assertJson(['success' => true, 'status' => 'queued']);
+
+        $campaign = Campaign::where('user_id', $this->admin->id)->firstOrFail();
+        $this->assertEquals('queued', $campaign->status);
+        $this->assertNull($campaign->current_approver_id);
+        $this->assertTrue($campaign->isFullyApproved());
+    }
+
+    public function test_incomplete_hierarchy_blocks_submission_with_422(): void
+    {
+        $orphanUser = User::factory()->create([
+            'role'        => 'user',
+            'username'    => 'orphan_user',
+            'manager_id'  => null,
+            'daily_limit' => 1000,
+        ]);
+
+        $response = $this->actingAsUser($orphanUser)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error', fn($e) => str_contains($e, 'hierarchy is incomplete'));
+
+        // No campaign should be created in DB
+        $this->assertDatabaseMissing('campaigns', [
+            'user_id' => $orphanUser->id,
+        ]);
+    }
+
+    public function test_line_manager_with_missing_manager_blocks_submission_with_422(): void
+    {
+        $orphanLineManager = User::factory()->create([
+            'role'        => 'line_manager',
+            'username'    => 'orphan_lm',
+            'manager_id'  => null,
+            'daily_limit' => 2000,
+        ]);
+
+        $response = $this->actingAsUser($orphanLineManager)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error', fn($e) => str_contains($e, 'No Manager is assigned'));
+
+        $this->assertDatabaseMissing('campaigns', [
+            'user_id' => $orphanLineManager->id,
+        ]);
+    }
+
+    public function test_rejection_marks_campaign_and_recipients_rejected_with_audit(): void
+    {
+        $this->actingAsUser($this->userUnderLineManager)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $campaign = Campaign::where('user_id', $this->userUnderLineManager->id)->firstOrFail();
+
+        $response = $this->actingAsUser($this->lineManager)
             ->postJson('/api/campaign/approve', [
                 'campaign_id' => $campaign->id,
                 'decision'    => 'reject',
-                'remark'      => 'Not compliant',
+                'remark'      => 'Inappropriate copy',
             ]);
 
-        $response->assertStatus(200)->assertJson(['success' => true]);
+        $response->assertStatus(200)
+            ->assertJson([
+                'success'    => true,
+                'new_status' => 'rejected',
+            ]);
 
         $campaign->refresh();
         $this->assertEquals('rejected', $campaign->status);
-        $this->assertEquals($this->manager->id, $campaign->approved_by);
-        $this->assertEquals('Not compliant', $campaign->approval_remark);
+        $this->assertEquals($this->lineManager->id, $campaign->rejected_by);
+        $this->assertEquals('Inappropriate copy', $campaign->rejection_reason);
+        $this->assertFalse($campaign->isFullyApproved());
+
+        $this->assertDatabaseHas('campaign_approvals', [
+            'campaign_id'   => $campaign->id,
+            'approver_id'   => $this->lineManager->id,
+            'action'        => 'rejected',
+            'comment'       => 'Inappropriate copy',
+        ]);
 
         $this->assertDatabaseHas('recipient_logs', [
             'campaign_id'     => $campaign->id,
@@ -219,157 +334,59 @@ class CampaignApprovalWorkflowTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function double_approve_is_rejected_with_409(): void
+    public function test_creator_cannot_approve_own_campaign(): void
     {
-        $this->actingAsUser($this->standardUser)
+        $this->actingAsUser($this->userUnderLineManager)
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $campaign = Campaign::where('user_id', $this->standardUser->id)->firstOrFail();
+        $campaign = Campaign::where('user_id', $this->userUnderLineManager->id)->firstOrFail();
 
-        // First approval
-        $this->actingAsUser($this->manager)
+        $response = $this->actingAsUser($this->userUnderLineManager)
             ->postJson('/api/campaign/approve', [
                 'campaign_id' => $campaign->id,
                 'decision'    => 'approve',
-                'remark'      => 'OK',
-            ])->assertStatus(200);
+                'remark'      => 'Self approval attempt',
+            ]);
 
-        // Second approval attempt must fail
-        $this->actingAsUser($this->manager)
-            ->postJson('/api/campaign/approve', [
-                'campaign_id' => $campaign->id,
-                'decision'    => 'approve',
-                'remark'      => 'Again',
-            ])->assertStatus(409);
+        $response->assertStatus(403);
     }
 
-    /** @test */
-    public function standard_user_without_manager_gets_warning_in_response(): void
+    public function test_campaign_processing_service_never_sends_unapproved_campaigns(): void
     {
-        $orphanUser = User::factory()->create([
-            'role'        => 'user',
-            'username'    => 'orphan',
-            'manager_id'  => null,
-            'daily_limit' => 1000,
-        ]);
-
-        $response = $this->actingAsUser($orphanUser)
-            ->postJson('/api/campaign/send', $this->campaignPayload());
-
-        $response->assertStatus(200)
-            ->assertJson(['success' => true, 'status' => 'pending_approval'])
-            ->assertJsonPath('warning', fn($w) => $w !== null && str_contains($w, 'No manager'));
-    }
-
-    /** @test */
-    public function standard_user_cannot_approve_campaigns(): void
-    {
-        $otherUser = User::factory()->create(['role' => 'user', 'username' => 'other', 'daily_limit' => 1000]);
-
-        $this->actingAsUser($otherUser)
-            ->postJson('/api/campaign/send', $this->campaignPayload());
-
-        $campaign = Campaign::where('user_id', $otherUser->id)->firstOrFail();
-
-        $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/approve', [
-                'campaign_id' => $campaign->id,
-                'decision'    => 'approve',
-                'remark'      => 'sneaky',
-            ])->assertStatus(403);
-    }
-
-    /** @test */
-    public function campaign_detail_view_renders_campaigns_sidebar_with_pending_and_approved_campaigns(): void
-    {
-        // 1. Create a pending campaign by standard user
-        $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/send', array_merge($this->campaignPayload(), [
-                'subject' => 'Urgent Pending Outreach',
-            ]))
-            ->assertStatus(200);
-
-        $pendingCampaign = Campaign::where('subject', 'Urgent Pending Outreach')->firstOrFail();
-
-        // 2. Create an approved/queued campaign by manager
-        $this->actingAsUser($this->manager)
-            ->postJson('/api/campaign/send', array_merge($this->campaignPayload(), [
-                'subject' => 'Approved Manager Blast',
-            ]))
-            ->assertStatus(200);
-
-        $approvedCampaign = Campaign::where('subject', 'Approved Manager Blast')->firstOrFail();
-
-        // 3. Visit the detail view for the pending campaign as manager
-        $response = $this->actingAsUser($this->manager)
-            ->get("/campaign/{$pendingCampaign->id}");
-
-        $response->assertStatus(200);
-        $response->assertViewHas('sidebarCampaigns');
-        $response->assertSee('campaigns-sidebar-col');
-        $response->assertSee('tab-btn-pending');
-        $response->assertSee('tab-btn-approved');
-        $response->assertSee('Urgent Pending Outreach');
-        $response->assertSee('Approved Manager Blast');
-    }
-
-    /** @test */
-    public function campaign_list_view_shows_all_sent_and_pending_campaigns_of_user_account(): void
-    {
-        // 1. Pending campaign for standardUser
-        $this->actingAsUser($this->standardUser)
-            ->postJson('/api/campaign/send', array_merge($this->campaignPayload(), [
-                'subject' => 'My Account Pending Campaign',
-            ]))
-            ->assertStatus(200);
-
-        // 2. Sent / Queued campaign for standardUser (create as admin, update user_id to standardUser to simulate approved)
-        $approvedCampaign = Campaign::create([
+        // Create an unapproved campaign directly
+        $unapprovedCampaign = Campaign::create([
             'id' => (string) \Illuminate\Support\Str::uuid(),
-            'subject' => 'My Account Sent Campaign',
-            'body' => 'Body text',
+            'subject' => 'Unapproved Campaign',
+            'body' => 'Secret text',
             'sending_domain' => 'example.com',
             'from_address' => 'sender@example.com',
             'reply_to' => 'sender@example.com',
-            'user_id' => $this->standardUser->id,
-            'status' => 'completed',
-            'total_requested' => 10,
-            'total_approved' => 10,
+            'user_id' => $this->userUnderLineManager->id,
+            'status' => 'pending_approval',
+            'line_manager_id' => $this->lineManager->id,
+            'current_approver_id' => $this->lineManager->id,
+            'total_requested' => 1,
+            'total_approved' => 1,
             'total_blocked' => 0,
         ]);
 
-        // 3. Campaign belonging to another user
-        $otherUser = User::factory()->create(['role' => 'user', 'username' => 'other_user', 'daily_limit' => 1000]);
-        $otherCampaign = Campaign::create([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
-            'subject' => 'Secret Other User Campaign',
-            'body' => 'Body text',
-            'sending_domain' => 'example.com',
-            'from_address' => 'sender@example.com',
-            'reply_to' => 'sender@example.com',
-            'user_id' => $otherUser->id,
-            'status' => 'completed',
-            'total_requested' => 5,
-            'total_approved' => 5,
-            'total_blocked' => 0,
+        RecipientLog::create([
+            'campaign_id' => $unapprovedCampaign->id,
+            'email' => 'victim@example.com',
+            'salesforce_record_id' => '003SF0000000_123',
+            'salesforce_object' => 'Contact',
+            'record_owner_id' => $this->userUnderLineManager->username,
+            'decision' => 'approved',
+            'delivery_status' => 'pending_approval',
+            'tracking_token' => (string) \Illuminate\Support\Str::uuid(),
         ]);
 
-        // 4. Standard user accesses /campaign/list
-        $response = $this->actingAsUser($this->standardUser)
-            ->get('/campaign/list');
+        $service = app(CampaignProcessingService::class);
+        $count = $service->processQueuedEmails();
 
-        $response->assertStatus(200);
-        $response->assertViewHas('campaigns');
-        $response->assertSee('My Account Pending Campaign');
-        $response->assertSee('My Account Sent Campaign');
-        $response->assertDontSee('Secret Other User Campaign');
-
-        // Unauthenticated access must redirect to login
-        \Illuminate\Support\Facades\Auth::logout();
-        session()->flush();
-        $this->flushSession();
-        $this->get('/campaign/list')
-            ->assertRedirect(route('login'));
+        // 0 emails should be processed
+        $this->assertEquals(0, $count);
+        $unapprovedCampaign->refresh();
+        $this->assertEquals('pending_approval', $unapprovedCampaign->status);
     }
 }

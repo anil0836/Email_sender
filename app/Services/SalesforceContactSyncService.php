@@ -305,11 +305,31 @@ class SalesforceContactSyncService
             'failed' => 0,
         ];
 
-        // Pre-load standard users and SF custom users for fast owner resolution
-        $standardUsersMap = \App\Models\SalesforceUser::pluck('email', 'salesforce_id')->toArray();
-        $standardUsersNames = \App\Models\SalesforceUser::pluck('name', 'salesforce_id')->toArray();
-        $sfUsersMap = \App\Models\SalesforceSfUser::pluck('emp_email', 'salesforce_id')->toArray();
-        $sfUsersNames = \App\Models\SalesforceSfUser::pluck('name', 'salesforce_id')->toArray();
+        // Pre-load standard users and SF custom users for fast owner resolution without N+1 queries
+        $standardUsers = \App\Models\SalesforceUser::all();
+        $standardUsersMap = $standardUsers->pluck('email', 'salesforce_id')->toArray();
+        $standardUsersNames = $standardUsers->pluck('name', 'salesforce_id')->toArray();
+
+        $sfUsers = \App\Models\SalesforceSfUser::all();
+        $sfUsersBySfId = $sfUsers->keyBy('salesforce_id')->all();
+
+        // Build lookup tables for Custom_Owner__c matching (case-insensitive & trimmed)
+        $sfUsersByName = [];
+        $sfUsersByEmpName = [];
+        foreach ($sfUsers as $u) {
+            if (!empty(trim((string)$u->name))) {
+                $normalizedName = strtolower(trim((string)$u->name));
+                if (!isset($sfUsersByName[$normalizedName])) {
+                    $sfUsersByName[$normalizedName] = $u;
+                }
+            }
+            if (!empty(trim((string)$u->emp_name))) {
+                $normalizedEmpName = strtolower(trim((string)$u->emp_name));
+                if (!isset($sfUsersByEmpName[$normalizedEmpName])) {
+                    $sfUsersByEmpName[$normalizedEmpName] = $u;
+                }
+            }
+        }
 
         $chunkSize = 500;
 
@@ -325,12 +345,18 @@ class SalesforceContactSyncService
 
                     $buffer[] = $rec;
                     if (count($buffer) >= $chunkSize) {
-                        $this->processContactChunk($buffer, $now, $stats, $standardUsersMap, $standardUsersNames, $sfUsersMap, $sfUsersNames);
+                        $this->processContactChunk(
+                            $buffer, $now, $stats, $standardUsersMap,
+                            $standardUsersNames, $sfUsersBySfId, $sfUsersByName, $sfUsersByEmpName
+                        );
                         $buffer = [];
                     }
                 }
                 if (!empty($buffer)) {
-                    $this->processContactChunk($buffer, $now, $stats, $standardUsersMap, $standardUsersNames, $sfUsersMap, $sfUsersNames);
+                    $this->processContactChunk(
+                        $buffer, $now, $stats, $standardUsersMap,
+                        $standardUsersNames, $sfUsersBySfId, $sfUsersByName, $sfUsersByEmpName
+                    );
                     $buffer = [];
                 }
                 fclose($handle);
@@ -338,7 +364,10 @@ class SalesforceContactSyncService
         } elseif (is_array($recordsOrFilePath)) {
             $chunks = array_chunk($recordsOrFilePath, $chunkSize);
             foreach ($chunks as $chunk) {
-                $this->processContactChunk($chunk, $now, $stats, $standardUsersMap, $standardUsersNames, $sfUsersMap, $sfUsersNames);
+                $this->processContactChunk(
+                    $chunk, $now, $stats, $standardUsersMap,
+                    $standardUsersNames, $sfUsersBySfId, $sfUsersByName, $sfUsersByEmpName
+                );
             }
         }
 
@@ -354,8 +383,9 @@ class SalesforceContactSyncService
         array &$stats,
         array $standardUsersMap,
         array $standardUsersNames,
-        array $sfUsersMap,
-        array $sfUsersNames
+        array $sfUsersBySfId,
+        array $sfUsersByName,
+        array $sfUsersByEmpName
     ): void {
         if (empty($chunk)) {
             return;
@@ -377,7 +407,7 @@ class SalesforceContactSyncService
                     ->get([
                         'id', 'salesforce_id', 'owner_id', 'prime_owner_id',
                         'owner_verification_status', 'previous_owner_id',
-                        'created_at', 'updated_at'
+                        'salesforce_sf_user_id', 'created_at', 'updated_at'
                     ])
                     ->keyBy('salesforce_id')
                 : collect();
@@ -413,14 +443,50 @@ class SalesforceContactSyncService
                     continue;
                 }
 
+                $rawCustomOwner = $rec['Custom_Owner__c'] ?? $rec['custom_owner'] ?? null;
+                $rawCustomOwner = ($rawCustomOwner !== null && trim((string)$rawCustomOwner) !== '')
+                    ? (string)$rawCustomOwner
+                    : null;
                 $incomingOwnerId = $truncate($rec['owner_id'] ?? null, 50);
                 $incomingPrimeOwnerId = $truncate($rec['prime_owner_id'] ?? null, 50);
 
-                // Resolve owner name and email
-                $ownerName = $standardUsersNames[$incomingOwnerId] 
-                    ?? ($sfUsersNames[$incomingPrimeOwnerId] ?? null);
-                $ownerEmail = $standardUsersMap[$incomingOwnerId] 
-                    ?? ($sfUsersMap[$incomingPrimeOwnerId] ?? null);
+                $matchedSfUser = null;
+                $salesforceSfUserId = null;
+                $ownerName = null;
+                $ownerEmail = null;
+
+                // Priority 1: Custom_Owner__c matched against salesforce_sf_users.name or emp_name (case-insensitive, trimmed)
+                if ($rawCustomOwner !== null) {
+                    $normCustom = strtolower(trim($rawCustomOwner));
+                    if (isset($sfUsersByName[$normCustom])) {
+                        $matchedSfUser = $sfUsersByName[$normCustom];
+                    } elseif (isset($sfUsersByEmpName[$normCustom])) {
+                        $matchedSfUser = $sfUsersByEmpName[$normCustom];
+                    }
+
+                    if ($matchedSfUser) {
+                        $salesforceSfUserId = $matchedSfUser->id;
+                        $incomingPrimeOwnerId = $truncate($matchedSfUser->salesforce_id, 50);
+                        $ownerName = $matchedSfUser->name ?: $matchedSfUser->emp_name;
+                        $ownerEmail = $matchedSfUser->emp_email;
+                    }
+                }
+
+                // Priority 2: Fallback to Prime Owner (prime_owner_id) in salesforce_sf_users
+                if (!$matchedSfUser && !empty($incomingPrimeOwnerId) && isset($sfUsersBySfId[$incomingPrimeOwnerId])) {
+                    $matchedSfUser = $sfUsersBySfId[$incomingPrimeOwnerId];
+                    $salesforceSfUserId = $matchedSfUser->id;
+                    $ownerName = $matchedSfUser->name ?: $matchedSfUser->emp_name;
+                    $ownerEmail = $matchedSfUser->emp_email;
+                }
+
+                // Priority 3: Fallback to Standard Salesforce User (owner_id)
+                if (empty($ownerName)) {
+                    $ownerName = $standardUsersNames[$incomingOwnerId] ?? null;
+                }
+                if (empty($ownerEmail)) {
+                    $ownerEmail = $standardUsersMap[$incomingOwnerId] ?? null;
+                }
 
                 $verificationStatus = 'verified';
                 $previousOwnerId = null;
@@ -459,7 +525,9 @@ class SalesforceContactSyncService
                     'mailing_country' => $truncate($rec['mailing_country'] ?? null, 150),
                     'owner_id' => $incomingOwnerId,
                     'prime_owner_id' => $incomingPrimeOwnerId,
+                    'salesforce_sf_user_id' => $salesforceSfUserId,
                     'secondary_owner' => $truncate($rec['secondary_owner'] ?? null, 150),
+                    'Custom_Owner__c' => $truncate($rawCustomOwner, 255),
                     'owner_name' => $truncate($ownerName, 255),
                     'owner_email' => $truncate($ownerEmail, 255),
                     'owner_verification_status' => $truncate($verificationStatus, 50),
@@ -480,8 +548,8 @@ class SalesforceContactSyncService
                 'department', 'email', 'phone', 'mobile_phone', 'lead_source',
                 'mailing_street', 'mailing_city', 'mailing_state',
                 'mailing_postal_code', 'mailing_country', 'owner_id',
-                'prime_owner_id', 'secondary_owner', 'owner_name',
-                'owner_email', 'owner_verification_status',
+                'prime_owner_id', 'salesforce_sf_user_id', 'secondary_owner', 'Custom_Owner__c',
+                'owner_name', 'owner_email', 'owner_verification_status',
                 'last_owner_verified_at', 'previous_owner_id',
                 'salesforce_created_at', 'salesforce_updated_at',
                 'synced_at', 'updated_at'

@@ -111,7 +111,11 @@
                                      style="font-size: 0.8rem;" title="{{ $c->subject }}">
                                     {{ $c->subject }}
                                 </div>
-                                @if($c->status === 'pending_approval')
+                                @if($c->status === 'pending_line_manager')
+                                    <span class="badge bg-warning-soft text-amber-900 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-clock me-0.5"></i> Line Mgr</span>
+                                @elseif($c->status === 'pending_manager')
+                                    <span class="badge bg-warning-soft text-amber-900 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-clock me-0.5"></i> Manager</span>
+                                @elseif($c->status === 'pending_approval')
                                     <span class="badge bg-warning-soft text-amber-900 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-clock me-0.5"></i> Pending</span>
                                 @elseif($c->status === 'queued')
                                     <span class="badge bg-primary-soft text-indigo-700 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-send me-0.5"></i> Queued</span>
@@ -558,7 +562,8 @@
         let approvedCount = 0;
 
         allCampaignsList.forEach(c => {
-            if (c.status === 'pending_approval') {
+            const isP = (c.status === 'pending_approval' || c.status === 'pending_line_manager' || c.status === 'pending_manager');
+            if (isP) {
                 pendingCount++;
             } else if (c.status !== 'rejected') {
                 approvedCount++;
@@ -576,10 +581,11 @@
         if (totalBadge) totalBadge.innerText = allCampaignsList.length;
 
         let filtered = allCampaignsList.filter(c => {
+            const isP = (c.status === 'pending_approval' || c.status === 'pending_line_manager' || c.status === 'pending_manager');
             if (currentSidebarFilter === 'pending') {
-                if (c.status !== 'pending_approval') return false;
+                if (!isP) return false;
             } else if (currentSidebarFilter === 'approved') {
-                if (c.status === 'pending_approval' || c.status === 'rejected') return false;
+                if (isP || c.status === 'rejected') return false;
             }
 
             if (currentSearchQuery) {
@@ -621,7 +627,11 @@
             const isCurrent = (c.id === campaignId);
 
             let badgeHtml = '';
-            if (c.status === 'pending_approval') {
+            if (c.status === 'pending_line_manager') {
+                badgeHtml = '<span class="badge bg-warning-soft text-amber-900 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-clock me-0.5"></i> Line Mgr</span>';
+            } else if (c.status === 'pending_manager') {
+                badgeHtml = '<span class="badge bg-warning-soft text-amber-900 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-clock me-0.5"></i> Manager</span>';
+            } else if (c.status === 'pending_approval') {
                 badgeHtml = '<span class="badge bg-warning-soft text-amber-900 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-clock me-0.5"></i> Pending</span>';
             } else if (c.status === 'queued') {
                 badgeHtml = '<span class="badge bg-primary-soft text-indigo-700 flex-shrink-0" style="font-size: 0.65rem;"><i class="bi bi-send me-0.5"></i> Queued</span>';
@@ -811,44 +821,76 @@
                 const currentUserId = {{ (int) (session('user_id') ?: (Auth::id() ?? 0)) }};
                 const currentUserRole = "{{ session('role', Auth::user()?->role ?? '') }}";
 
+                const isPendingLine = (c.status === 'pending_line_manager');
+                const isPendingMgr = (c.status === 'pending_manager');
+                const isPendingLegacy = (c.status === 'pending_approval');
+                const isPending = isPendingLine || isPendingMgr || isPendingLegacy;
+
                 const senderUsername = document.getElementById('camp-sender-username');
-                if (senderUsername) senderUsername.innerText = c.creator_username || 'Unknown';
+                if (senderUsername) senderUsername.innerText = c.creator_name || c.creator_username || 'Unknown';
                 const senderEmpId = document.getElementById('camp-sender-empid');
                 if (senderEmpId) senderEmpId.innerText = c.creator_emp_id || 'N/A';
 
+                // Authorization check
+                let canApprove = false;
+                if (currentUserRole === 'admin') {
+                    canApprove = isPending;
+                } else if (isPendingLine && currentUserRole === 'line_manager') {
+                    canApprove = (c.current_approver_id == currentUserId || c.line_manager_id == currentUserId);
+                } else if (isPendingMgr && currentUserRole === 'manager') {
+                    canApprove = (c.current_approver_id == currentUserId || c.manager_user_id == currentUserId);
+                } else if (isPendingLegacy) {
+                    canApprove = (currentUserRole === 'manager' || c.manager_user_id == currentUserId);
+                }
+
                 if (approvalCard) {
-                    if (c.status === 'pending_approval' &&
-                        (currentUserRole === 'admin' ||
-                         currentUserRole === 'manager' ||
-                         c.manager_user_id === currentUserId ||
-                         c.manager_id === currentUserId)) {
+                    if (canApprove) {
                         approvalCard.classList.remove('d-none');
                     } else {
                         approvalCard.classList.add('d-none');
                     }
                 }
 
-                if (c.status === 'pending_approval') {
+                if (isPendingLine) {
+                    const approver = c.current_approver_name || c.current_approver_username || 'Line Manager';
                     alertContainer.innerHTML = `
                         <div class="p-3 rounded-3 bg-warning-soft border border-warning-subtle d-flex align-items-center gap-2">
                             <i class="bi bi-clock-history text-amber-700"></i>
-                            <span class="text-amber-900" style="font-size: 0.8125rem;"><strong>Pending Approval:</strong> This campaign is currently pending manager authorization.</span>
+                            <span class="text-amber-900" style="font-size: 0.8125rem;"><strong>Pending Line Manager Approval:</strong> Awaiting Line Manager (<strong>${escapeHtml(approver)}</strong>) authorization.</span>
+                        </div>
+                    `;
+                } else if (isPendingMgr) {
+                    const approver = c.current_approver_name || c.current_approver_username || 'Manager';
+                    alertContainer.innerHTML = `
+                        <div class="p-3 rounded-3 bg-warning-soft border border-warning-subtle d-flex align-items-center gap-2">
+                            <i class="bi bi-clock-history text-amber-700"></i>
+                            <span class="text-amber-900" style="font-size: 0.8125rem;"><strong>Pending Manager Approval:</strong> Awaiting Manager (<strong>${escapeHtml(approver)}</strong>) authorization.</span>
+                        </div>
+                    `;
+                } else if (isPendingLegacy) {
+                    alertContainer.innerHTML = `
+                        <div class="p-3 rounded-3 bg-warning-soft border border-warning-subtle d-flex align-items-center gap-2">
+                            <i class="bi bi-clock-history text-amber-700"></i>
+                            <span class="text-amber-900" style="font-size: 0.8125rem;"><strong>Pending Approval:</strong> This campaign is currently pending authorization.</span>
                         </div>
                     `;
                 } else if (c.status === 'rejected') {
-                    const remarkText = c.approval_remark ? `<br><span class="text-rose-700">Remark: ${escapeHtml(c.approval_remark)}</span>` : '';
+                    const rejecter = c.rejecter_name || c.rejecter_username || c.approver_name || c.approver_username || 'Approver';
+                    const reason = c.rejection_reason || c.approval_remark || '';
+                    const remarkText = reason ? `<br><span class="text-rose-700">Reason: ${escapeHtml(reason)}</span>` : '';
                     alertContainer.innerHTML = `
                         <div class="p-3 rounded-3 bg-danger-soft border border-danger-subtle d-flex align-items-center gap-2">
                             <i class="bi bi-x-circle text-rose-700"></i>
-                            <span class="text-rose-900" style="font-size: 0.8125rem;"><strong>Rejected Campaign:</strong> Rejected by <strong>${escapeHtml(c.approver_username || 'Unknown')}</strong>.${remarkText}</span>
+                            <span class="text-rose-900" style="font-size: 0.8125rem;"><strong>Rejected Campaign:</strong> Rejected by <strong>${escapeHtml(rejecter)}</strong>.${remarkText}</span>
                         </div>
                     `;
-                } else if (c.approved_by) {
+                } else if (c.approved_by || ['queued', 'sending', 'completed'].includes(c.status)) {
+                    const approver = c.approver_name || c.approver_username || 'System';
                     const remarkText = c.approval_remark ? `<br><span class="text-zinc-600">Remark: ${escapeHtml(c.approval_remark)}</span>` : '';
                     alertContainer.innerHTML = `
                         <div class="p-3 rounded-3 bg-success-soft border border-success-subtle d-flex align-items-center gap-2">
                             <i class="bi bi-check-circle text-emerald-700"></i>
-                            <span class="text-emerald-900" style="font-size: 0.8125rem;"><strong>Approved:</strong> Authorized by manager <strong>${escapeHtml(c.approver_username || 'Unknown')}</strong>.${remarkText}</span>
+                            <span class="text-emerald-900" style="font-size: 0.8125rem;"><strong>Approved:</strong> Authorized by <strong>${escapeHtml(approver)}</strong>.${remarkText}</span>
                         </div>
                     `;
                 } else {
@@ -876,6 +918,14 @@
                 } else if (c.status === 'queued') {
                     badge.className = 'badge bg-warning-soft';
                     badge.innerText = 'Queued';
+                } else if (c.status === 'pending_line_manager') {
+                    badge.className = 'badge bg-warning-soft';
+                    badge.innerText = 'Pending Line Manager';
+                    bar.style.backgroundColor = '#d97706';
+                } else if (c.status === 'pending_manager') {
+                    badge.className = 'badge bg-warning-soft';
+                    badge.innerText = 'Pending Manager';
+                    bar.style.backgroundColor = '#d97706';
                 } else if (c.status === 'pending_approval') {
                     badge.className = 'badge bg-warning-soft';
                     badge.innerText = 'Pending Approval';

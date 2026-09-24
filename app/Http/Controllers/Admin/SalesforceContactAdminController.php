@@ -20,15 +20,23 @@ class SalesforceContactAdminController extends Controller
     {
         $search = $request->input('search');
         $leadSource = $request->input('lead_source');
+        $customOwner = $request->input('custom_owner');
+        $ownerId = $request->input('owner_id');
+        $primeOwnerId = $request->input('prime_owner_id');
+        $sfUserId = $request->input('salesforce_sf_user_id');
         $perPage = (int) $request->input('per_page', 25);
         if (!in_array($perPage, [10, 25, 50, 100])) {
             $perPage = 25;
         }
 
         $query = SalesforceContact::query()
-            ->with(['account', 'owner', 'primeOwner'])
+            ->with(['account', 'owner', 'primeOwner', 'salesforceOwner'])
             ->search($search)
-            ->filterLeadSource($leadSource);
+            ->filterLeadSource($leadSource)
+            ->filterCustomOwner($customOwner)
+            ->filterOwner($ownerId)
+            ->filterPrimeOwner($primeOwnerId)
+            ->filterSalesforceSfUser($sfUserId ? (int)$sfUserId : null);
 
         $contacts = $query->orderBy('salesforce_updated_at', 'desc')
             ->orderBy('id', 'desc')
@@ -44,6 +52,21 @@ class SalesforceContactAdminController extends Controller
             ->pluck('lead_source')
             ->toArray();
 
+        $customOwners = SalesforceContact::whereNotNull('Custom_Owner__c')
+            ->where('Custom_Owner__c', '!=', '')
+            ->distinct()
+            ->orderBy('Custom_Owner__c')
+            ->pluck('Custom_Owner__c')
+            ->toArray();
+
+        $sfUsers = \App\Models\SalesforceSfUser::orderBy('name')
+            ->select('id', 'salesforce_id', 'name', 'emp_name', 'emp_email')
+            ->get();
+
+        $standardUsers = \App\Models\SalesforceUser::orderBy('name')
+            ->select('salesforce_id', 'name', 'username')
+            ->get();
+
         $latestSync = SalesforceSyncLog::where('object_type', 'Contact')
             ->orderByDesc('started_at')
             ->first();
@@ -52,9 +75,16 @@ class SalesforceContactAdminController extends Controller
             'contacts' => $contacts,
             'totalLocalContacts' => $totalLocalContacts,
             'leadSources' => $leadSources,
+            'customOwners' => $customOwners,
+            'sfUsers' => $sfUsers,
+            'standardUsers' => $standardUsers,
             'latestSync' => $latestSync,
             'search' => $search,
             'selectedSource' => $leadSource,
+            'selectedCustomOwner' => $customOwner,
+            'selectedOwner' => $ownerId,
+            'selectedPrimeOwner' => $primeOwnerId,
+            'selectedSfUserId' => $sfUserId,
             'perPage' => $perPage,
         ]);
     }

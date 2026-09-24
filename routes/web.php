@@ -66,8 +66,8 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/simulator', [SimulatorController::class, 'index'])->name('simulator_view');
     Route::get('/download/attachment/{campaign_id}/{filename}', [CampaignController::class, 'downloadAttachment'])->name('download_attachment');
 
-    // Manager and Admin UI
-    Route::middleware(['app_auth:admin,manager'])->group(function () {
+    // Manager, Line Manager and Admin UI
+    Route::middleware(['app_auth:admin,manager,line_manager'])->group(function () {
         Route::get('/manager/campaigns', [ManagerController::class, 'campaignsView'])->name('team_campaigns_view');
     });
 
@@ -159,7 +159,7 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/api/user/assigned-settings', [TemplateSignatureController::class, 'apiUserAssignedSettings'])->name('api.user.assigned_settings');
 
     // Manager APIs
-    Route::middleware(['app_auth:admin,manager'])->group(function () {
+    Route::middleware(['app_auth:admin,manager,line_manager'])->group(function () {
         Route::get('/api/manager/campaigns', [ManagerController::class, 'apiCampaigns'])->name('api.manager.campaigns');
         Route::get('/api/manager/team-members', [ManagerController::class, 'apiTeamMembers'])->name('api.manager.team_members');
     });

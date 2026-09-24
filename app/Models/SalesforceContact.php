@@ -33,6 +33,9 @@ class SalesforceContact extends Model
         'owner_id',
         'prime_owner_id',
         'secondary_owner',
+        'Custom_Owner__c',
+        'custom_owner',
+        'salesforce_sf_user_id',
         'owner_name',
         'owner_email',
         'owner_verification_status',
@@ -74,6 +77,30 @@ class SalesforceContact extends Model
     public function primeOwner(): BelongsTo
     {
         return $this->belongsTo(SalesforceSfUser::class, 'prime_owner_id', 'salesforce_id');
+    }
+
+    /**
+     * Relationship: Matched local Salesforce SF User record (via Custom_Owner__c or local FK)
+     */
+    public function salesforceOwner(): BelongsTo
+    {
+        return $this->belongsTo(SalesforceSfUser::class, 'salesforce_sf_user_id');
+    }
+
+    /**
+     * Accessor for custom_owner to map cleanly to Custom_Owner__c
+     */
+    public function getCustomOwnerAttribute(): ?string
+    {
+        return $this->attributes['Custom_Owner__c'] ?? null;
+    }
+
+    /**
+     * Mutator for custom_owner to map cleanly to Custom_Owner__c
+     */
+    public function setCustomOwnerAttribute(?string $value): void
+    {
+        $this->attributes['Custom_Owner__c'] = $value;
     }
 
     /**
@@ -122,4 +149,65 @@ class SalesforceContact extends Model
 
         return $query->where('lead_source', trim($source));
     }
+
+    /**
+     * Scope to filter by Standard User Owner.
+     */
+    public function scopeFilterOwner(Builder $query, ?string $ownerId): Builder
+    {
+        if (empty(trim((string)$ownerId))) {
+            return $query;
+        }
+
+        return $query->where('owner_id', trim($ownerId));
+    }
+
+    /**
+     * Scope to filter by Custom SF User Prime Owner (SF_User__c).
+     */
+    public function scopeFilterPrimeOwner(Builder $query, ?string $primeOwnerId): Builder
+    {
+        if (empty(trim((string)$primeOwnerId))) {
+            return $query;
+        }
+
+        return $query->where('prime_owner_id', trim($primeOwnerId));
+    }
+
+    /**
+     * Scope to filter by matched Salesforce SF User ID.
+     */
+    public function scopeFilterSalesforceSfUser(Builder $query, ?int $sfUserId): Builder
+    {
+        if (empty($sfUserId)) {
+            return $query;
+        }
+
+        return $query->where('salesforce_sf_user_id', $sfUserId);
+    }
+
+    /**
+     * Scope to filter by Custom Owner name.
+     */
+    public function scopeFilterCustomOwner(Builder $query, ?string $customOwner): Builder
+    {
+        if (empty(trim((string)$customOwner))) {
+            return $query;
+        }
+
+        return $query->where('Custom_Owner__c', trim($customOwner));
+    }
+
+    /**
+     * Scope to filter by Owner Verification Status.
+     */
+    public function scopeFilterOwnerVerificationStatus(Builder $query, ?string $status): Builder
+    {
+        if (empty(trim((string)$status))) {
+            return $query;
+        }
+
+        return $query->where('owner_verification_status', trim($status));
+    }
 }
+

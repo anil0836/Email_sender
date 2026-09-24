@@ -680,8 +680,8 @@
             $currentUser->hasRole('Admin'));
             @endphp
 
-            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager || ($currentUser &&
-            method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Manager')))
+            @if(in_array($userRole, ['admin', 'manager', 'line_manager']) || $isTeamManager || ($currentUser &&
+            method_exists($currentUser, 'hasRole') && ($currentUser->hasRole('Manager') || $currentUser->hasRole('Line Manager'))))
             <li class="nav-item-header">Management</li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"

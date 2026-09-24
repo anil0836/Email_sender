@@ -441,13 +441,15 @@ class SalesforceLeadSyncService
             $convertedIdsToDelete = [];
             $recordsToUpsert = [];
 
-            $truncate = static function (?string $value, int $maxLength): ?string {
+            $truncate = static function (?string $value, int $maxLength, bool $trim = true): ?string {
                 if ($value === null) {
                     return null;
                 }
-                $value = trim($value);
-                if ($value === '') {
-                    return null;
+                if ($trim) {
+                    $value = trim($value);
+                    if ($value === '') {
+                        return null;
+                    }
                 }
                 return mb_strlen($value) > $maxLength ? mb_substr($value, 0, $maxLength) : $value;
             };
@@ -598,8 +600,8 @@ class SalesforceLeadSyncService
                     'prime_owner_id' => $incomingPrimeOwnerId,
                     'salesforce_sf_user_id' => $salesforceSfUserId,
                     'secondary_owner' => $truncate($rec['secondary_owner'] ?? null, 150),
-                    'custom_owner' => $truncate($rawCustomOwner, 150),
-                    'Custom_Owner__c' => $truncate($rawCustomOwner, 255),
+                    'custom_owner' => $truncate($rawCustomOwner, 150, false),
+                    'Custom_Owner__c' => $truncate($rawCustomOwner, 255, false),
                     'owner_name' => $truncate($ownerName, 255),
                     'owner_email' => $truncate($ownerEmail, 255),
                     'owner_verification_status' => $truncate($verificationStatus, 50),

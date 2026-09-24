@@ -81,8 +81,8 @@ class CampaignController extends Controller
 
         // Fetch campaigns belonging to this user account
         $campaigns = Campaign::where('user_id', $user->id)
-            ->with(['approver:id,username,name'])
-            ->orderByRaw("CASE WHEN status = 'pending_approval' THEN 0 ELSE 1 END")
+            ->with(['approver:id,username,name', 'currentApprover:id,username,name', 'rejecter:id,username,name'])
+            ->orderByRaw("CASE WHEN status IN ('pending_approval', 'pending_line_manager', 'pending_manager') THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -110,7 +110,7 @@ class CampaignController extends Controller
         // Fetch accessible campaigns for the interactive sidebar
         $sidebarCampaigns = Campaign::accessibleBy($user)
             ->with('user:id,username,name')
-            ->orderByRaw("CASE WHEN status = 'pending_approval' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN status IN ('pending_approval', 'pending_line_manager', 'pending_manager') THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -476,21 +476,33 @@ class CampaignController extends Controller
 
         $campaignId = (string) Str::uuid();
 
-        // 5. Determine Campaign Status
-        // Standard users (role='user') always require manager approval before sending.
-        // Admins and Managers bypass approval and go directly to queued/scheduled.
-        if ($userRole === 'user') {
-            $status = 'pending_approval';
-        } else {
+        // 5. Determine Campaign Status via CampaignApprovalService
+        $approvalService = app(\App\Services\CampaignApprovalService::class);
+        $approvalState = $approvalService->determineInitialApprovalState($user);
+
+        if (!empty($approvalState['error'])) {
+            return response()->json([
+                'error' => $approvalState['error'],
+            ], 422);
+        }
+
+        $status = $approvalState['status'];
+        if ($status === 'approved') {
             $status = $scheduleTime ? 'scheduled' : 'queued';
         }
+
+        $currentApproverId = $approvalState['current_approver_id'];
+        $lineManagerId = $approvalState['line_manager_id'];
+        $managerUserId = $approvalState['manager_id'];
 
         // Resolve Team and Manager via TeamService
         $teamService = app(\App\Services\TeamService::class);
         $team = $teamService->resolveUserTeam($user);
         $managerInfo = $teamService->resolveTeamManager($team);
         $managerSfId = $managerInfo['salesforce_id'] ?? null;
-        $managerUserId = $managerInfo['local_user_id'] ?? ($user->manager_id ?? null);
+        if (!$managerUserId) {
+            $managerUserId = $managerInfo['local_user_id'] ?? null;
+        }
 
         $campaign = Campaign::create([
             'id' => $campaignId,
@@ -506,6 +518,8 @@ class CampaignController extends Controller
             'team' => $team,
             'manager_salesforce_id' => $managerSfId,
             'manager_user_id' => $managerUserId,
+            'line_manager_id' => $lineManagerId,
+            'current_approver_id' => $currentApproverId,
             'total_requested' => count($recipientIds) + count($recipientEmails),
             'total_approved' => count($approvedRecords),
             'total_blocked' => count($blockedRecords),
@@ -513,6 +527,9 @@ class CampaignController extends Controller
             'scheduled_at' => $scheduleTime,
             'attachments' => json_encode($attachments),
         ]);
+
+        // Record submission in Campaign Approval History
+        $approvalService->recordSubmission($campaign, $user);
 
         // 6. Insert Campaign Members & logs for approved recipients
         foreach ($approvedRecords as $rec) {
@@ -594,8 +611,8 @@ class CampaignController extends Controller
             $request->ip()
         );
 
-        // 8. Immediately process queued campaign if not scheduled and not testing
-        if ($status === 'queued' && !app()->environment('testing')) {
+        // 8. Immediately process queued campaign if not scheduled, testing is not active, and campaign is fully approved
+        if ($status === 'queued' && !app()->environment('testing') && $campaign->isFullyApproved()) {
             try {
                 $this->processingService->processQueuedEmails();
             } catch (\Throwable $e) {
@@ -603,14 +620,27 @@ class CampaignController extends Controller
             }
         }
 
+        $approverUser = $currentApproverId ? User::find($currentApproverId) : null;
+        $approverName = $approverUser ? ($approverUser->name ?: $approverUser->username) : null;
+        $approvalStage = $approvalState['approval_stage'] ?? null;
+
+        $msg = match ($approvalStage ?: $status) {
+            'pending_line_manager' => "Campaign submitted successfully. Awaiting Line Manager ({$approverName}) approval.",
+            'pending_manager' => "Campaign submitted successfully. Awaiting Manager ({$approverName}) approval.",
+            'pending_approval' => "Campaign submitted successfully. Awaiting approval.",
+            'queued' => 'Campaign created and queued for immediate dispatch.',
+            'scheduled' => 'Campaign scheduled successfully.',
+            default => "Campaign created with status: {$status}."
+        };
+
         return response()->json([
             'success' => true,
             'campaign_id' => $campaignId,
             'status' => $status,
-            'message' => "Campaign created with status: {$status}.",
-            'warning' => ($status === 'pending_approval' && !$managerUserId)
-                ? 'No manager is currently assigned to your account. The campaign will remain on hold until an admin assigns a manager to your profile.'
-                : null,
+            'approval_stage' => $approvalStage,
+            'current_approver_id' => $currentApproverId,
+            'approver_name' => $approverName,
+            'message' => $msg,
         ]);
     }
 
@@ -637,15 +667,26 @@ class CampaignController extends Controller
         $campaignRow = DB::table('campaigns')
             ->join('users', 'campaigns.user_id', '=', 'users.id')
             ->leftJoin('users as approvers', 'campaigns.approved_by', '=', 'approvers.id')
+            ->leftJoin('users as cur_app', 'campaigns.current_approver_id', '=', 'cur_app.id')
+            ->leftJoin('users as line_mgr', 'campaigns.line_manager_id', '=', 'line_mgr.id')
+            ->leftJoin('users as rejecters', 'campaigns.rejected_by', '=', 'rejecters.id')
             ->leftJoin('salesforce_users as sf_mgr', 'campaigns.manager_salesforce_id', '=', 'sf_mgr.salesforce_id')
             ->leftJoin('users as local_mgr', 'campaigns.manager_user_id', '=', 'local_mgr.id')
             ->where('campaigns.id', $campaignId)
             ->select(
                 'campaigns.*',
                 'users.username as creator_username',
+                'users.name as creator_name',
                 'users.manager_id',
                 'users.emp_id as creator_emp_id',
                 'approvers.username as approver_username',
+                'approvers.name as approver_name',
+                'cur_app.username as current_approver_username',
+                'cur_app.name as current_approver_name',
+                'line_mgr.username as line_manager_username',
+                'line_mgr.name as line_manager_name',
+                'rejecters.username as rejecter_username',
+                'rejecters.name as rejecter_name',
                 'sf_mgr.name as manager_sf_name',
                 'sf_mgr.email as manager_sf_email',
                 'local_mgr.username as manager_local_username'
@@ -654,11 +695,18 @@ class CampaignController extends Controller
 
         $logs = RecipientLog::where('campaign_id', $campaignId)->get();
         $members = CampaignMember::with(['owner', 'primeOwner'])->where('campaign_id', $campaignId)->get();
+        $approvals = DB::table('campaign_approvals')
+            ->join('users', 'campaign_approvals.approver_id', '=', 'users.id')
+            ->where('campaign_approvals.campaign_id', $campaignId)
+            ->select('campaign_approvals.*', 'users.username as approver_username', 'users.name as approver_name')
+            ->orderBy('campaign_approvals.created_at', 'asc')
+            ->get();
 
         return response()->json([
             'campaign' => (array) $campaignRow,
             'recipient_logs' => $logs,
             'members' => $members,
+            'approvals' => $approvals,
         ]);
     }
 
@@ -679,23 +727,35 @@ class CampaignController extends Controller
 
         // 1. Leads
         if (in_array($type, ['all', 'Lead', 'lead', 'leads'])) {
-            $leadsQuery = SalesforceLead::query()->with(['owner', 'primeOwner']);
+            $leadsQuery = SalesforceLead::query()->with(['owner', 'primeOwner', 'salesforceOwner']);
             if ($search) {
                 $leadsQuery->search($search);
             }
             if ($role !== 'admin') {
-                $leadsQuery->where(function ($q) use ($username, $user) {
+                $userEmail = $user ? $user->email : $username;
+                $leadsQuery->where(function ($q) use ($username, $userEmail) {
                     $q->where('owner_id', $username)
-                      ->orWhere('owner_email', $user->email ?? $username)
-                      ->orWhereHas('owner', function ($oq) use ($username, $user) {
-                          $oq->where('username', $username)->orWhere('email', $user->email ?? $username);
+                      ->orWhere('owner_email', $userEmail)
+                      ->orWhereHas('owner', function ($oq) use ($username, $userEmail) {
+                          $oq->where('username', $username)->orWhere('email', $userEmail);
+                      })
+                      ->orWhereHas('salesforceOwner', function ($soq) use ($username, $userEmail) {
+                          $soq->where('emp_email', $userEmail)
+                              ->orWhere('name', $username)
+                              ->orWhere('emp_name', $username);
+                      })
+                      ->orWhereHas('primeOwner', function ($poq) use ($username, $userEmail) {
+                          $poq->where('emp_email', $userEmail)
+                              ->orWhere('name', $username)
+                              ->orWhere('emp_name', $username);
                       });
                 });
             }
 
             $leads = $leadsQuery->orderBy('salesforce_updated_at', 'desc')->limit($limit)->get();
             foreach ($leads as $l) {
-                $ownerName = $l->owner_name ?: ($l->owner ? $l->owner->name : ($l->primeOwner ? $l->primeOwner->name : ''));
+                $ownerName = $l->owner_name ?: ($l->salesforceOwner ? $l->salesforceOwner->name : ($l->owner ? $l->owner->name : ($l->primeOwner ? $l->primeOwner->name : '')));
+                $ownerEmail = $l->owner_email ?: ($l->salesforceOwner ? $l->salesforceOwner->emp_email : ($l->owner ? $l->owner->email : ($l->primeOwner ? $l->primeOwner->emp_email : '')));
                 $results[] = [
                     'id' => $l->salesforce_id,
                     'local_id' => $l->id,
@@ -710,7 +770,7 @@ class CampaignController extends Controller
                     'salesforce_owner_id' => $l->owner_id,
                     'prime_owner_id' => $l->prime_owner_id,
                     'owner_name' => $ownerName,
-                    'owner_email' => $l->owner_email ?: ($l->owner ? $l->owner->email : ''),
+                    'owner_email' => $ownerEmail,
                     'owner_verification_status' => $l->owner_verification_status ?: 'verified',
                     'last_owner_verified_at' => $l->last_owner_verified_at ? $l->last_owner_verified_at->toIso8601String() : null,
                     'status' => $l->status ?: 'New',
@@ -720,29 +780,43 @@ class CampaignController extends Controller
                     'Deal_Category__c' => $l->Deal_Category__c,
                     'region' => $l->state ?: 'Global',
                     'country' => $l->country ?: '',
+                    'custom_owner' => $l->custom_owner ?: ($l->Custom_Owner__c ?: ''),
+                    'Custom_Owner__c' => $l->Custom_Owner__c ?: ($l->custom_owner ?: ''),
                 ];
             }
         }
 
         // 2. Contacts
         if (in_array($type, ['all', 'Contact', 'contact', 'contacts'])) {
-            $contactsQuery = SalesforceContact::query()->with(['owner', 'primeOwner', 'account']);
+            $contactsQuery = SalesforceContact::query()->with(['owner', 'primeOwner', 'salesforceOwner', 'account']);
             if ($search) {
                 $contactsQuery->search($search);
             }
             if ($role !== 'admin') {
-                $contactsQuery->where(function ($q) use ($username, $user) {
+                $userEmail = $user ? $user->email : $username;
+                $contactsQuery->where(function ($q) use ($username, $userEmail) {
                     $q->where('owner_id', $username)
-                      ->orWhere('owner_email', $user->email ?? $username)
-                      ->orWhereHas('owner', function ($oq) use ($username, $user) {
-                          $oq->where('username', $username)->orWhere('email', $user->email ?? $username);
+                      ->orWhere('owner_email', $userEmail)
+                      ->orWhereHas('owner', function ($oq) use ($username, $userEmail) {
+                          $oq->where('username', $username)->orWhere('email', $userEmail);
+                      })
+                      ->orWhereHas('salesforceOwner', function ($soq) use ($username, $userEmail) {
+                          $soq->where('emp_email', $userEmail)
+                              ->orWhere('name', $username)
+                              ->orWhere('emp_name', $username);
+                      })
+                      ->orWhereHas('primeOwner', function ($poq) use ($username, $userEmail) {
+                          $poq->where('emp_email', $userEmail)
+                              ->orWhere('name', $username)
+                              ->orWhere('emp_name', $username);
                       });
                 });
             }
 
             $contacts = $contactsQuery->orderBy('salesforce_updated_at', 'desc')->limit($limit)->get();
             foreach ($contacts as $c) {
-                $ownerName = $c->owner_name ?: ($c->owner ? $c->owner->name : ($c->primeOwner ? $c->primeOwner->name : ''));
+                $ownerName = $c->owner_name ?: ($c->salesforceOwner ? $c->salesforceOwner->name : ($c->owner ? $c->owner->name : ($c->primeOwner ? $c->primeOwner->name : '')));
+                $ownerEmail = $c->owner_email ?: ($c->salesforceOwner ? $c->salesforceOwner->emp_email : ($c->owner ? $c->owner->email : ($c->primeOwner ? $c->primeOwner->emp_email : '')));
                 $company = $c->account ? $c->account->name : '';
                 $results[] = [
                     'id' => $c->salesforce_id,
@@ -758,7 +832,7 @@ class CampaignController extends Controller
                     'salesforce_owner_id' => $c->owner_id,
                     'prime_owner_id' => $c->prime_owner_id,
                     'owner_name' => $ownerName,
-                    'owner_email' => $c->owner_email ?: ($c->owner ? $c->owner->email : ''),
+                    'owner_email' => $ownerEmail,
                     'owner_verification_status' => $c->owner_verification_status ?: 'verified',
                     'last_owner_verified_at' => $c->last_owner_verified_at ? $c->last_owner_verified_at->toIso8601String() : null,
                     'status' => 'Active',
@@ -767,6 +841,8 @@ class CampaignController extends Controller
                     'deal_category' => $c->department ?: 'General',
                     'region' => $c->mailing_state ?: 'Global',
                     'country' => $c->mailing_country ?: '',
+                    'custom_owner' => $c->Custom_Owner__c ?: '',
+                    'Custom_Owner__c' => $c->Custom_Owner__c ?: '',
                 ];
             }
         }
@@ -835,8 +911,8 @@ class CampaignController extends Controller
 
         $query = Campaign::accessibleBy($user)
             ->with('user:id,username,name')
-            ->select('id', 'subject', 'team', 'status', 'user_id', 'total_requested', 'total_approved', 'approved_by', 'created_at', 'scheduled_at')
-            ->orderByRaw("CASE WHEN status = 'pending_approval' THEN 0 ELSE 1 END")
+            ->select('id', 'subject', 'team', 'status', 'user_id', 'total_requested', 'total_approved', 'approved_by', 'current_approver_id', 'created_at', 'scheduled_at')
+            ->orderByRaw("CASE WHEN status IN ('pending_approval', 'pending_line_manager', 'pending_manager') THEN 0 ELSE 1 END")
             ->orderBy('created_at', 'desc');
 
         if ($filterUserId) {
@@ -850,23 +926,13 @@ class CampaignController extends Controller
     }
 
     /**
-     * Manager / Admin campaign approval API.
+     * Manager / Line Manager / Admin campaign approval API.
      */
     public function apiApprove(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
         if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        $userRole = $user->role;
-        $userId = $user->id;
-
-        $teamService = app(\App\Services\TeamService::class);
-        $isManager = $userRole === 'admin' || $userRole === 'manager' || $teamService->isTeamManager($user);
-
-        if (!$isManager) {
-            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $campaignId = $request->input('campaign_id');
@@ -882,71 +948,24 @@ class CampaignController extends Controller
             return response()->json(['error' => 'Campaign not found.'], 404);
         }
 
-        // Idempotency guard: only pending_approval campaigns can be approved or rejected.
-        if ($campaign->status !== 'pending_approval') {
-            return response()->json([
-                'error' => "This campaign cannot be actioned. Current status is '{$campaign->status}'. Only campaigns in 'pending_approval' status can be approved or rejected.",
-            ], 409);
-        }
-
-        // Authorization check: Admin OR manager of this user/campaign
-        $isAuthorized = false;
-        if ($userRole === 'admin') {
-            $isAuthorized = true;
-        } elseif ($campaign->manager_user_id === $userId) {
-            $isAuthorized = true;
-        } elseif ($campaign->user && $teamService->isManagerOfUser($user, $campaign->user)) {
-            $isAuthorized = true;
-        } elseif ($campaign->team && in_array($campaign->team, $teamService->getManagedTeamsForUser($user))) {
-            $isAuthorized = true;
-        }
-
-        if (!$isAuthorized) {
-            return response()->json(['error' => 'Unauthorized: You are not the manager of this campaign or team.'], 403);
-        }
-
-        $nowStr = Carbon::now();
+        $approvalService = app(\App\Services\CampaignApprovalService::class);
 
         if ($decision === 'approve') {
-            $newStatus = $campaign->scheduled_at ? 'scheduled' : 'queued';
-            $newDeliveryStatus = $campaign->scheduled_at ? 'scheduled' : 'queued';
-
-            $campaign->update([
-                'status' => $newStatus,
-                'approved_by' => $userId,
-                'approval_remark' => $remark,
-                'approval_at' => $nowStr,
-            ]);
-
-            RecipientLog::where('campaign_id', $campaignId)
-                ->where('delivery_status', 'pending_approval')
-                ->update(['delivery_status' => $newDeliveryStatus]);
-
-            if ($newStatus === 'queued' && !app()->environment('testing')) {
-                try {
-                    $this->processingService->processQueuedEmails();
-                } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::error("[CampaignController] Approval processing error: " . $e->getMessage());
-                }
-            }
-
-            $message = 'Campaign approved and queued for dispatch.';
+            $result = $approvalService->approve($campaign, $user, $remark);
         } else {
-            $campaign->update([
-                'status' => 'rejected',
-                'approved_by' => $userId,
-                'approval_remark' => $remark,
-                'approval_at' => $nowStr,
-            ]);
-
-            RecipientLog::where('campaign_id', $campaignId)
-                ->where('delivery_status', 'pending_approval')
-                ->update(['delivery_status' => 'blocked', 'decision' => 'blocked']);
-
-            $message = 'Campaign rejected.';
+            $result = $approvalService->reject($campaign, $user, $remark);
         }
 
-        return response()->json(['success' => true, 'message' => $message]);
+        if (!$result['success']) {
+            $statusCode = str_contains($result['error'] ?? '', 'Unauthorized') ? 403 : 422;
+            return response()->json(['error' => $result['error']], $statusCode);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $result['message'],
+            'new_status' => $result['new_status'] ?? null,
+        ]);
     }
 
     /**

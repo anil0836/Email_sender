@@ -15,9 +15,11 @@
                     </select>
 
                     <span class="stat-label mb-0 ms-2">Status:</span>
-                    <select id="status-select" class="form-select form-select-sm" style="width: 160px;" onchange="loadTeamCampaigns()">
+                    <select id="status-select" class="form-select form-select-sm" style="width: 170px;" onchange="loadTeamCampaigns()">
                         <option value="">-- All Statuses --</option>
-                        <option value="pending_approval">Pending Approval</option>
+                        <option value="pending_line_manager">Pending Line Manager</option>
+                        <option value="pending_manager">Pending Manager</option>
+                        <option value="pending_approval">Pending (Legacy)</option>
                         <option value="rejected">Rejected</option>
                         <option value="scheduled">Scheduled</option>
                         <option value="queued">Queued / Sending</option>
@@ -95,6 +97,8 @@
 @section('extra_scripts')
 <script>
     let rejectModalInstance = null;
+    const currentUserId = {{ (int)(Auth::id() ?: session('user_id', 0)) }};
+    const currentUserRole = "{{ Auth::user() ? Auth::user()->role : (session('role') ?? 'user') }}";
 
     function loadTeamMembers() {
         fetch('/api/manager/team-members')
@@ -143,15 +147,30 @@
                 campaigns.forEach(c => {
                     let statusBadge = '';
                     let actionHtml = '';
+
+                    const isPendingLine = (c.status === 'pending_line_manager');
+                    const isPendingMgr = (c.status === 'pending_manager');
+                    const isPendingLegacy = (c.status === 'pending_approval');
+                    const isPending = isPendingLine || isPendingMgr || isPendingLegacy;
+
+                    // Determine if current user can approve/reject
+                    let canApprove = false;
+                    if (currentUserRole === 'admin') {
+                        canApprove = isPending;
+                    } else if (isPendingLine && currentUserRole === 'line_manager') {
+                        canApprove = (c.current_approver_id == currentUserId || c.line_manager_id == currentUserId);
+                    } else if (isPendingMgr && currentUserRole === 'manager') {
+                        canApprove = (c.current_approver_id == currentUserId || c.manager_user_id == currentUserId);
+                    } else if (isPendingLegacy) {
+                        canApprove = (currentUserRole === 'manager' || c.manager_user_id == currentUserId);
+                    }
                     
-                    if (c.status === 'pending_approval') {
+                    if (isPendingLine) {
+                        statusBadge = '<span class="badge bg-warning-soft"><i class="bi bi-clock me-1"></i>Pending Line Manager</span>';
+                    } else if (isPendingMgr) {
+                        statusBadge = '<span class="badge bg-warning-soft"><i class="bi bi-clock me-1"></i>Pending Manager</span>';
+                    } else if (isPendingLegacy) {
                         statusBadge = '<span class="badge bg-warning-soft"><i class="bi bi-clock me-1"></i>Pending Approval</span>';
-                        actionHtml = `
-                            <div class="d-flex gap-1 justify-content-center">
-                                <button class="btn btn-outline-secondary btn-xs text-emerald-700" onclick="approveCampaign('${c.id}')"><i class="bi bi-check-lg"></i> Approve</button>
-                                <button class="btn btn-outline-danger btn-xs" onclick="openRejectModal('${c.id}')"><i class="bi bi-x"></i> Reject</button>
-                            </div>
-                        `;
                     } else if (c.status === 'rejected') {
                         statusBadge = '<span class="badge bg-danger-soft"><i class="bi bi-x-circle me-1"></i>Rejected</span>';
                     } else if (c.status === 'scheduled') {
@@ -161,10 +180,24 @@
                     } else if (c.status === 'completed') {
                         statusBadge = '<span class="badge bg-success-soft"><i class="bi bi-check-circle me-1"></i>Dispatched</span>';
                     } else {
-                        statusBadge = `<span class="badge bg-secondary-soft">${c.status}</span>`;
+                        statusBadge = `<span class="badge bg-secondary-soft">${escapeHtml(c.status)}</span>`;
                     }
 
-                    if (!actionHtml) {
+                    if (canApprove) {
+                        actionHtml = `
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button class="btn btn-outline-secondary btn-xs text-emerald-700" onclick="approveCampaign('${c.id}')"><i class="bi bi-check-lg"></i> Approve</button>
+                                <button class="btn btn-outline-danger btn-xs" onclick="openRejectModal('${c.id}')"><i class="bi bi-x"></i> Reject</button>
+                            </div>
+                        `;
+                    } else if (isPending) {
+                        const approver = c.current_approver_name || c.current_approver_username || 'Superior';
+                        actionHtml = `
+                            <div class="text-center">
+                                <span class="text-zinc-500" style="font-size: 0.74rem;"><i class="bi bi-hourglass me-1"></i>Awaiting ${escapeHtml(approver)}</span>
+                            </div>
+                        `;
+                    } else {
                         actionHtml = `
                             <div class="text-center">
                                 <span class="text-zinc-400" style="font-size: 0.76rem;">Reviewed</span>
@@ -179,16 +212,32 @@
                     `;
 
                     let auditText = '<span class="text-zinc-400">-</span>';
-                    if (c.approver_username) {
-                        const dateStr = new Date(c.approval_at).toLocaleString();
-                        const actionName = c.status === 'rejected' ? 'Rejected' : 'Approved';
-                        const badgeColor = c.status === 'rejected' ? 'text-rose-700' : 'text-emerald-700';
-                        
+                    if (c.status === 'rejected') {
+                        const rejecter = c.rejecter_name || c.rejecter_username || c.approver_name || c.approver_username || 'Approver';
+                        const reason = c.rejection_reason || c.approval_remark || 'No remark provided';
+                        const dateStr = c.rejected_at ? new Date(c.rejected_at).toLocaleString() : (c.approval_at ? new Date(c.approval_at).toLocaleString() : '');
                         auditText = `
                             <div class="text-zinc-700" style="font-size: 0.775rem;">
-                                <strong>${actionName}:</strong> ${escapeHtml(c.approver_username)}
-                                <div class="text-zinc-400" style="font-size: 0.72rem;">${dateStr}</div>
-                                ${c.approval_remark ? `<div class="${badgeColor} fw-medium mt-0.5">Remark: <span class="text-zinc-600">${escapeHtml(c.approval_remark)}</span></div>` : ''}
+                                <strong class="text-rose-700">Rejected by:</strong> ${escapeHtml(rejecter)}
+                                ${dateStr ? `<div class="text-zinc-400" style="font-size: 0.72rem;">${dateStr}</div>` : ''}
+                                <div class="text-rose-700 fw-medium mt-0.5" style="font-size: 0.72rem;">Reason: <span class="text-zinc-600">${escapeHtml(reason)}</span></div>
+                            </div>
+                        `;
+                    } else if (c.approver_username || c.approver_name) {
+                        const approver = c.approver_name || c.approver_username;
+                        const dateStr = c.approval_at ? new Date(c.approval_at).toLocaleString() : '';
+                        auditText = `
+                            <div class="text-zinc-700" style="font-size: 0.775rem;">
+                                <strong class="text-emerald-700">Approved by:</strong> ${escapeHtml(approver)}
+                                ${dateStr ? `<div class="text-zinc-400" style="font-size: 0.72rem;">${dateStr}</div>` : ''}
+                                ${c.approval_remark ? `<div class="text-emerald-700 fw-medium mt-0.5" style="font-size: 0.72rem;">Remark: <span class="text-zinc-600">${escapeHtml(c.approval_remark)}</span></div>` : ''}
+                            </div>
+                        `;
+                    } else if (isPending && (c.current_approver_name || c.current_approver_username)) {
+                        auditText = `
+                            <div class="text-zinc-600" style="font-size: 0.75rem;">
+                                <i class="bi bi-clock me-1 text-amber-600"></i><strong>Assigned Approver:</strong>
+                                <div>${escapeHtml(c.current_approver_name || c.current_approver_username)}</div>
                             </div>
                         `;
                     }

@@ -148,7 +148,7 @@ const OBJECT_CONFIGS = {
             'Id', 'AccountId', 'FirstName', 'LastName', 'Name', 'Title', 'Department',
             'Email', 'Phone', 'MobilePhone', 'LeadSource',
             'MailingStreet', 'MailingCity', 'MailingState', 'MailingPostalCode', 'MailingCountry',
-            'OwnerId', 'Prime_Owner__c', 'Secondary_Owner__c', 'CreatedDate', 'LastModifiedDate'
+            'OwnerId', 'Prime_Owner__c', 'Secondary_Owner__c', 'Custom_Owner__c', 'CreatedDate', 'LastModifiedDate'
         ],
         mapRecord: (r) => ({
             salesforce_id: r.Id || '',
@@ -170,6 +170,8 @@ const OBJECT_CONFIGS = {
             owner_id: r.OwnerId || '',
             prime_owner_id: r.Prime_Owner__c || '',
             secondary_owner: r.Secondary_Owner__c || '',
+            Custom_Owner__c: r.Custom_Owner__c || '',
+            custom_owner: r.Custom_Owner__c || '',
             salesforce_created_at: r.CreatedDate || null,
             salesforce_updated_at: r.LastModifiedDate || null,
         })
