@@ -786,6 +786,35 @@ class BulkEmailClientTest extends TestCase
         $resBulk->assertSee('id="reply-to"', false);
     }
 
+    public function test_campaign_new_view_contains_all_54_deal_categories(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        $res = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->get('/campaign/new');
+
+        $res->assertStatus(200);
+        $res->assertSee('Deal Category');
+
+        $categories = [
+            'AC Adaptors', 'AIO', 'Audio Accessories', 'Bar Code Scanner', 'Barebone/Scrap Desktops',
+            'Barebone/Scrap Laptops', 'Cable Assemblies', 'Camera', 'CCTV/DVR', 'Chromebook',
+            'CPU', 'CPU Fan', 'Desktop C2D', 'Desktop I Series', 'Docking Stations',
+            'Energy Audit Equipment', 'E-Scrap', 'Fax machine', 'Gaming PC/Consoles', 'HDD',
+            'HighEnd Desktops', 'HighEnd Laptops', 'iMac', 'iPads', 'iPhones', 'IP Phone',
+            'Keyboard', 'Laptop C2D', 'Laptop I Series', 'LCD', 'MacBooks', 'MacMini',
+            'Memory', 'Mobiles', 'Mouse', 'Networking Equipment', 'Phone', 'POS',
+            'Power Cable', 'Printers', 'RAM', 'Router', 'Servers / Rack Servers', 'Solar Panel',
+            'Speakers', 'Stylus', 'Switch Board', 'Tablet', 'Thin Clients', 'Toner/Cartridges',
+            'Video Cards', 'Wearables', 'Workstation', 'Other',
+        ];
+
+        foreach ($categories as $cat) {
+            $res->assertSee($cat);
+        }
+    }
+
     public function test_campaign_creation_persists_default_reply_to_support_email(): void
     {
         $admin = User::where('username', 'admin')->first();
@@ -887,6 +916,81 @@ class BulkEmailClientTest extends TestCase
             }
             return true;
         });
+    }
+
+    public function test_pabbly_service_generates_unique_campaign_names_across_rapid_calls(): void
+    {
+        config(['pabbly.api_key' => 'test_api_key']);
+        config(['pabbly.reply_to' => 'support@b2bexportsllc.com']);
+
+        $sentCampaignNames = [];
+
+        Http::fake([
+            'https://emails.pabbly.com/api/v2/campaigns' => function ($request) use (&$sentCampaignNames) {
+                $sentCampaignNames[] = $request['campaignDetails']['campaignName'] ?? null;
+                return Http::response([
+                    'status' => 'success',
+                    'data' => ['_id' => 'pabbly_camp_' . count($sentCampaignNames)],
+                ], 200);
+            },
+            'https://emails.pabbly.com/api/v2/campaigns/send-to-individual' => Http::response([
+                'status' => 'success',
+                'data' => ['queued' => 1],
+            ], 200),
+        ]);
+
+        $pabbly = new PabblyService();
+        $pabbly->sendEmail('user1@example.com', 'User One', 'Same Subject', '<p>Body</p>');
+        $pabbly->sendEmail('user2@example.com', 'User Two', 'Same Subject', '<p>Body</p>');
+
+        $this->assertCount(2, $sentCampaignNames);
+        $this->assertNotEquals($sentCampaignNames[0], $sentCampaignNames[1]);
+        $this->assertEquals('Same Subject', preg_replace('/\s+/', ' ', trim($sentCampaignNames[0])));
+        $this->assertEquals('Same Subject', preg_replace('/\s+/', ' ', trim($sentCampaignNames[1])));
+    }
+
+    public function test_pabbly_service_retries_on_duplicate_campaign_name_error_and_succeeds(): void
+    {
+        config(['pabbly.api_key' => 'test_api_key']);
+        config(['pabbly.reply_to' => 'support@b2bexportsllc.com']);
+
+        Http::fake([
+            'https://emails.pabbly.com/api/v2/campaigns' => Http::sequence()
+                ->push(['status' => 'error', 'message' => 'Campaign name must be unique within the business'], 400)
+                ->push(['status' => 'success', 'data' => ['_id' => 'pabbly_retry_success_456']], 200),
+            'https://emails.pabbly.com/api/v2/campaigns/send-to-individual' => Http::response([
+                'status' => 'success',
+                'data' => ['queued' => 1],
+            ], 200),
+        ]);
+
+        $pabbly = new PabblyService();
+        $result = $pabbly->sendEmail('retry@example.com', 'Retry Recipient', 'Collision Test', '<p>Body</p>');
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('pabbly_retry_success_456', $result['pabbly_campaign_id']);
+
+        // 2 calls to /campaigns (1 initial failed + 1 retry successful) and 1 to /send-to-individual
+        Http::assertSentCount(3);
+    }
+
+    public function test_pabbly_service_random_spacing_matches_subject_words_and_letters(): void
+    {
+        $pabbly = new PabblyService();
+        $original = 'this is product of sale';
+
+        $generatedNames = [];
+        for ($i = 0; $i < 10; $i++) {
+            $name = $pabbly->generateUniqueCampaignName($original);
+            $generatedNames[] = $name;
+            // The normalized string must equal the original subject
+            $this->assertEquals($original, preg_replace('/\s+/', ' ', trim($name)));
+            // Must contain whitespace variation (2 or more consecutive spaces)
+            $this->assertMatchesRegularExpression('/\s{2,}/', $name);
+        }
+
+        // All 10 generated variations should be distinct
+        $this->assertCount(10, array_unique($generatedNames));
     }
 
     public function test_bulk_email_view_contains_csv_upload_elements(): void

@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import jsforce from 'jsforce';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Parse CLI arguments
@@ -13,6 +15,7 @@ function parseArgs() {
         full: false,
         today: false,
         order: 'DESC',
+        outputFile: null,
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -31,6 +34,9 @@ function parseArgs() {
             params.today = true;
         } else if (args[i] === '--order' && args[i + 1]) {
             params.order = args[i + 1].trim().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+            i++;
+        } else if ((args[i] === '--output-file' || args[i] === '--output') && args[i + 1]) {
+            params.outputFile = args[i + 1].trim();
             i++;
         }
     }
@@ -63,6 +69,7 @@ const OBJECT_CONFIGS = {
             'Phone', 'MobilePhone', 'Website', 'LeadSource', 'Industry', 'Status',
             'Street', 'City', 'State', 'PostalCode', 'Country', 'OwnerId',
             'Prime_Owner__c', 'Secondary_Owner__c', 'Custom_Owner__c',
+            'Deal_Category__c',
             'IsConverted',
             'CreatedDate', 'LastModifiedDate'
         ],
@@ -79,6 +86,8 @@ const OBJECT_CONFIGS = {
             website: r.Website || '',
             lead_source: r.LeadSource || '',
             industry: r.Industry || '',
+            deal_category: r.Deal_Category__c || '',
+            Deal_Category__c: r.Deal_Category__c || '',
             status: r.Status || 'New',
             street: r.Street || '',
             city: r.City || '',
@@ -236,7 +245,7 @@ OBJECT_CONFIGS['SF_User'] = OBJECT_CONFIGS['SF_User__c'];
 OBJECT_CONFIGS['Sf_User'] = OBJECT_CONFIGS['SF_User__c'];
 
 async function main() {
-    const { object, since, limit, full, today, order } = parseArgs();
+    const { object, since, limit, full, today, order, outputFile } = parseArgs();
 
     let config = OBJECT_CONFIGS[object];
     if (!config) {
@@ -293,37 +302,91 @@ async function main() {
 
         const sfObj = config.sfObjectName;
         const sortOrder = order || 'DESC';
-        const soql = `SELECT ${config.fields.join(', ')} FROM ${sfObj}${whereClause} ORDER BY LastModifiedDate ${sortOrder}${limitClause}`.trim();
 
+        let fileStream = null;
+        if (outputFile) {
+            const dir = path.dirname(outputFile);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fileStream = fs.createWriteStream(outputFile, { flags: 'w', encoding: 'utf8' });
+        }
+
+        let fieldsToQuery = [...config.fields];
         const records = [];
+        let totalFetched = 0;
         let maxLastModified = null;
 
-        await new Promise((resolve, reject) => {
-            conn.query(soql)
-                .on('record', (r) => {
-                    const mapped = config.mapRecord(r);
+        async function executeQuery(fields) {
+            const soql = `SELECT ${fields.join(', ')} FROM ${sfObj}${whereClause} ORDER BY LastModifiedDate ${sortOrder}${limitClause}`.trim();
+            
+            return new Promise((resolve, reject) => {
+                conn.query(soql)
+                    .on('record', (r) => {
+                        const mapped = config.mapRecord(r);
 
-                    if (r.LastModifiedDate) {
-                        if (!maxLastModified || r.LastModifiedDate > maxLastModified) {
-                            maxLastModified = r.LastModifiedDate;
+                        if (r.LastModifiedDate) {
+                            if (!maxLastModified || r.LastModifiedDate > maxLastModified) {
+                                maxLastModified = r.LastModifiedDate;
+                            }
                         }
-                    }
 
-                    records.push(mapped);
-                })
-                .on('end', () => resolve())
-                .on('error', (err) => reject(err))
-                .run({ autoFetch: true, maxFetch: limit || 100000 });
-        });
+                        totalFetched++;
+                        if (fileStream) {
+                            fileStream.write(JSON.stringify(mapped) + '\n');
+                        } else {
+                            records.push(mapped);
+                        }
+                    })
+                    .on('end', () => {
+                        if (fileStream) {
+                            fileStream.end(() => resolve());
+                        } else {
+                            resolve();
+                        }
+                    })
+                    .on('error', (err) => {
+                        reject(err);
+                    })
+                    .run({ autoFetch: true, maxFetch: limit && limit > 0 ? limit : 2000000 });
+            });
+        }
+
+        try {
+            await executeQuery(fieldsToQuery);
+        } catch (queryErr) {
+            const errMsg = queryErr.message || String(queryErr);
+            // Graceful fallback if Deal_Category__c is not configured in this Salesforce org
+            if (fieldsToQuery.includes('Deal_Category__c') && errMsg.includes("No such column 'Deal_Category__c'")) {
+                console.error("Notice: Custom field Deal_Category__c not found in Salesforce org. Falling back without it.");
+                fieldsToQuery = fieldsToQuery.filter(f => f !== 'Deal_Category__c');
+                totalFetched = 0;
+                maxLastModified = null;
+                records.length = 0;
+                if (outputFile) {
+                    if (fileStream) {
+                        try { fileStream.destroy(); } catch (e) {}
+                    }
+                    fileStream = fs.createWriteStream(outputFile, { flags: 'w', encoding: 'utf8' });
+                }
+                await executeQuery(fieldsToQuery);
+            } else {
+                throw queryErr;
+            }
+        }
 
         console.log(JSON.stringify({
             success: true,
             object: sfObj,
-            totalFetched: records.length,
+            totalFetched: totalFetched,
             lastModifiedCheckpoint: maxLastModified,
-            records: records
+            outputFile: outputFile || null,
+            records: fileStream ? [] : records
         }));
     } catch (err) {
+        if (outputFile) {
+            try { fs.unlinkSync(outputFile); } catch (e) {}
+        }
         const friendlyError = sanitizeErrorMessage(err, loginUrl, username, password);
         console.log(JSON.stringify({
             success: false,

@@ -716,7 +716,8 @@ class CampaignController extends Controller
                     'status' => $l->status ?: 'New',
                     'opted_out' => 0,
                     'consent_status' => 'valid',
-                    'deal_category' => $l->industry ?: 'General',
+                    'deal_category' => $l->Deal_Category__c ?: ($l->industry ?: 'General'),
+                    'Deal_Category__c' => $l->Deal_Category__c,
                     'region' => $l->state ?: 'Global',
                     'country' => $l->country ?: '',
                 ];

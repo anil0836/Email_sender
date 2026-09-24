@@ -26,6 +26,7 @@ class SalesforceLead extends Model
         'website',
         'lead_source',
         'industry',
+        'Deal_Category__c',
         'status',
         'is_converted',
         'street',
@@ -92,7 +93,15 @@ class SalesforceLead extends Model
     }
 
     /**
-     * Scope to search leads across name, company, email, phone, and salesforce ID.
+     * Accessor for deal_category / Deal_Category__c.
+     */
+    public function getDealCategoryAttribute(): ?string
+    {
+        return $this->attributes['Deal_Category__c'] ?? $this->attributes['industry'] ?? null;
+    }
+
+    /**
+     * Scope to search leads across name, company, email, phone, deal category, and salesforce ID.
      */
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
@@ -115,8 +124,21 @@ class SalesforceLead extends Model
               ->orWhere('secondary_owner', 'like', $term)
               ->orWhere('custom_owner', 'like', $term)
               ->orWhere('Custom_Owner__c', 'like', $term)
+              ->orWhere('Deal_Category__c', 'like', $term)
               ->orWhere('salesforce_id', 'like', $term);
         });
+    }
+
+    /**
+     * Scope to filter by Deal Category (Deal_Category__c).
+     */
+    public function scopeFilterDealCategory(Builder $query, ?string $category): Builder
+    {
+        if (empty(trim((string)$category))) {
+            return $query;
+        }
+
+        return $query->where('Deal_Category__c', trim($category));
     }
 
     /**

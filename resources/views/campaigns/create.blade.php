@@ -242,6 +242,64 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 <div class="col-12">
                                     <div class="row g-2">
                                         <!-- Category Multiselect -->
+                                        @php
+                                        $dealCategories = [
+                                            'AC Adaptors',
+                                            'AIO',
+                                            'Audio Accessories',
+                                            'Bar Code Scanner',
+                                            'Barebone/Scrap Desktops',
+                                            'Barebone/Scrap Laptops',
+                                            'Cable Assemblies',
+                                            'Camera',
+                                            'CCTV/DVR',
+                                            'Chromebook',
+                                            'CPU',
+                                            'CPU Fan',
+                                            'Desktop C2D',
+                                            'Desktop I Series',
+                                            'Docking Stations',
+                                            'Energy Audit Equipment',
+                                            'E-Scrap',
+                                            'Fax machine',
+                                            'Gaming PC/Consoles',
+                                            'HDD',
+                                            'HighEnd Desktops',
+                                            'HighEnd Laptops',
+                                            'iMac',
+                                            'iPads',
+                                            'iPhones',
+                                            'IP Phone',
+                                            'Keyboard',
+                                            'Laptop C2D',
+                                            'Laptop I Series',
+                                            'LCD',
+                                            'MacBooks',
+                                            'MacMini',
+                                            'Memory',
+                                            'Mobiles',
+                                            'Mouse',
+                                            'Networking Equipment',
+                                            'Phone',
+                                            'POS',
+                                            'Power Cable',
+                                            'Printers',
+                                            'RAM',
+                                            'Router',
+                                            'Servers / Rack Servers',
+                                            'Solar Panel',
+                                            'Speakers',
+                                            'Stylus',
+                                            'Switch Board',
+                                            'Tablet',
+                                            'Thin Clients',
+                                            'Toner/Cartridges',
+                                            'Video Cards',
+                                            'Wearables',
+                                            'Workstation',
+                                            'Other',
+                                        ];
+                                        @endphp
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Deal Category</label>
                                             <div class="dropdown w-100">
@@ -255,9 +313,13 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-category" aria-labelledby="btn-filter-category"
-                                                    style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center"
-                                                        style="font-size: 0.8125rem;">Loading categories...</div>
+                                                    style="max-height: 250px; overflow-y: auto;">
+                                                    @foreach($dealCategories as $idx => $cat)
+                                                        <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
+                                                            <input class="form-check-input filter-category-checkbox mt-0" type="checkbox" value="{{ $cat }}" id="cat-{{ $idx }}" onchange="filterRecipients()">
+                                                            <label class="form-check-label text-zinc-800" for="cat-{{ $idx }}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $cat }}</label>
+                                                        </div>
+                                                    @endforeach
                                                 </div>
                                             </div>
                                         </div>
@@ -1681,18 +1743,19 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             .catch(err => console.error("Error loading recipients:", err));
     }
 
+    const DEAL_CATEGORIES = @json($dealCategories);
+
     function populateFilterPicklists(records) {
         // Keep track of currently checked values
         const prevCategories = new Set(Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value));
         const prevRegions = new Set(Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value));
         const prevCountries = new Set(Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value));
 
-        // 1. Categories
-        const categories = Array.from(new Set(records.map(r => r.deal_category).filter(Boolean))).sort();
+        // 1. Categories (Fixed Deal Categories)
         const catMenu = document.getElementById('menu-filter-category');
         if (catMenu) {
             let catHtml = '';
-            categories.forEach((cat, idx) => {
+            DEAL_CATEGORIES.forEach((cat, idx) => {
                 const isChecked = prevCategories.has(cat) ? 'checked' : '';
                 catHtml += `
                     <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
@@ -1701,7 +1764,6 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     </div>
                 `;
             });
-            if (!catHtml) catHtml = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No categories in Salesforce</div>';
             catMenu.innerHTML = catHtml;
         }
 
@@ -1758,12 +1820,17 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         }
 
         // Deal Category Picklist filter
-        const activeCategories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
+        const activeCategories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value.trim().toLowerCase());
         if (activeCategories.length > 0) {
-            filtered = filtered.filter(r => activeCategories.includes(r.deal_category));
-            document.getElementById('label-filter-category').innerText = activeCategories.length <= 2 
-                ? activeCategories.join(', ') 
-                : `${activeCategories.length} selected`;
+            filtered = filtered.filter(r => {
+                if (!r.deal_category) return false;
+                const recCat = r.deal_category.trim().toLowerCase();
+                return activeCategories.includes(recCat);
+            });
+            const checkedLabels = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
+            document.getElementById('label-filter-category').innerText = checkedLabels.length <= 2 
+                ? checkedLabels.join(', ') 
+                : `${checkedLabels.length} selected`;
         } else {
             document.getElementById('label-filter-category').innerText = 'All Categories';
         }

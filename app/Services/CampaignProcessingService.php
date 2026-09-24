@@ -149,8 +149,11 @@ class CampaignProcessingService
                 }
 
                 $trackingToken = $recipient->tracking_token;
-                $pixelUrl = url("/track/open/{$trackingToken}");
-                $unsubUrl = url("/track/unsubscribe/{$trackingToken}");
+
+$baseUrl = rtrim(config('app.url'), '/');
+
+$pixelUrl = "{$baseUrl}/track/open/{$trackingToken}";
+$unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
 
                 $pixelTag = '<img src="' . $pixelUrl . '" width="1" height="1" alt="" style="display:none;" />';
                 $unsubFooter = '<p style="font-size: 11px; color: #64748b; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px;">This email was sent to ' . e($email) . '. If you wish to unsubscribe, please <a href="' . $unsubUrl . '">click here</a>.</p>';
