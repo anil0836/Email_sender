@@ -1733,14 +1733,28 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     }
 
     function loadRecipients() {
+        const list = document.getElementById('recipient-list');
         fetch('/api/salesforce/recipients')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Server returned HTTP ${res.status}`);
+                }
+                return res.json();
+            })
             .then(records => {
+                if (!Array.isArray(records)) {
+                    throw new Error(records.error || records.message || "Invalid data format received");
+                }
                 allRecords = records || [];
                 populateFilterPicklists(allRecords);
                 renderRecipients(allRecords);
             })
-            .catch(err => console.error("Error loading recipients:", err));
+            .catch(err => {
+                console.error("Error loading recipients:", err);
+                if (list) {
+                    list.innerHTML = `<li class="list-group-item text-center text-danger py-4" style="font-size: 0.8125rem;"><i class="bi bi-exclamation-triangle me-1"></i> Failed to load Salesforce records: ${escapeHtml(err.message)}</li>`;
+                }
+            });
     }
 
     const DEAL_CATEGORIES = @json($dealCategories);
@@ -1862,7 +1876,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             return;
         }
 
-        const showEmail = currentCrmTypeFilter !== 'all';
+        const showEmail = true;
         let html = '';
         filtered.forEach(r => {
             const isChecked = selectedRecords.has(r.id) ? 'checked' : '';
@@ -1884,7 +1898,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             if (r.opted_out === 1 || r.opted_out === true) warning += ' <i class="bi bi-slash-circle text-rose-600 ms-1" title="Opted Out in Salesforce"></i>';
             if (r.consent_status !== 'valid') warning += ' <i class="bi bi-exclamation-triangle text-amber-600 ms-1" title="GDPR Non-compliant"></i>';
 
-            const emailText = showEmail ? ` &bull; <span class="text-indigo-600 font-monospace" style="font-size: 0.775rem;">${escapeHtml(r.email)}</span>` : '';
+            const emailText = r.email ? ` &bull; <span class="text-indigo-600 font-monospace" style="font-size: 0.775rem;">${escapeHtml(r.email)}</span>` : '';
             const companyText = r.company ? ` &bull; <span class="text-zinc-600">${escapeHtml(r.company)}</span>` : '';
             const ownerText = r.owner_name ? ` &bull; <span class="text-zinc-500">Owner: ${escapeHtml(r.owner_name)}</span>` : '';
             const detailsText = `<div class="text-zinc-500 mt-0.5" style="font-size: 0.74rem;">Category: <span class="text-zinc-800 fw-medium">${escapeHtml(r.deal_category || 'None')}</span> &bull; Region: <span class="text-zinc-800 fw-medium">${escapeHtml(r.region || 'None')}</span> &bull; Country: <span class="text-zinc-800 fw-medium">${escapeHtml(r.country || 'None')}</span>${ownerText}</div>`;
