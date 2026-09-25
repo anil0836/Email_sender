@@ -58,16 +58,31 @@ class RolePermissionSeeder extends Seeder
         // 3. Define and create default roles
         $adminRole = Role::firstOrCreate(['name' => 'Admin', 'guard_name' => $guardName]);
         $managerRole = Role::firstOrCreate(['name' => 'Manager', 'guard_name' => $guardName]);
+        $lineManagerRole = Role::firstOrCreate(['name' => 'Line Manager', 'guard_name' => $guardName]);
         $employeeRole = Role::firstOrCreate(['name' => 'Employee', 'guard_name' => $guardName]);
 
         // 4. Admin receives ALL permissions
         $allPermissions = Permission::where('guard_name', $guardName)->get();
         $adminRole->syncPermissions($allPermissions);
 
-        // 5. Default baseline permissions for Manager & Employee (fully customizable/revocable by Admin)
+        // 5. Default baseline permissions for Manager, Line Manager & Employee (fully customizable/revocable by Admin)
         // Manager by default has bulk-mail, team campaigns, signatures, and inbound replies
         if ($managerRole->permissions()->count() === 0) {
             $managerRole->givePermissionTo([
+                'bulk-mail',
+                'bulk-mail.view',
+                'bulk-mail.create',
+                'bulk-mail.send',
+                'team-campaigns.view',
+                'signatures.manage',
+                'templates.manage',
+                'inbound-replies.view',
+            ]);
+        }
+
+        // Line Manager by default has bulk-mail, team campaigns, signatures, and inbound replies
+        if ($lineManagerRole->permissions()->count() === 0) {
+            $lineManagerRole->givePermissionTo([
                 'bulk-mail',
                 'bulk-mail.view',
                 'bulk-mail.create',

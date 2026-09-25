@@ -840,12 +840,26 @@
                 } else if (isPendingMgr && currentUserRole === 'manager') {
                     canApprove = (c.current_approver_id == currentUserId || c.manager_user_id == currentUserId);
                 } else if (isPendingLegacy) {
-                    canApprove = (currentUserRole === 'manager' || c.manager_user_id == currentUserId);
+                    if (c.current_approver_id) {
+                        canApprove = (c.current_approver_id == currentUserId);
+                    } else if (currentUserRole === 'line_manager') {
+                        canApprove = (c.line_manager_id == currentUserId);
+                    } else if (currentUserRole === 'manager') {
+                        canApprove = (c.manager_user_id == currentUserId && !c.line_manager_id);
+                    }
                 }
 
                 if (approvalCard) {
                     if (canApprove) {
                         approvalCard.classList.remove('d-none');
+                        const cardHeading = approvalCard.querySelector('h6');
+                        if (cardHeading) {
+                            if (isPendingLine || currentUserRole === 'line_manager') {
+                                cardHeading.innerHTML = '<i class="bi bi-shield-check me-1.5 text-amber-700"></i> Line Manager Authorization Required';
+                            } else {
+                                cardHeading.innerHTML = '<i class="bi bi-shield-check me-1.5 text-amber-700"></i> Manager Authorization Required';
+                            }
+                        }
                     } else {
                         approvalCard.classList.add('d-none');
                     }

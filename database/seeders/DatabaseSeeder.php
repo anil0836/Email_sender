@@ -47,6 +47,17 @@ class DatabaseSeeder extends Seeder
                 'daily_limit' => 3000,
             ]);
 
+            $lineManager = User::create([
+                'emp_id' => 'EMP-004',
+                'username' => 'linemanager',
+                'name' => 'Line Manager',
+                'email' => 'linemanager@b2bbulkmail.com',
+                'password' => Hash::make('linemanager'),
+                'role' => 'line_manager',
+                'manager_id' => $manager->id,
+                'daily_limit' => 2000,
+            ]);
+
             User::create([
                 'emp_id' => 'EMP-003',
                 'username' => 'user',
@@ -54,7 +65,7 @@ class DatabaseSeeder extends Seeder
                 'email' => 'user@b2bbulkmail.com',
                 'password' => Hash::make('user'),
                 'role' => 'user',
-                'manager_id' => $manager->id,
+                'manager_id' => $lineManager->id,
                 'daily_limit' => 1000,
             ]);
         }

@@ -20,13 +20,13 @@ class CampaignApprovalService
 
     /**
      * Determines initial campaign approval state based on the creator's role and manager_id hierarchy.
-     * Enforces single-level approval hierarchy:
-     * - User -> Line Manager (or Manager if directly assigned)
-     * - Line Manager -> Manager
-     * - Manager / Admin -> Direct Approval
+     * Enforces strict single-level approval hierarchy:
+     * - User -> Line Manager (email approval of user must go only to its line manager)
+     * - Line Manager -> Manager (only line manager flow goes to manager)
+     * - Manager / Admin -> Direct sending (no approval required)
      *
      * @param User $creator
-     * @return array{status: string, current_approver_id: int|null, line_manager_id: int|null, manager_id: int|null, error: string|null}
+     * @return array{status: string, approval_stage?: string|null, current_approver_id: int|null, line_manager_id: int|null, manager_id: int|null, error: string|null}
      */
     public function determineInitialApprovalState(User $creator): array
     {
@@ -36,6 +36,7 @@ class CampaignApprovalService
         if ($role === 'admin') {
             return [
                 'status' => 'approved',
+                'approval_stage' => null,
                 'current_approver_id' => null,
                 'line_manager_id' => null,
                 'manager_id' => null,
@@ -47,6 +48,7 @@ class CampaignApprovalService
         if ($role === 'manager') {
             return [
                 'status' => 'approved',
+                'approval_stage' => null,
                 'current_approver_id' => null,
                 'line_manager_id' => null,
                 'manager_id' => null,
@@ -55,7 +57,8 @@ class CampaignApprovalService
         }
 
         // 3. Line Manager: Requires approval from their designated Manager
-        if ($role === 'line_manager') {
+        // Only Line Manager flow goes to Manager!
+        if (in_array($role, ['line_manager', 'purchase _manager', 'purchase_manager'])) {
             if (empty($creator->manager_id)) {
                 return [
                     'status' => 'error',
@@ -89,7 +92,7 @@ class CampaignApprovalService
             }
 
             return [
-                'status' => 'pending_approval',
+                'status' => 'pending_manager',
                 'approval_stage' => 'pending_manager',
                 'current_approver_id' => $superior->id,
                 'line_manager_id' => null,
@@ -99,16 +102,19 @@ class CampaignApprovalService
         }
 
         // 4. Normal User (role === 'user' or default):
-        // Requires single-level approval from their immediate superior
+        // Email approval of user MUST go ONLY to its line manager!
         $managerId = $creator->manager_id;
         if (empty($managerId)) {
-            // Check if user has a team manager via TeamService
+            // Check if user has a team line manager via TeamService
             $teamService = app(\App\Services\TeamService::class);
             $team = $teamService->resolveUserTeam($creator);
             if ($team) {
                 $mgrInfo = $teamService->resolveTeamManager($team);
                 if (!empty($mgrInfo['local_user_id']) && (int)$mgrInfo['local_user_id'] !== (int)$creator->id) {
-                    $managerId = $mgrInfo['local_user_id'];
+                    $potentialSuperior = User::find($mgrInfo['local_user_id']);
+                    if ($potentialSuperior && ($potentialSuperior->role === 'line_manager' || $potentialSuperior->isTeamManager())) {
+                        $managerId = $potentialSuperior->id;
+                    }
                 }
             }
         }
@@ -119,7 +125,7 @@ class CampaignApprovalService
                 'current_approver_id' => null,
                 'line_manager_id' => null,
                 'manager_id' => null,
-                'error' => 'Approval hierarchy is incomplete. No Line Manager or Manager is assigned to this user.',
+                'error' => 'Approval hierarchy is incomplete. User email approval must go only to its Line Manager. No Line Manager is assigned to this user.',
             ];
         }
 
@@ -130,42 +136,46 @@ class CampaignApprovalService
                 'current_approver_id' => null,
                 'line_manager_id' => null,
                 'manager_id' => null,
-                'error' => 'Approval hierarchy is incomplete. Assigned superior does not exist.',
+                'error' => 'Approval hierarchy is incomplete. Assigned Line Manager does not exist.',
             ];
         }
 
         $superiorRole = strtolower(trim((string)$superior->role));
 
-        // Case A: Superior is a Line Manager -> goes to Line Manager
-        if ($superiorRole === 'line_manager') {
+        // Strict: User email approval goes ONLY to its line manager!
+        // A Manager (role === 'manager') must NEVER receive user email approvals directly.
+        if ($superiorRole === 'manager') {
             return [
-                'status' => 'pending_approval',
-                'approval_stage' => 'pending_line_manager',
-                'current_approver_id' => $superior->id,
-                'line_manager_id' => $superior->id,
-                'manager_id' => $superior->manager_id,
-                'error' => null,
+                'status' => 'error',
+                'current_approver_id' => null,
+                'line_manager_id' => null,
+                'manager_id' => null,
+                'error' => 'Approval hierarchy is incomplete. User email approval must go only to its Line Manager, but assigned superior is not a Line Manager.',
             ];
         }
 
-        // Case B: Superior is a Manager (or Admin) directly, or a Team Manager -> goes to Manager
-        if (in_array($superiorRole, ['manager', 'admin']) || app(\App\Services\TeamService::class)->isTeamManager($superior)) {
+        $isSuperiorLineManager = in_array($superiorRole, ['line_manager', 'purchase _manager', 'purchase_manager', 'lead_manager', 'assistant_manager'])
+            || str_contains($superiorRole, 'line_manager')
+            || (str_contains($superiorRole, 'manager') && $superiorRole !== 'manager')
+            || $superior->isTeamManager();
+
+        if (!$isSuperiorLineManager) {
             return [
-                'status' => 'pending_approval',
-                'approval_stage' => 'pending_manager',
-                'current_approver_id' => $superior->id,
+                'status' => 'error',
+                'current_approver_id' => null,
                 'line_manager_id' => null,
-                'manager_id' => $superior->id,
-                'error' => null,
+                'manager_id' => null,
+                'error' => 'Approval hierarchy is incomplete. User email approval must go only to its Line Manager, but assigned superior is not a Line Manager.',
             ];
         }
 
         return [
-            'status' => 'error',
-            'current_approver_id' => null,
-            'line_manager_id' => null,
-            'manager_id' => null,
-            'error' => 'Approval hierarchy is incomplete. Assigned superior must be a Line Manager or Manager.',
+            'status' => 'pending_line_manager',
+            'approval_stage' => 'pending_line_manager',
+            'current_approver_id' => $superior->id,
+            'line_manager_id' => $superior->id,
+            'manager_id' => null, // Manager does not approve user emails!
+            'error' => null,
         ];
     }
 
@@ -200,15 +210,43 @@ class CampaignApprovalService
             return in_array($campaign->status, ['pending_line_manager', 'pending_manager', 'pending_approval']);
         }
 
-        // Pending approval (pending_approval, pending_line_manager, pending_manager)
-        if (in_array($campaign->status, ['pending_approval', 'pending_line_manager', 'pending_manager'])) {
+        // User email approval awaiting Line Manager: ONLY the designated Line Manager can approve
+        if ($campaign->status === 'pending_line_manager') {
+            $isLineManager = in_array($user->role, ['line_manager', 'purchase _manager', 'purchase_manager', 'lead_manager', 'assistant_manager'])
+                || str_contains((string)$user->role, 'line_manager')
+                || $user->isTeamManager();
+
+            if (!$isLineManager || $user->role === 'manager') {
+                return false;
+            }
+            return (int)$user->id === (int)$campaign->current_approver_id
+                || (int)$user->id === (int)$campaign->line_manager_id;
+        }
+
+        // Line Manager email approval awaiting Manager: ONLY the designated Manager can approve
+        if ($campaign->status === 'pending_manager') {
+            if ($user->role !== 'manager') {
+                return false;
+            }
+            return (int)$user->id === (int)$campaign->current_approver_id
+                || (int)$user->id === (int)$campaign->manager_user_id;
+        }
+
+        // Legacy pending_approval fallback
+        if ($campaign->status === 'pending_approval') {
             if (!empty($campaign->current_approver_id)) {
                 return (int)$user->id === (int)$campaign->current_approver_id;
             }
+            $isLineManager = in_array($user->role, ['line_manager', 'purchase _manager', 'purchase_manager', 'lead_manager', 'assistant_manager'])
+                || str_contains((string)$user->role, 'line_manager')
+                || $user->isTeamManager();
 
-            // Fallback for legacy campaigns where current_approver_id was null
-            return (int)$user->id === (int)$campaign->manager_user_id 
-                || (int)$user->id === (int)$campaign->line_manager_id;
+            if ($isLineManager && ((int)$user->id === (int)$campaign->line_manager_id || (int)$user->id === (int)$campaign->manager_user_id)) {
+                return true;
+            }
+            if ($user->role === 'manager' && (int)$user->id === (int)$campaign->manager_user_id) {
+                return true;
+            }
         }
 
         return false;

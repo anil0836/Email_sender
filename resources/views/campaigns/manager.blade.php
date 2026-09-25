@@ -162,7 +162,13 @@
                     } else if (isPendingMgr && currentUserRole === 'manager') {
                         canApprove = (c.current_approver_id == currentUserId || c.manager_user_id == currentUserId);
                     } else if (isPendingLegacy) {
-                        canApprove = (currentUserRole === 'manager' || c.manager_user_id == currentUserId);
+                        if (c.current_approver_id) {
+                            canApprove = (c.current_approver_id == currentUserId);
+                        } else if (currentUserRole === 'line_manager') {
+                            canApprove = (c.line_manager_id == currentUserId);
+                        } else if (currentUserRole === 'manager') {
+                            canApprove = (c.manager_user_id == currentUserId && !c.line_manager_id);
+                        }
                     }
                     
                     if (isPendingLine) {
@@ -191,7 +197,7 @@
                             </div>
                         `;
                     } else if (isPending) {
-                        const approver = c.current_approver_name || c.current_approver_username || 'Superior';
+                        const approver = c.current_approver_name || c.current_approver_username || (isPendingLine ? 'Line Manager' : 'Manager');
                         actionHtml = `
                             <div class="text-center">
                                 <span class="text-zinc-500" style="font-size: 0.74rem;"><i class="bi bi-hourglass me-1"></i>Awaiting ${escapeHtml(approver)}</span>

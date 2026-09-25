@@ -64,6 +64,7 @@ class User extends Authenticatable
             $targetRole = match ($role) {
                 'admin' => 'Admin',
                 'manager' => 'Manager',
+                'line_manager' => 'Line Manager',
                 'user', 'employee' => 'Employee',
                 default => !empty($role) ? ucfirst($role) : 'Employee',
             };

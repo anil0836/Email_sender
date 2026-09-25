@@ -101,14 +101,14 @@ class CampaignApprovalWorkflowTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success'             => true,
-                'status'              => 'pending_approval',
+                'status'              => 'pending_line_manager',
                 'approval_stage'      => 'pending_line_manager',
                 'current_approver_id' => $this->lineManager->id,
             ]);
 
         $this->assertDatabaseHas('campaigns', [
             'user_id'             => $this->userUnderLineManager->id,
-            'status'              => 'pending_approval',
+            'status'              => 'pending_line_manager',
             'line_manager_id'     => $this->lineManager->id,
             'current_approver_id' => $this->lineManager->id,
         ]);
@@ -118,7 +118,7 @@ class CampaignApprovalWorkflowTest extends TestCase
             'campaign_id' => $campaign->id,
             'approver_id' => $this->userUnderLineManager->id,
             'action'      => 'submitted',
-            'new_status'  => 'pending_approval',
+            'new_status'  => 'pending_line_manager',
         ]);
     }
 
@@ -128,7 +128,7 @@ class CampaignApprovalWorkflowTest extends TestCase
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
         $campaign = Campaign::where('user_id', $this->userUnderLineManager->id)->firstOrFail();
-        $this->assertEquals('pending_approval', $campaign->status);
+        $this->assertEquals('pending_line_manager', $campaign->status);
 
         // Line Manager approves
         $response = $this->actingAsUser($this->lineManager)
@@ -156,54 +156,44 @@ class CampaignApprovalWorkflowTest extends TestCase
             'approver_id'     => $this->lineManager->id,
             'approver_role'   => 'line_manager',
             'action'          => 'approved',
-            'previous_status' => 'pending_approval',
+            'previous_status' => 'pending_line_manager',
             'new_status'      => 'queued',
         ]);
     }
 
-    public function test_user_under_manager_campaign_goes_to_pending_manager(): void
+    public function test_manager_cannot_approve_user_campaign_pending_line_manager(): void
     {
-        $response = $this->actingAsUser($this->userUnderManager)
+        $this->actingAsUser($this->userUnderLineManager)
             ->postJson('/api/campaign/send', $this->campaignPayload());
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'success'             => true,
-                'status'              => 'pending_approval',
-                'approval_stage'      => 'pending_manager',
-                'current_approver_id' => $this->manager->id,
-            ]);
+        $campaign = Campaign::where('user_id', $this->userUnderLineManager->id)->firstOrFail();
+        $this->assertEquals('pending_line_manager', $campaign->status);
 
-        $this->assertDatabaseHas('campaigns', [
-            'user_id'             => $this->userUnderManager->id,
-            'status'              => 'pending_approval',
-            'manager_user_id'     => $this->manager->id,
-            'current_approver_id' => $this->manager->id,
-        ]);
-    }
-
-    public function test_manager_can_approve_user_campaign_to_queued(): void
-    {
-        $this->actingAsUser($this->userUnderManager)
-            ->postJson('/api/campaign/send', $this->campaignPayload());
-
-        $campaign = Campaign::where('user_id', $this->userUnderManager->id)->firstOrFail();
-        $this->assertEquals('pending_approval', $campaign->status);
-
+        // Manager attempts to approve a campaign awaiting Line Manager -> must be forbidden
         $response = $this->actingAsUser($this->manager)
             ->postJson('/api/campaign/approve', [
                 'campaign_id' => $campaign->id,
                 'decision'    => 'approve',
-                'remark'      => 'Manager approved directly',
+                'remark'      => 'Manager attempting unauthorized bypass',
             ]);
 
-        $response->assertStatus(200)->assertJson(['success' => true]);
-
+        $response->assertStatus(403);
         $campaign->refresh();
-        $this->assertEquals('queued', $campaign->status);
-        $this->assertNull($campaign->current_approver_id);
-        $this->assertEquals($this->manager->id, $campaign->approved_by);
-        $this->assertTrue($campaign->isFullyApproved());
+        $this->assertEquals('pending_line_manager', $campaign->status);
+        $this->assertFalse($campaign->isFullyApproved());
+    }
+
+    public function test_user_assigned_directly_to_manager_is_blocked_with_422(): void
+    {
+        $response = $this->actingAsUser($this->userUnderManager)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error', fn($e) => str_contains($e, 'User email approval must go only to its Line Manager'));
+
+        $this->assertDatabaseMissing('campaigns', [
+            'user_id' => $this->userUnderManager->id,
+        ]);
     }
 
     public function test_line_manager_campaign_goes_to_pending_manager(): void
@@ -214,17 +204,41 @@ class CampaignApprovalWorkflowTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success'             => true,
-                'status'              => 'pending_approval',
+                'status'              => 'pending_manager',
                 'approval_stage'      => 'pending_manager',
                 'current_approver_id' => $this->manager->id,
             ]);
 
         $this->assertDatabaseHas('campaigns', [
             'user_id'             => $this->lineManager->id,
-            'status'              => 'pending_approval',
+            'status'              => 'pending_manager',
             'manager_user_id'     => $this->manager->id,
             'current_approver_id' => $this->manager->id,
         ]);
+    }
+
+    public function test_manager_can_approve_line_manager_campaign_to_queued(): void
+    {
+        $this->actingAsUser($this->lineManager)
+            ->postJson('/api/campaign/send', $this->campaignPayload());
+
+        $campaign = Campaign::where('user_id', $this->lineManager->id)->firstOrFail();
+        $this->assertEquals('pending_manager', $campaign->status);
+
+        $response = $this->actingAsUser($this->manager)
+            ->postJson('/api/campaign/approve', [
+                'campaign_id' => $campaign->id,
+                'decision'    => 'approve',
+                'remark'      => 'Manager approved line manager campaign',
+            ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        $campaign->refresh();
+        $this->assertEquals('queued', $campaign->status);
+        $this->assertNull($campaign->current_approver_id);
+        $this->assertEquals($this->manager->id, $campaign->approved_by);
+        $this->assertTrue($campaign->isFullyApproved());
     }
 
     public function test_manager_campaign_goes_directly_to_queued_without_approval(): void

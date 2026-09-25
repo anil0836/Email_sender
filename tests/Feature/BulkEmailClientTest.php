@@ -318,23 +318,39 @@ class BulkEmailClientTest extends TestCase
         $manager = User::where('username', 'test_mngr')->first();
         $this->assertNotNull($manager);
 
-        // Create User assigned to Manager
+        // 2. Create Line Manager reporting to Manager
         $res = $this->actingAs($admin)
             ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
             ->postJson('/api/admin/users', [
                 'emp_id' => 'EMP-T02',
+                'username' => 'test_line_mngr',
+                'email' => 'linemngr@test.com',
+                'password' => 'linemngr_password',
+                'role' => 'line_manager',
+                'manager_id' => $manager->id
+            ]);
+        $res->assertStatus(200);
+
+        $lineManager = User::where('username', 'test_line_mngr')->first();
+        $this->assertNotNull($lineManager);
+
+        // 3. Create User assigned to Line Manager
+        $res = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/admin/users', [
+                'emp_id' => 'EMP-T03',
                 'username' => 'test_usr',
                 'email' => 'usr@test.com',
                 'password' => 'usr_password',
                 'role' => 'user',
-                'manager_id' => $manager->id
+                'manager_id' => $lineManager->id
             ]);
         $res->assertStatus(200);
 
         $testUser = User::where('username', 'test_usr')->first();
         $this->assertNotNull($testUser);
 
-        // 2. Submit campaign as User
+        // 4. Submit campaign as User -> must go to pending_line_manager
         $res = $this->actingAs($testUser)
             ->withSession(['user_id' => $testUser->id, 'username' => $testUser->username, 'role' => 'user'])
             ->postJson('/api/campaign/send', [
@@ -346,36 +362,82 @@ class BulkEmailClientTest extends TestCase
                 'recipient_emails' => ['david.jones@example.com']
             ]);
         $res->assertStatus(200);
-        $campaignId = $res->json('campaign_id');
+        $userCampaignId = $res->json('campaign_id');
 
-        $campaign = Campaign::find($campaignId);
-        $this->assertEquals('pending_approval', $campaign->status);
+        $userCampaign = Campaign::find($userCampaignId);
+        $this->assertEquals('pending_line_manager', $userCampaign->status);
+        $this->assertEquals($lineManager->id, $userCampaign->current_approver_id);
 
-        // 3. Try approving logged in as another manager
-        $otherManager = User::where('username', 'manager')->first();
-        $res = $this->actingAs($otherManager)
-            ->withSession(['user_id' => $otherManager->id, 'username' => $otherManager->username, 'role' => 'manager'])
-            ->postJson('/api/campaign/approve', [
-                'campaign_id' => $campaignId,
-                'decision' => 'approve',
-                'remark' => 'Hack approval'
-            ]);
-        $res->assertStatus(403);
-
-        // 4. Log in as assigned manager and approve
+        // 5. Manager attempts to approve User's campaign -> 403 Forbidden (email approval of user must go ONLY to its line manager)
         $res = $this->actingAs($manager)
             ->withSession(['user_id' => $manager->id, 'username' => $manager->username, 'role' => 'manager'])
             ->postJson('/api/campaign/approve', [
-                'campaign_id' => $campaignId,
+                'campaign_id' => $userCampaignId,
                 'decision' => 'approve',
-                'remark' => 'Approved for dispatch'
+                'remark' => 'Manager trying to approve user campaign'
+            ]);
+        $res->assertStatus(403);
+
+        // 6. Another line manager attempts to approve User's campaign -> 403 Forbidden
+        $otherLineManager = User::where('username', 'linemanager')->first();
+        if ($otherLineManager) {
+            $res = $this->actingAs($otherLineManager)
+                ->withSession(['user_id' => $otherLineManager->id, 'username' => $otherLineManager->username, 'role' => 'line_manager'])
+                ->postJson('/api/campaign/approve', [
+                    'campaign_id' => $userCampaignId,
+                    'decision' => 'approve',
+                    'remark' => 'Wrong line manager'
+                ]);
+            $res->assertStatus(403);
+        }
+
+        // 7. Assigned Line Manager approves User campaign -> 200 OK and queued
+        $res = $this->actingAs($lineManager)
+            ->withSession(['user_id' => $lineManager->id, 'username' => $lineManager->username, 'role' => 'line_manager'])
+            ->postJson('/api/campaign/approve', [
+                'campaign_id' => $userCampaignId,
+                'decision' => 'approve',
+                'remark' => 'Approved by Line Manager'
             ]);
         $res->assertStatus(200);
 
-        $campaign->refresh();
-        $this->assertEquals('queued', $campaign->status);
-        $this->assertEquals('Approved for dispatch', $campaign->approval_remark);
-        $this->assertEquals($manager->id, $campaign->approved_by);
+        $userCampaign->refresh();
+        $this->assertEquals('queued', $userCampaign->status);
+        $this->assertEquals('Approved by Line Manager', $userCampaign->approval_remark);
+        $this->assertEquals($lineManager->id, $userCampaign->approved_by);
+
+        // 8. Line Manager submits campaign -> must go to pending_manager (only line manager flow goes to manager)
+        $res = $this->actingAs($lineManager)
+            ->withSession(['user_id' => $lineManager->id, 'username' => $lineManager->username, 'role' => 'line_manager'])
+            ->postJson('/api/campaign/send', [
+                'subject' => 'Line Manager Campaign',
+                'body' => '<p>Line Manager Content</p>',
+                'sending_domain' => 'marketing.example.com',
+                'from_address' => 'linemngr@marketing.example.com',
+                'reply_to' => 'reply@example.com',
+                'recipient_emails' => ['david.jones@example.com']
+            ]);
+        $res->assertStatus(200);
+        $lmCampaignId = $res->json('campaign_id');
+
+        $lmCampaign = Campaign::find($lmCampaignId);
+        $this->assertEquals('pending_manager', $lmCampaign->status);
+        $this->assertEquals($manager->id, $lmCampaign->current_approver_id);
+
+        // 9. Assigned Manager approves Line Manager campaign -> 200 OK and queued
+        $res = $this->actingAs($manager)
+            ->withSession(['user_id' => $manager->id, 'username' => $manager->username, 'role' => 'manager'])
+            ->postJson('/api/campaign/approve', [
+                'campaign_id' => $lmCampaignId,
+                'decision' => 'approve',
+                'remark' => 'Approved by Manager'
+            ]);
+        $res->assertStatus(200);
+
+        $lmCampaign->refresh();
+        $this->assertEquals('queued', $lmCampaign->status);
+        $this->assertEquals('Approved by Manager', $lmCampaign->approval_remark);
+        $this->assertEquals($manager->id, $lmCampaign->approved_by);
     }
 
     public function test_email_login_edit_and_blocking(): void
