@@ -680,8 +680,8 @@
             $currentUser->hasRole('Admin'));
             @endphp
 
-            @if(in_array($userRole, ['admin', 'manager']) || $isTeamManager || ($currentUser &&
-            method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Manager')))
+            @if(in_array($userRole, ['admin', 'manager', 'line_manager']) || $isTeamManager || ($currentUser &&
+            method_exists($currentUser, 'hasRole') && ($currentUser->hasRole('Manager') || $currentUser->hasRole('Line Manager'))))
             <li class="nav-item-header">Management</li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"
@@ -709,6 +709,18 @@
                 <a class="nav-link {{ request()->routeIs('admin_infrastructure_view') ? 'active' : '' }}"
                     href="{{ route('admin_infrastructure_view') }}">
                     <i class="bi bi-hdd-network"></i> IPs & Domains
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.suppressions.index') ? 'active' : '' }}"
+                    href="{{ route('admin.suppressions.index') }}">
+                    <i class="bi bi-shield-x"></i> Email Suppressions
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.suppressions.import') ? 'active' : '' }}"
+                    href="{{ route('admin.suppressions.import') }}">
+                    <i class="bi bi-file-earmark-arrow-up"></i> Import Suppression CSV
                 </a>
             </li>
             <li class="nav-item-header">Salesforce Sync</li>

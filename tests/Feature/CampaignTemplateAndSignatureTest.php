@@ -31,7 +31,7 @@ class CampaignTemplateAndSignatureTest extends TestCase
         parent::setUp();
 
         $this->manager = User::factory()->create([
-            'role' => 'manager',
+            'role' => 'line_manager',
             'username' => 'manager_alex',
             'daily_limit' => 5000,
         ]);
@@ -316,8 +316,8 @@ class CampaignTemplateAndSignatureTest extends TestCase
 
         $res->assertOk();
         $res->assertJsonPath('success', true);
-        // Standard user MUST remain in pending_approval!
-        $res->assertJsonPath('status', 'pending_approval');
+        // Standard user MUST remain in pending_line_manager!
+        $res->assertJsonPath('status', 'pending_line_manager');
 
         $campaignId = $res->json('campaign_id');
         $campaign = Campaign::find($campaignId);

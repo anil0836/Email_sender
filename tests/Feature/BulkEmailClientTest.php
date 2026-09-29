@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class BulkEmailClientTest extends TestCase
@@ -317,23 +318,39 @@ class BulkEmailClientTest extends TestCase
         $manager = User::where('username', 'test_mngr')->first();
         $this->assertNotNull($manager);
 
-        // Create User assigned to Manager
+        // 2. Create Line Manager reporting to Manager
         $res = $this->actingAs($admin)
             ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
             ->postJson('/api/admin/users', [
                 'emp_id' => 'EMP-T02',
+                'username' => 'test_line_mngr',
+                'email' => 'linemngr@test.com',
+                'password' => 'linemngr_password',
+                'role' => 'line_manager',
+                'manager_id' => $manager->id
+            ]);
+        $res->assertStatus(200);
+
+        $lineManager = User::where('username', 'test_line_mngr')->first();
+        $this->assertNotNull($lineManager);
+
+        // 3. Create User assigned to Line Manager
+        $res = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/admin/users', [
+                'emp_id' => 'EMP-T03',
                 'username' => 'test_usr',
                 'email' => 'usr@test.com',
                 'password' => 'usr_password',
                 'role' => 'user',
-                'manager_id' => $manager->id
+                'manager_id' => $lineManager->id
             ]);
         $res->assertStatus(200);
 
         $testUser = User::where('username', 'test_usr')->first();
         $this->assertNotNull($testUser);
 
-        // 2. Submit campaign as User
+        // 4. Submit campaign as User -> must go to pending_line_manager
         $res = $this->actingAs($testUser)
             ->withSession(['user_id' => $testUser->id, 'username' => $testUser->username, 'role' => 'user'])
             ->postJson('/api/campaign/send', [
@@ -345,36 +362,82 @@ class BulkEmailClientTest extends TestCase
                 'recipient_emails' => ['david.jones@example.com']
             ]);
         $res->assertStatus(200);
-        $campaignId = $res->json('campaign_id');
+        $userCampaignId = $res->json('campaign_id');
 
-        $campaign = Campaign::find($campaignId);
-        $this->assertEquals('pending_approval', $campaign->status);
+        $userCampaign = Campaign::find($userCampaignId);
+        $this->assertEquals('pending_line_manager', $userCampaign->status);
+        $this->assertEquals($lineManager->id, $userCampaign->current_approver_id);
 
-        // 3. Try approving logged in as another manager
-        $otherManager = User::where('username', 'manager')->first();
-        $res = $this->actingAs($otherManager)
-            ->withSession(['user_id' => $otherManager->id, 'username' => $otherManager->username, 'role' => 'manager'])
-            ->postJson('/api/campaign/approve', [
-                'campaign_id' => $campaignId,
-                'decision' => 'approve',
-                'remark' => 'Hack approval'
-            ]);
-        $res->assertStatus(403);
-
-        // 4. Log in as assigned manager and approve
+        // 5. Manager attempts to approve User's campaign -> 403 Forbidden (email approval of user must go ONLY to its line manager)
         $res = $this->actingAs($manager)
             ->withSession(['user_id' => $manager->id, 'username' => $manager->username, 'role' => 'manager'])
             ->postJson('/api/campaign/approve', [
-                'campaign_id' => $campaignId,
+                'campaign_id' => $userCampaignId,
                 'decision' => 'approve',
-                'remark' => 'Approved for dispatch'
+                'remark' => 'Manager trying to approve user campaign'
+            ]);
+        $res->assertStatus(403);
+
+        // 6. Another line manager attempts to approve User's campaign -> 403 Forbidden
+        $otherLineManager = User::where('username', 'linemanager')->first();
+        if ($otherLineManager) {
+            $res = $this->actingAs($otherLineManager)
+                ->withSession(['user_id' => $otherLineManager->id, 'username' => $otherLineManager->username, 'role' => 'line_manager'])
+                ->postJson('/api/campaign/approve', [
+                    'campaign_id' => $userCampaignId,
+                    'decision' => 'approve',
+                    'remark' => 'Wrong line manager'
+                ]);
+            $res->assertStatus(403);
+        }
+
+        // 7. Assigned Line Manager approves User campaign -> 200 OK and queued
+        $res = $this->actingAs($lineManager)
+            ->withSession(['user_id' => $lineManager->id, 'username' => $lineManager->username, 'role' => 'line_manager'])
+            ->postJson('/api/campaign/approve', [
+                'campaign_id' => $userCampaignId,
+                'decision' => 'approve',
+                'remark' => 'Approved by Line Manager'
             ]);
         $res->assertStatus(200);
 
-        $campaign->refresh();
-        $this->assertEquals('queued', $campaign->status);
-        $this->assertEquals('Approved for dispatch', $campaign->approval_remark);
-        $this->assertEquals($manager->id, $campaign->approved_by);
+        $userCampaign->refresh();
+        $this->assertEquals('queued', $userCampaign->status);
+        $this->assertEquals('Approved by Line Manager', $userCampaign->approval_remark);
+        $this->assertEquals($lineManager->id, $userCampaign->approved_by);
+
+        // 8. Line Manager submits campaign -> must go to pending_manager (only line manager flow goes to manager)
+        $res = $this->actingAs($lineManager)
+            ->withSession(['user_id' => $lineManager->id, 'username' => $lineManager->username, 'role' => 'line_manager'])
+            ->postJson('/api/campaign/send', [
+                'subject' => 'Line Manager Campaign',
+                'body' => '<p>Line Manager Content</p>',
+                'sending_domain' => 'marketing.example.com',
+                'from_address' => 'linemngr@marketing.example.com',
+                'reply_to' => 'reply@example.com',
+                'recipient_emails' => ['david.jones@example.com']
+            ]);
+        $res->assertStatus(200);
+        $lmCampaignId = $res->json('campaign_id');
+
+        $lmCampaign = Campaign::find($lmCampaignId);
+        $this->assertEquals('pending_manager', $lmCampaign->status);
+        $this->assertEquals($manager->id, $lmCampaign->current_approver_id);
+
+        // 9. Assigned Manager approves Line Manager campaign -> 200 OK and queued
+        $res = $this->actingAs($manager)
+            ->withSession(['user_id' => $manager->id, 'username' => $manager->username, 'role' => 'manager'])
+            ->postJson('/api/campaign/approve', [
+                'campaign_id' => $lmCampaignId,
+                'decision' => 'approve',
+                'remark' => 'Approved by Manager'
+            ]);
+        $res->assertStatus(200);
+
+        $lmCampaign->refresh();
+        $this->assertEquals('queued', $lmCampaign->status);
+        $this->assertEquals('Approved by Manager', $lmCampaign->approval_remark);
+        $this->assertEquals($manager->id, $lmCampaign->approved_by);
     }
 
     public function test_email_login_edit_and_blocking(): void
@@ -665,6 +728,8 @@ class BulkEmailClientTest extends TestCase
         $res->assertStatus(200);
         $data = $res->json();
         $this->assertArrayHasKey('counters', $data);
+        $this->assertArrayHasKey('unsubscribed', $data['counters']);
+        $this->assertArrayHasKey('opened', $data['counters']);
         $this->assertArrayHasKey('geo_data', $data);
         $this->assertArrayHasKey('timeline_data', $data);
         $this->assertArrayHasKey('recent_campaigns', $data);
@@ -676,6 +741,22 @@ class BulkEmailClientTest extends TestCase
         $res->assertStatus(200);
         $recipients = $res->json();
         $this->assertIsArray($recipients);
+
+        // 3. Unsubscribed recipient list drilldown
+        $resUnsub = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->getJson('/api/dashboard/recipient-list?status=unsubscribed');
+        $resUnsub->assertStatus(200);
+        $unsubRecipients = $resUnsub->json();
+        $this->assertIsArray($unsubRecipients);
+
+        // 4. Opened recipient list drilldown
+        $resOpened = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->getJson('/api/dashboard/recipient-list?status=opened');
+        $resOpened->assertStatus(200);
+        $openedRecipients = $resOpened->json();
+        $this->assertIsArray($openedRecipients);
     }
 
     public function test_all_blade_views_render_successfully(): void
@@ -767,6 +848,35 @@ class BulkEmailClientTest extends TestCase
         $resBulk->assertSee('id="reply-to"', false);
     }
 
+    public function test_campaign_new_view_contains_all_54_deal_categories(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        $res = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->get('/campaign/new');
+
+        $res->assertStatus(200);
+        $res->assertSee('Deal Category');
+
+        $categories = [
+            'AC Adaptors', 'AIO', 'Audio Accessories', 'Bar Code Scanner', 'Barebone/Scrap Desktops',
+            'Barebone/Scrap Laptops', 'Cable Assemblies', 'Camera', 'CCTV/DVR', 'Chromebook',
+            'CPU', 'CPU Fan', 'Desktop C2D', 'Desktop I Series', 'Docking Stations',
+            'Energy Audit Equipment', 'E-Scrap', 'Fax machine', 'Gaming PC/Consoles', 'HDD',
+            'HighEnd Desktops', 'HighEnd Laptops', 'iMac', 'iPads', 'iPhones', 'IP Phone',
+            'Keyboard', 'Laptop C2D', 'Laptop I Series', 'LCD', 'MacBooks', 'MacMini',
+            'Memory', 'Mobiles', 'Mouse', 'Networking Equipment', 'Phone', 'POS',
+            'Power Cable', 'Printers', 'RAM', 'Router', 'Servers / Rack Servers', 'Solar Panel',
+            'Speakers', 'Stylus', 'Switch Board', 'Tablet', 'Thin Clients', 'Toner/Cartridges',
+            'Video Cards', 'Wearables', 'Workstation', 'Other',
+        ];
+
+        foreach ($categories as $cat) {
+            $res->assertSee($cat);
+        }
+    }
+
     public function test_campaign_creation_persists_default_reply_to_support_email(): void
     {
         $admin = User::where('username', 'admin')->first();
@@ -790,7 +900,7 @@ class BulkEmailClientTest extends TestCase
         $campaignId = $res->json('campaign_id');
         $campaign = Campaign::find($campaignId);
         $this->assertNotNull($campaign);
-        $this->assertEquals('support@b2bexportsllc.com', $campaign->reply_to);
+        $this->assertEquals(config('pabbly.reply_to', 'support@b2bexportsllc.com'), $campaign->reply_to);
     }
 
     public function test_campaign_creation_persists_custom_reply_to(): void
@@ -868,6 +978,142 @@ class BulkEmailClientTest extends TestCase
             }
             return true;
         });
+    }
+
+    public function test_pabbly_service_generates_unique_campaign_names_across_rapid_calls(): void
+    {
+        config(['pabbly.api_key' => 'test_api_key']);
+        config(['pabbly.reply_to' => 'support@b2bexportsllc.com']);
+
+        $sentCampaignNames = [];
+
+        Http::fake([
+            'https://emails.pabbly.com/api/v2/campaigns' => function ($request) use (&$sentCampaignNames) {
+                $sentCampaignNames[] = $request['campaignDetails']['campaignName'] ?? null;
+                return Http::response([
+                    'status' => 'success',
+                    'data' => ['_id' => 'pabbly_camp_' . count($sentCampaignNames)],
+                ], 200);
+            },
+            'https://emails.pabbly.com/api/v2/campaigns/send-to-individual' => Http::response([
+                'status' => 'success',
+                'data' => ['queued' => 1],
+            ], 200),
+        ]);
+
+        $pabbly = new PabblyService();
+        $pabbly->sendEmail('user1@example.com', 'User One', 'Same Subject', '<p>Body</p>');
+        $pabbly->sendEmail('user2@example.com', 'User Two', 'Same Subject', '<p>Body</p>');
+
+        $this->assertCount(2, $sentCampaignNames);
+        $this->assertNotEquals($sentCampaignNames[0], $sentCampaignNames[1]);
+        $this->assertEquals('Same Subject', preg_replace('/\s+/', ' ', trim($sentCampaignNames[0])));
+        $this->assertEquals('Same Subject', preg_replace('/\s+/', ' ', trim($sentCampaignNames[1])));
+    }
+
+    public function test_pabbly_service_retries_on_duplicate_campaign_name_error_and_succeeds(): void
+    {
+        config(['pabbly.api_key' => 'test_api_key']);
+        config(['pabbly.reply_to' => 'support@b2bexportsllc.com']);
+
+        Http::fake([
+            'https://emails.pabbly.com/api/v2/campaigns' => Http::sequence()
+                ->push(['status' => 'error', 'message' => 'Campaign name must be unique within the business'], 400)
+                ->push(['status' => 'success', 'data' => ['_id' => 'pabbly_retry_success_456']], 200),
+            'https://emails.pabbly.com/api/v2/campaigns/send-to-individual' => Http::response([
+                'status' => 'success',
+                'data' => ['queued' => 1],
+            ], 200),
+        ]);
+
+        $pabbly = new PabblyService();
+        $result = $pabbly->sendEmail('retry@example.com', 'Retry Recipient', 'Collision Test', '<p>Body</p>');
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('pabbly_retry_success_456', $result['pabbly_campaign_id']);
+
+        // 2 calls to /campaigns (1 initial failed + 1 retry successful) and 1 to /send-to-individual
+        Http::assertSentCount(3);
+    }
+
+    public function test_pabbly_service_random_spacing_matches_subject_words_and_letters(): void
+    {
+        $pabbly = new PabblyService();
+        $original = 'this is product of sale';
+
+        $generatedNames = [];
+        for ($i = 0; $i < 10; $i++) {
+            $name = $pabbly->generateUniqueCampaignName($original);
+            $generatedNames[] = $name;
+            // The normalized string must equal the original subject
+            $this->assertEquals($original, preg_replace('/\s+/', ' ', trim($name)));
+            // Must contain whitespace variation (2 or more consecutive spaces)
+            $this->assertMatchesRegularExpression('/\s{2,}/', $name);
+        }
+
+        // All 10 generated variations should be distinct
+        $this->assertCount(10, array_unique($generatedNames));
+    }
+
+    public function test_bulk_email_view_contains_csv_upload_elements(): void
+    {
+        $user = User::where('username', 'user')->first();
+
+        $response = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user'])
+            ->get('/campaign/bulk');
+
+        $response->assertStatus(200);
+        $response->assertSee('Upload Recipient CSV');
+        $response->assertSee('csv-dropzone');
+        $response->assertSee('csv-file-input');
+        $response->assertSee('Sample CSV');
+        $response->assertSee('Clean & Dedupe');
+        $response->assertSee('initCsvDropzone');
+    }
+
+    public function test_download_sample_csv(): void
+    {
+        $user = User::where('username', 'user')->first();
+
+        $response = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user'])
+            ->get('/campaign/sample-csv');
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertStringContainsString('Email,First Name,Last Name,Company,Title', $content);
+        $this->assertStringContainsString('john.doe@example.com', $content);
+    }
+
+    public function test_parse_csv_api_endpoint(): void
+    {
+        $user = User::where('username', 'user')->first();
+
+        $csvData = "Email,First Name,Last Name\n" .
+                   "alpha@example.com,Alpha,User\n" .
+                   "beta@example.com,Beta,User\n" .
+                   "alpha@example.com,Duplicate,User\n"; // duplicate to test deduplication
+
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvData);
+
+        $response = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user'])
+            ->post('/api/campaign/parse-csv', [
+                'file' => $file,
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'filename' => 'recipients.csv',
+            'detected_count' => 2,
+        ]);
+
+        $emails = $response->json('emails');
+        $this->assertContains('alpha@example.com', $emails);
+        $this->assertContains('beta@example.com', $emails);
     }
 }
 

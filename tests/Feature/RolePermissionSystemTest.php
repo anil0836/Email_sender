@@ -71,7 +71,13 @@ class RolePermissionSystemTest extends TestCase
         $this->assertTrue($employee->hasRole('Employee'), 'User with role user must map to Spatie role Employee');
 
         // Verify relationships and sensitive data were untouched
-        $this->assertEquals($manager->id, $employee->manager_id);
+        $lineManager = User::where('username', 'linemanager')->first();
+        if ($lineManager) {
+            $this->assertEquals($lineManager->id, $employee->manager_id);
+            $this->assertEquals($manager->id, $lineManager->manager_id);
+        } else {
+            $this->assertEquals($manager->id, $employee->manager_id);
+        }
         $this->assertEquals('user@b2bbulkmail.com', $employee->email);
     }
 

@@ -14,6 +14,9 @@ class SyncSalesforceContactsCommand extends Command
      */
     protected $signature = 'salesforce:sync-contacts
                             {--full : Force full sync ignoring latest checkpoint}
+                            {--today : Only synchronize records starting from today}
+                            {--from-today : Alias for --today}
+                            {--order=DESC : Sort order (DESC for latest records first, ASC for oldest)}
                             {--limit= : Limit the number of records to import}';
 
     /**
@@ -21,7 +24,7 @@ class SyncSalesforceContactsCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Synchronize Salesforce Contacts into local database';
+    protected $description = 'Synchronize Salesforce Contacts into local database (defaults to latest records first)';
 
     /**
      * Execute the console command.
@@ -31,9 +34,13 @@ class SyncSalesforceContactsCommand extends Command
         $this->info('Starting Salesforce Contact synchronization...');
 
         $forceFull = (bool) $this->option('full');
+        $todayOnly = (bool) $this->option('today') || (bool) $this->option('from-today');
+        $order = strtoupper((string) ($this->option('order') ?: 'DESC'));
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
 
-        if ($forceFull) {
+        if ($todayOnly) {
+            $this->warn('Running TODAY ONLY sync mode (starting from today).');
+        } elseif ($forceFull) {
             $this->warn('Running FULL sync mode (all Salesforce Contact records).');
         } else {
             $this->line('Running incremental sync mode.');
@@ -43,7 +50,7 @@ class SyncSalesforceContactsCommand extends Command
             $this->line("Record limit set to: {$limit}");
         }
 
-        $result = $syncService->syncContacts($forceFull, 'artisan', $limit);
+        $result = $syncService->syncContacts($forceFull, 'artisan', $limit, $todayOnly, $order);
 
         if ($result['success'] ?? false) {
             $this->newLine();

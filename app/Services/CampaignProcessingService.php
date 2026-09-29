@@ -31,15 +31,23 @@ class CampaignProcessingService
 
         // Find campaigns in 'queued', 'sending', or 'scheduled' (whose time has arrived)
         $campaigns = Campaign::with('user')
-            ->whereIn('status', ['queued', 'sending'])
-            ->orWhere(function ($query) use ($now) {
-                $query->where('status', 'scheduled')
-                      ->where('scheduled_at', '<=', $now);
+            ->where(function ($query) use ($now) {
+                $query->whereIn('status', ['queued', 'sending'])
+                      ->orWhere(function ($q) use ($now) {
+                          $q->where('status', 'scheduled')
+                            ->where('scheduled_at', '<=', $now);
+                      });
             })
             ->orderBy('created_at', 'asc')
             ->get();
 
         foreach ($campaigns as $campaign) {
+            // STRICT SEND-TIME APPROVAL SHIELD: Must be fully approved to send emails
+            if (!$campaign->isFullyApproved()) {
+                Log::warning("[CampaignProcessing] Campaign {$campaign->id} is not fully approved. Status: {$campaign->status}. Skipping sending.");
+                continue;
+            }
+
             $campaignId = $campaign->id;
             $appUsername = $campaign->user ? $campaign->user->username : 'admin';
             $sendingDomain = $campaign->sending_domain;
@@ -73,6 +81,28 @@ class CampaignProcessingService
                 $recLogId = $recipient->id;
                 $recordId = $recipient->salesforce_record_id;
                 $email = $recipient->email;
+
+                // MANDATORY DIRECT SUPPRESSION CHECK (RACE-CONDITION SHIELD)
+                if (app(EmailSuppressionService::class)->isSuppressed($email)) {
+                    Log::warning("[CampaignProcessing] Immediate send-time suppression caught: {$email} is suppressed.");
+
+                    $recipient->update([
+                        'decision' => 'blocked',
+                        'decision_reason' => 'GLOBAL_SUPPRESSION',
+                        'delivery_status' => 'blocked',
+                        'validated_at' => Carbon::now(),
+                    ]);
+
+                    if ($recipient->campaign_member_id) {
+                        \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                            'status' => 'blocked',
+                        ]);
+                    }
+
+                    $campaign->decrement('total_approved');
+                    $campaign->increment('total_blocked');
+                    continue;
+                }
 
                 // MANDATORY FINAL SEND-TIME REVALIDATION AGAINST SALESFORCE CRM
                 if ($recordId && $recordId !== 'N/A' && !str_starts_with($recordId, '003SF0000000_')) {
@@ -127,8 +157,11 @@ class CampaignProcessingService
                 }
 
                 $trackingToken = $recipient->tracking_token;
-                $pixelUrl = url("/track/open/{$trackingToken}");
-                $unsubUrl = url("/track/unsubscribe/{$trackingToken}");
+
+$baseUrl = rtrim(config('app.url'), '/');
+
+$pixelUrl = "{$baseUrl}/track/open/{$trackingToken}";
+$unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
 
                 $pixelTag = '<img src="' . $pixelUrl . '" width="1" height="1" alt="" style="display:none;" />';
                 $unsubFooter = '<p style="font-size: 11px; color: #64748b; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px;">This email was sent to ' . e($email) . '. If you wish to unsubscribe, please <a href="' . $unsubUrl . '">click here</a>.</p>';

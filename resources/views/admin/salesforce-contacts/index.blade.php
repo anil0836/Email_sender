@@ -101,7 +101,7 @@
         <div class="card-body p-3">
             <form method="GET" action="{{ route('admin.salesforce_contacts.index') }}" class="row g-2 align-items-center">
                 <!-- Search Keyword -->
-                <div class="col-12 col-md-5">
+                <div class="col-12 col-md-4">
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">
                             <i class="bi bi-search"></i>
@@ -110,8 +110,28 @@
                     </div>
                 </div>
 
+                <!-- Custom Owner Filter -->
+                <div class="col-6 col-md-2">
+                    <select name="custom_owner" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">All Custom Owners</option>
+                        @foreach($customOwners as $co)
+                            <option value="{{ $co }}" {{ ($selectedCustomOwner ?? '') === $co ? 'selected' : '' }}>{{ $co }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Prime Owner / SF User Filter -->
+                <div class="col-6 col-md-2">
+                    <select name="salesforce_sf_user_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">All SF Users</option>
+                        @foreach($sfUsers as $sfu)
+                            <option value="{{ $sfu->id }}" {{ ($selectedSfUserId ?? '') == $sfu->id ? 'selected' : '' }}>{{ $sfu->name ?: $sfu->emp_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <!-- Lead Source Filter -->
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-2">
                     <select name="lead_source" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">All Lead Sources</option>
                         @foreach($leadSources as $src)
@@ -121,19 +141,19 @@
                 </div>
 
                 <!-- Records per Page -->
-                <div class="col-6 col-md-2">
+                <div class="col-6 col-md-1">
                     <select name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10 per page</option>
-                        <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25 per page</option>
-                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50 per page</option>
-                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100 per page</option>
+                        <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>10 / page</option>
+                        <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25 / page</option>
+                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50 / page</option>
+                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100 / page</option>
                     </select>
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="col-12 col-md-2 d-flex gap-1.5 justify-content-end">
-                    <button type="submit" class="btn btn-outline-secondary btn-sm w-50">Filter</button>
-                    <a href="{{ route('admin.salesforce_contacts.index') }}" class="btn btn-light btn-sm w-50 border text-secondary" title="Reset Filters">Reset</a>
+                <div class="col-12 col-md-1 d-flex gap-1.5 justify-content-end">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">Apply</button>
+                    <a href="{{ route('admin.salesforce_contacts.index') }}" class="btn btn-light btn-sm border text-secondary" title="Reset Filters"><i class="bi bi-x"></i></a>
                 </div>
             </form>
         </div>
@@ -162,8 +182,9 @@
                             <th style="min-width: 140px;">Title & Dept</th>
                             <th style="min-width: 130px;">Lead Source</th>
                             <th style="min-width: 140px;">Mailing Location</th>
-                            <th style="min-width: 150px;">Prime Owner (SF User)</th>
-                            <th style="min-width: 130px;">Standard Owner</th>
+                            <th style="min-width: 150px;">Local SF User</th>
+                            <th style="min-width: 130px;">Custom Owner</th>
+                            <th style="min-width: 130px;">Salesforce Owner</th>
                             <th style="min-width: 140px;">SF Modified</th>
                             <th class="pe-4 text-end" style="min-width: 140px;">Local Synced</th>
                         </tr>
@@ -231,12 +252,31 @@
                                 </div>
                             </td>
                             <td>
-                                @if($contact->primeOwner)
+                                @if($contact->salesforceOwner)
+                                    <a href="{{ route('admin.salesforce_sf_users.index', ['search' => $contact->salesforceOwner->name]) }}" class="text-decoration-none fw-medium text-zinc-900 d-inline-flex align-items-center gap-1" title="Matched SF User: {{ $contact->salesforceOwner->name }}">
+                                        <i class="bi bi-person-check-fill text-success"></i> {{ $contact->salesforceOwner->name }}
+                                    </a>
+                                    @if($contact->owner_email)
+                                        <div class="text-muted small" style="font-size: 0.72rem;">{{ $contact->owner_email }}</div>
+                                    @endif
+                                @elseif($contact->primeOwner)
                                     <a href="{{ route('admin.salesforce_sf_users.index', ['search' => $contact->primeOwner->name]) }}" class="text-decoration-none fw-medium text-zinc-900 d-inline-flex align-items-center gap-1" title="Prime Owner: {{ $contact->primeOwner->name }}">
                                         <i class="bi bi-person-badge text-primary"></i> {{ $contact->primeOwner->name }}
                                     </a>
+                                    @if($contact->owner_email)
+                                        <div class="text-muted small" style="font-size: 0.72rem;">{{ $contact->owner_email }}</div>
+                                    @endif
                                 @elseif($contact->prime_owner_id)
                                     <code class="text-muted small">{{ $contact->prime_owner_id }}</code>
+                                @else
+                                    <span class="text-zinc-400 fst-italic">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($contact->Custom_Owner__c)
+                                    <span class="badge bg-light border text-zinc-900 fw-medium" title="Custom_Owner__c: {{ $contact->Custom_Owner__c }}">
+                                        <i class="bi bi-person-gear text-primary me-1"></i>{{ $contact->Custom_Owner__c }}
+                                    </span>
                                 @else
                                     <span class="text-zinc-400 fst-italic">-</span>
                                 @endif
@@ -259,13 +299,13 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="text-center py-5">
+                            <td colspan="12" class="text-center py-5">
                                 <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 48px; height: 48px;">
                                     <i class="bi bi-person-x text-muted fs-4"></i>
                                 </div>
                                 <h6 class="fw-semibold text-zinc-800 mb-1">No Synchronized Contacts Found</h6>
                                 <p class="text-secondary small mb-3">
-                                    @if($search || $selectedSource)
+                                    @if($search || $selectedSource || !empty($selectedCustomOwner) || !empty($selectedSfUserId))
                                         No contacts matched the search criteria. Try clearing your filters.
                                     @else
                                         Click "Sync Contacts Now" or wait for the scheduled cron job to import contacts from Salesforce.

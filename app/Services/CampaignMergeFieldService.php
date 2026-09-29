@@ -132,7 +132,7 @@ class CampaignMergeFieldService
         }
 
         if ($recipient instanceof SalesforceLead) {
-            $ownerName = $recipient->owner_name ?: ($recipient->owner ? $recipient->owner->name : '');
+            $ownerName = $recipient->owner_name ?: ($recipient->salesforceOwner ? $recipient->salesforceOwner->name : ($recipient->owner ? $recipient->owner->name : ($recipient->primeOwner ? $recipient->primeOwner->name : '')));
             $fullName = $recipient->name ?: trim("{$recipient->first_name} {$recipient->last_name}");
 
             return [
@@ -148,7 +148,7 @@ class CampaignMergeFieldService
         }
 
         if ($recipient instanceof SalesforceContact) {
-            $ownerName = $recipient->owner_name ?: ($recipient->owner ? $recipient->owner->name : '');
+            $ownerName = $recipient->owner_name ?: ($recipient->salesforceOwner ? $recipient->salesforceOwner->name : ($recipient->owner ? $recipient->owner->name : ($recipient->primeOwner ? $recipient->primeOwner->name : '')));
             $company = $recipient->account ? $recipient->account->name : '';
             $website = $recipient->account ? ($recipient->account->website ?? '') : '';
             $fullName = $recipient->name ?: trim("{$recipient->first_name} {$recipient->last_name}");

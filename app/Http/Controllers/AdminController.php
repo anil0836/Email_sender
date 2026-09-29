@@ -96,12 +96,14 @@ class AdminController extends Controller
             $spatieRole = match (strtolower(trim($roleInput))) {
                 'admin' => 'Admin',
                 'manager' => 'Manager',
+                'line_manager' => 'Line Manager',
                 'user', 'employee' => 'Employee',
                 default => 'Employee',
             };
-            $legacyRole = match ($spatieRole) {
-                'Admin' => 'admin',
-                'Manager' => 'manager',
+            $legacyRole = match (strtolower(trim($roleInput))) {
+                'admin' => 'admin',
+                'manager' => 'manager',
+                'line_manager' => 'line_manager',
                 default => 'user',
             };
 
@@ -141,7 +143,9 @@ class AdminController extends Controller
             ]);
 
             // Assign Spatie Role
-            $newUser->assignRole($spatieRole);
+            if (\Spatie\Permission\Models\Role::where('name', $spatieRole)->where('guard_name', 'web')->exists()) {
+                $newUser->assignRole($spatieRole);
+            }
 
             $this->auditService->logActivity(
                 $admin->id,
@@ -195,16 +199,20 @@ class AdminController extends Controller
                 $spatieRole = match (strtolower(trim($role))) {
                     'admin' => 'Admin',
                     'manager' => 'Manager',
+                    'line_manager' => 'Line Manager',
                     'user', 'employee' => 'Employee',
                     default => 'Employee',
                 };
-                $legacyRole = match ($spatieRole) {
-                    'Admin' => 'admin',
-                    'Manager' => 'manager',
+                $legacyRole = match (strtolower(trim($role))) {
+                    'admin' => 'admin',
+                    'manager' => 'manager',
+                    'line_manager' => 'line_manager',
                     default => 'user',
                 };
                 $user->role = $legacyRole;
-                $user->syncRoles([$spatieRole]);
+                if (\Spatie\Permission\Models\Role::where('name', $spatieRole)->exists()) {
+                    $user->syncRoles([$spatieRole]);
+                }
             }
 
             $user->emp_id = $empId;
@@ -268,7 +276,7 @@ class AdminController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $managers = User::whereIn('role', ['manager', 'admin'])
+        $managers = User::whereIn('role', ['manager', 'line_manager', 'admin'])
             ->select('id', 'username', 'name', 'email', 'role')
             ->orderBy('name', 'asc')
             ->orderBy('username', 'asc')

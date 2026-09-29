@@ -47,6 +47,17 @@ class DatabaseSeeder extends Seeder
                 'daily_limit' => 3000,
             ]);
 
+            $lineManager = User::create([
+                'emp_id' => 'EMP-004',
+                'username' => 'linemanager',
+                'name' => 'Line Manager',
+                'email' => 'linemanager@b2bbulkmail.com',
+                'password' => Hash::make('linemanager'),
+                'role' => 'line_manager',
+                'manager_id' => $manager->id,
+                'daily_limit' => 2000,
+            ]);
+
             User::create([
                 'emp_id' => 'EMP-003',
                 'username' => 'user',
@@ -54,7 +65,7 @@ class DatabaseSeeder extends Seeder
                 'email' => 'user@b2bbulkmail.com',
                 'password' => Hash::make('user'),
                 'role' => 'user',
-                'manager_id' => $manager->id,
+                'manager_id' => $lineManager->id,
                 'daily_limit' => 1000,
             ]);
         }
@@ -182,7 +193,18 @@ class DatabaseSeeder extends Seeder
             $firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth'];
             $lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
             $domains = ['gmail.com', 'yahoo.com', 'outlook.com', 'company.com', 'business.net'];
-            $categories = ['Desktop', 'Laptops', 'Mac', 'Ipad', 'Imac', 'Iphone'];
+            $categories = [
+                'AC Adaptors', 'AIO', 'Audio Accessories', 'Bar Code Scanner', 'Barebone/Scrap Desktops',
+                'Barebone/Scrap Laptops', 'Cable Assemblies', 'Camera', 'CCTV/DVR', 'Chromebook',
+                'CPU', 'CPU Fan', 'Desktop C2D', 'Desktop I Series', 'Docking Stations',
+                'Energy Audit Equipment', 'E-Scrap', 'Fax machine', 'Gaming PC/Consoles', 'HDD',
+                'HighEnd Desktops', 'HighEnd Laptops', 'iMac', 'iPads', 'iPhones', 'IP Phone',
+                'Keyboard', 'Laptop C2D', 'Laptop I Series', 'LCD', 'MacBooks', 'MacMini',
+                'Memory', 'Mobiles', 'Mouse', 'Networking Equipment', 'Phone', 'POS',
+                'Power Cable', 'Printers', 'RAM', 'Router', 'Servers / Rack Servers', 'Solar Panel',
+                'Speakers', 'Stylus', 'Switch Board', 'Tablet', 'Thin Clients', 'Toner/Cartridges',
+                'Video Cards', 'Wearables', 'Workstation', 'Other',
+            ];
             $regions = ['North America', 'EMEA', 'APAC', 'LATAM'];
             $countriesByRegion = [
                 'North America' => ['USA', 'Canada'],
@@ -364,6 +386,7 @@ class DatabaseSeeder extends Seeder
                     }
 
                     $sentTime = $createdAt->copy()->addMinutes(rand(1, 10));
+                    $loc = $geoLocations[array_rand($geoLocations)];
 
                     $log = RecipientLog::create([
                         'campaign_id' => $campaignId,
@@ -376,6 +399,9 @@ class DatabaseSeeder extends Seeder
                         'delivery_status' => $status,
                         'provider_message_id' => 'msg-' . Str::random(12),
                         'error_message' => $err,
+                        'country' => $loc[0],
+                        'region' => $loc[1],
+                        'city' => $loc[2],
                         'tracking_token' => (string) Str::uuid(),
                         'validated_at' => $createdAt,
                         'sent_at' => $sentTime,
@@ -385,7 +411,6 @@ class DatabaseSeeder extends Seeder
 
                     if (in_array($status, ['opened', 'spam_complaint'])) {
                         $openTime = $sentTime->copy()->addMinutes(rand(5, 300));
-                        $loc = $geoLocations[array_rand($geoLocations)];
 
                         RecipientOpen::create([
                             'recipient_log_id' => $log->id,

@@ -31,9 +31,14 @@ class Campaign extends Model
         'total_approved',
         'total_blocked',
         'status',
+        'current_approver_id',
+        'line_manager_id',
         'approved_by',
         'approval_remark',
         'approval_at',
+        'rejected_by',
+        'rejection_reason',
+        'rejected_at',
         'scheduled_at',
         'attachments',
     ];
@@ -43,6 +48,7 @@ class Campaign extends Model
         'total_approved' => 'integer',
         'total_blocked' => 'integer',
         'approval_at' => 'datetime',
+        'rejected_at' => 'datetime',
         'scheduled_at' => 'datetime',
     ];
 
@@ -76,6 +82,26 @@ class Campaign extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function currentApprover()
+    {
+        return $this->belongsTo(User::class, 'current_approver_id');
+    }
+
+    public function lineManager()
+    {
+        return $this->belongsTo(User::class, 'line_manager_id');
+    }
+
+    public function rejecter()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(CampaignApproval::class, 'campaign_id')->orderBy('created_at', 'asc');
+    }
+
     public function recipientLogs()
     {
         return $this->hasMany(RecipientLog::class, 'campaign_id');
@@ -107,9 +133,21 @@ class Campaign extends Model
     }
 
     /**
+     * Checks if this campaign is fully approved and eligible for email sending.
+     */
+    public function isFullyApproved(): bool
+    {
+        if (in_array($this->status, ['draft', 'pending_approval', 'pending_line_manager', 'pending_manager', 'rejected', 'failed'])) {
+            return false;
+        }
+
+        return in_array($this->status, ['approved', 'queued', 'sending', 'scheduled', 'completed']);
+    }
+
+    /**
      * Scope: Restrict query to Delivery Campaigns accessible by a given user.
      * Admin -> All campaigns
-     * Team Manager -> Own campaigns + All campaigns in their managed team(s) + Subordinates' campaigns
+     * Line Manager / Manager -> Own campaigns + Subordinates' campaigns + Campaigns awaiting their approval
      * Normal User -> Own campaigns only
      */
     public function scopeAccessibleBy($query, User|int|string|null $user)
@@ -131,10 +169,21 @@ class Campaign extends Model
         $managedTeams = $teamService->getManagedTeamsForUser($localUser);
         $subordinateIds = User::where('manager_id', $localUser->id)->pluck('id')->toArray();
 
-        if (count($managedTeams) > 0 || count($subordinateIds) > 0 || $localUser->role === 'manager') {
+        // Also check recursive subordinates if manager
+        if ($localUser->role === 'manager') {
+            $lineManagerIds = User::where('manager_id', $localUser->id)->where('role', 'line_manager')->pluck('id')->toArray();
+            if (!empty($lineManagerIds)) {
+                $subSubIds = User::whereIn('manager_id', $lineManagerIds)->pluck('id')->toArray();
+                $subordinateIds = array_unique(array_merge($subordinateIds, $subSubIds));
+            }
+        }
+
+        if (count($managedTeams) > 0 || count($subordinateIds) > 0 || in_array($localUser->role, ['manager', 'line_manager'])) {
             return $query->where(function ($q) use ($localUser, $managedTeams, $subordinateIds) {
                 $q->where('campaigns.user_id', $localUser->id)
-                  ->orWhere('campaigns.manager_user_id', $localUser->id);
+                  ->orWhere('campaigns.manager_user_id', $localUser->id)
+                  ->orWhere('campaigns.current_approver_id', $localUser->id)
+                  ->orWhere('campaigns.line_manager_id', $localUser->id);
 
                 if (count($managedTeams) > 0) {
                     $q->orWhereIn('campaigns.team', $managedTeams);

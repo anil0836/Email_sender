@@ -132,12 +132,18 @@ class DashboardController extends Controller
         $opened = (int) ($countsRow->opened ?? 0);
         $unsubscribed = (int) ($countsRow->unsubscribed ?? 0);
 
-        // Unique Opens
+        // Unique Opens (either logged in recipient_opens or marked as opened status)
         $opensQuery = DB::table('recipient_logs')
-            ->join('campaigns', 'recipient_logs.campaign_id', '=', 'campaigns.id')
-            ->join('recipient_opens', 'recipient_opens.recipient_log_id', '=', 'recipient_logs.id');
+            ->join('campaigns', 'recipient_logs.campaign_id', '=', 'campaigns.id');
         $applyFilters($opensQuery);
-        $uniqueOpens = $opensQuery->distinct()->count('recipient_logs.id');
+        $uniqueOpens = $opensQuery->where(function ($q) {
+            $q->where('recipient_logs.delivery_status', 'opened')
+              ->orWhereExists(function ($sub) {
+                  $sub->select(DB::raw(1))
+                      ->from('recipient_opens')
+                      ->whereColumn('recipient_opens.recipient_log_id', 'recipient_logs.id');
+              });
+        })->count();
 
         // Unique Clicks
         $clicksQuery = DB::table('recipient_logs')
@@ -156,7 +162,7 @@ class DashboardController extends Controller
             'spam_marked' => $spamMarked,
             'bounced' => $bounced,
             'undelivered' => $undelivered,
-            'opened' => $opened,
+            'opened' => $uniqueOpens,
             'unsubscribed' => $unsubscribed,
             'unique_opens' => $uniqueOpens,
             'unique_clicks' => $uniqueClicks,
@@ -165,15 +171,27 @@ class DashboardController extends Controller
             'unsubscribe_rate' => $unsubRate,
         ];
 
-        // 2. Geolocation Open Metrics
-        $geoQuery = DB::table('recipient_opens')
-            ->join('recipient_logs', 'recipient_opens.recipient_log_id', '=', 'recipient_logs.id')
-            ->join('campaigns', 'recipient_logs.campaign_id', '=', 'campaigns.id');
+        // 2. Geolocation Delivery & Engagement Metrics
+        $geoQuery = DB::table('recipient_logs')
+            ->join('campaigns', 'recipient_logs.campaign_id', '=', 'campaigns.id')
+            ->leftJoin('recipient_opens', 'recipient_opens.recipient_log_id', '=', 'recipient_logs.id')
+            ->whereNotNull('recipient_logs.country')
+            ->where('recipient_logs.country', '!=', '')
+            ->whereIn('recipient_logs.delivery_status', $sentStatuses);
         $applyFilters($geoQuery);
+
         $geoData = $geoQuery
-            ->select('recipient_opens.country', 'recipient_opens.region', 'recipient_opens.city', DB::raw('COUNT(*) as open_count'))
-            ->groupBy('recipient_opens.country', 'recipient_opens.region', 'recipient_opens.city')
-            ->orderByDesc('open_count')
+            ->select(
+                'recipient_logs.country',
+                'recipient_logs.region',
+                'recipient_logs.city',
+                DB::raw("COUNT(DISTINCT CASE WHEN recipient_logs.delivery_status IN ('delivered', 'opened') THEN recipient_logs.id END) as delivered_count"),
+                DB::raw("COUNT(DISTINCT CASE WHEN recipient_opens.id IS NOT NULL OR recipient_logs.delivery_status = 'opened' THEN recipient_logs.id END) as open_count"),
+                DB::raw("COUNT(DISTINCT recipient_logs.id) as total_count")
+            )
+            ->groupBy('recipient_logs.country', 'recipient_logs.region', 'recipient_logs.city')
+            ->orderByDesc(DB::raw("COUNT(DISTINCT CASE WHEN recipient_logs.delivery_status IN ('delivered', 'opened') THEN recipient_logs.id END)"))
+            ->orderByDesc(DB::raw("COUNT(DISTINCT CASE WHEN recipient_opens.id IS NOT NULL OR recipient_logs.delivery_status = 'opened' THEN recipient_logs.id END)"))
             ->get()
             ->toArray();
 
@@ -298,6 +316,15 @@ class DashboardController extends Controller
             $query->where('recipient_logs.delivery_status', 'spam_complaint');
         } elseif ($statusType === 'unsubscribed') {
             $query->where('recipient_logs.delivery_status', 'unsubscribed');
+        } elseif ($statusType === 'opened') {
+            $query->where(function ($q) {
+                $q->where('recipient_logs.delivery_status', 'opened')
+                  ->orWhereExists(function ($sub) {
+                      $sub->select(DB::raw(1))
+                          ->from('recipient_opens')
+                          ->whereColumn('recipient_opens.recipient_log_id', 'recipient_logs.id');
+                  });
+            });
         }
 
         // Date and campaign filters

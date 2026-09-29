@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\AdminRolePermissionController;
 use App\Http\Controllers\Admin\SalesforceAccountAdminController;
 use App\Http\Controllers\Admin\SalesforceContactAdminController;
 use App\Http\Controllers\Admin\SalesforceLeadAdminController;
+use App\Http\Controllers\Admin\EmailSuppressionAdminController;
+use App\Http\Controllers\Admin\EmailSuppressionImportController;
 use App\Http\Controllers\Admin\SalesforceSfUserAdminController;
 use App\Http\Controllers\Admin\SalesforceUserAdminController;
 use App\Http\Controllers\AdminController;
@@ -44,6 +46,7 @@ Route::middleware(['app_auth'])->group(function () {
     });
     Route::middleware(['permission:bulk-mail|bulk-mail.view'])->group(function () {
         Route::get('/campaign/bulk', [CampaignController::class, 'bulkEmailView'])->name('campaign_bulk_view');
+        Route::get('/campaign/sample-csv', [CampaignController::class, 'downloadSampleCsv'])->name('campaign.sample_csv');
     });
 
     Route::get('/campaign/list', [CampaignController::class, 'listView'])->name('campaign_list_view');
@@ -63,8 +66,8 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/simulator', [SimulatorController::class, 'index'])->name('simulator_view');
     Route::get('/download/attachment/{campaign_id}/{filename}', [CampaignController::class, 'downloadAttachment'])->name('download_attachment');
 
-    // Manager and Admin UI
-    Route::middleware(['app_auth:admin,manager'])->group(function () {
+    // Manager, Line Manager and Admin UI
+    Route::middleware(['app_auth:admin,manager,line_manager'])->group(function () {
         Route::get('/manager/campaigns', [ManagerController::class, 'campaignsView'])->name('team_campaigns_view');
     });
 
@@ -104,6 +107,15 @@ Route::middleware(['app_auth'])->group(function () {
         Route::delete('/api/admin/permissions/{permission}', [AdminRolePermissionController::class, 'deletePermission'])->name('api.admin.permissions.delete');
         Route::post('/api/admin/users/{user}/assign-role', [AdminRolePermissionController::class, 'assignUserRole'])->name('api.admin.users.assign_role');
         Route::post('/api/admin/roles-permissions/reset-cache', [AdminRolePermissionController::class, 'resetCache'])->name('api.admin.roles.reset_cache');
+
+        // Global Email Suppression & Compliance Management
+        Route::get('/admin/email-suppressions', [EmailSuppressionAdminController::class, 'index'])->name('admin.suppressions.index');
+        Route::post('/admin/email-suppressions', [EmailSuppressionAdminController::class, 'store'])->name('admin.suppressions.store');
+        Route::post('/admin/email-suppressions/{id}/resubscribe', [EmailSuppressionAdminController::class, 'resubscribe'])->name('admin.suppressions.resubscribe');
+        Route::get('/admin/email-suppressions/export', [EmailSuppressionAdminController::class, 'export'])->name('admin.suppressions.export');
+        Route::get('/admin/email-suppressions/import', [EmailSuppressionImportController::class, 'showImportForm'])->name('admin.suppressions.import');
+        Route::post('/admin/email-suppressions/import', [EmailSuppressionImportController::class, 'importCsv'])->name('admin.suppressions.import.post');
+        Route::get('/admin/email-suppressions/sample-csv', [EmailSuppressionImportController::class, 'downloadSample'])->name('admin.suppressions.sample');
     });
 
     // --- AUTHENTICATED JSON API ENDPOINTS ---
@@ -120,8 +132,9 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/api/salesforce/campaign-recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.campaign_recipients');
 
     // Bulk Mail APIs (Protected by Spatie Bulk-Mail permissions)
-    Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new'])->group(function () {
+    Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new|bulk-mail.view'])->group(function () {
         Route::post('/api/campaign/validate', [CampaignController::class, 'apiValidate'])->name('api.campaign.validate');
+        Route::post('/api/campaign/parse-csv', [CampaignController::class, 'apiParseCsv'])->name('api.campaign.parse_csv');
     });
     Route::middleware(['permission:bulk-mail|bulk-mail.send'])->group(function () {
         Route::post('/api/campaign/send', [CampaignController::class, 'apiSend'])->name('api.campaign.send');
@@ -146,7 +159,7 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/api/user/assigned-settings', [TemplateSignatureController::class, 'apiUserAssignedSettings'])->name('api.user.assigned_settings');
 
     // Manager APIs
-    Route::middleware(['app_auth:admin,manager'])->group(function () {
+    Route::middleware(['app_auth:admin,manager,line_manager'])->group(function () {
         Route::get('/api/manager/campaigns', [ManagerController::class, 'apiCampaigns'])->name('api.manager.campaigns');
         Route::get('/api/manager/team-members', [ManagerController::class, 'apiTeamMembers'])->name('api.manager.team_members');
     });

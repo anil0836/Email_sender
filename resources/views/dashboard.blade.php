@@ -11,6 +11,7 @@
         z-index: 10;
         border: 1px solid var(--border-color);
     }
+
     .stat-card {
         background: #ffffff;
         border: 1px solid var(--border-color) !important;
@@ -18,11 +19,13 @@
         transition: all 0.15s ease-out;
         cursor: pointer;
     }
+
     .stat-card:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
         border-color: #d4d4d8 !important;
     }
+
     .stat-label {
         font-size: 0.68rem;
         font-weight: 600;
@@ -31,6 +34,7 @@
         color: var(--text-secondary);
         margin-bottom: 0.25rem;
     }
+
     .stat-value {
         font-size: 1.45rem;
         font-weight: 700;
@@ -79,13 +83,17 @@
                     </select>
                 </div>
                 @endif
-                <div class="{{ in_array(session('role', Auth::user()->role ?? ''), ['admin', 'manager']) ? 'col-md-1' : 'col-md-2' }}">
-                    <button class="btn btn-primary w-100" id="btn-filter" onclick="loadDashboardData()" title="Apply Filter">
+                <div
+                    class="{{ in_array(session('role', Auth::user()->role ?? ''), ['admin', 'manager']) ? 'col-md-1' : 'col-md-2' }}">
+                    <button class="btn btn-primary w-100" id="btn-filter" onclick="loadDashboardData()"
+                        title="Apply Filter">
                         <i class="bi bi-funnel"></i>
                     </button>
                 </div>
-                <div class="{{ in_array(session('role', Auth::user()->role ?? ''), ['admin', 'manager']) ? 'col-md-1' : 'col-md-2' }}">
-                    <button class="btn btn-outline-secondary w-100" id="btn-clear" onclick="clearFilters()" title="Reset Filter">
+                <div
+                    class="{{ in_array(session('role', Auth::user()->role ?? ''), ['admin', 'manager']) ? 'col-md-1' : 'col-md-2' }}">
+                    <button class="btn btn-outline-secondary w-100" id="btn-clear" onclick="clearFilters()"
+                        title="Reset Filter">
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </button>
                 </div>
@@ -93,8 +101,8 @@
         </div>
     </div>
 
-    <!-- Quick Stats Grid (8 Clean Cards) -->
-    <div class="row row-cols-2 row-cols-md-4 row-cols-xl-8 g-3 mb-4">
+    <!-- Quick Stats Grid (10 Clean Cards in 2 Balanced Rows of 5) -->
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-3 mb-3">
         <!-- Stat 1: Total Sent -->
         <div class="col">
             <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('total')">
@@ -109,42 +117,59 @@
                 <div class="stat-value text-emerald-600" style="color: #059669;" id="stat-delivered">0</div>
             </div>
         </div>
-        <!-- Stat 3: Bounced -->
+        <!-- Stat 3: Opened Emails -->
+        <div class="col">
+            <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('opened')">
+                <div class="stat-label">Opened Emails</div>
+                <div class="stat-value text-indigo-600" style="color: #4f46e5;" id="stat-opened-count">0</div>
+            </div>
+        </div>
+        <!-- Stat 4: Bounced -->
         <div class="col">
             <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('bounce')">
                 <div class="stat-label">Bounced</div>
                 <div class="stat-value text-rose-600" style="color: #e11d48;" id="stat-bounced">0</div>
             </div>
         </div>
-        <!-- Stat 4: Undelivered -->
+        <!-- Stat 5: Undelivered -->
         <div class="col">
             <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('failed')">
                 <div class="stat-label">Undelivered</div>
                 <div class="stat-value text-amber-600" style="color: #d97706;" id="stat-undelivered">0</div>
             </div>
         </div>
-        <!-- Stat 5: Spam -->
+    </div>
+
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-3 mb-4">
+        <!-- Stat 6: Spam -->
         <div class="col">
             <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('spam')">
                 <div class="stat-label">Spam</div>
                 <div class="stat-value text-zinc-700" id="stat-spam">0</div>
             </div>
         </div>
-        <!-- Stat 6: Open Rate -->
+        <!-- Stat 7: Number of Unsubscribe -->
+        <div class="col">
+            <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('unsubscribed')">
+                <div class="stat-label">Number of Unsubscribe</div>
+                <div class="stat-value text-rose-600" style="color: #e11d48;" id="stat-unsubscribed-count">0</div>
+            </div>
+        </div>
+        <!-- Stat 8: Open Rate -->
         <div class="col">
             <div class="card stat-card h-100 p-3" style="cursor: default;">
                 <div class="stat-label">Open Rate</div>
                 <div class="stat-value text-zinc-900" id="stat-openrate">0.00%</div>
             </div>
         </div>
-        <!-- Stat 7: Click Rate -->
+        <!-- Stat 9: Click Rate -->
         <div class="col">
             <div class="card stat-card h-100 p-3" style="cursor: default;">
                 <div class="stat-label">Click Rate</div>
                 <div class="stat-value text-zinc-900" id="stat-clickrate">0.00%</div>
             </div>
         </div>
-        <!-- Stat 8: Unsubscribed -->
+        <!-- Stat 10: Unsubscribed Rate -->
         <div class="col">
             <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('unsubscribed')">
                 <div class="stat-label">Unsub Rate</div>
@@ -153,46 +178,14 @@
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="row g-4 mb-4">
-        <!-- Outbound Timeline Chart -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-activity me-1.5 text-zinc-500"></i> Dispatch Volumetric Trend</span>
-                    <span class="badge bg-secondary-soft">Daily Count</span>
-                </div>
-                <div class="card-body">
-                    <div style="height: 280px; position: relative;">
-                        <canvas id="volumeChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Email Open Timeline Chart -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-clock-history me-1.5 text-zinc-500"></i> Engagement Open Timeline</span>
-                    <span class="badge bg-secondary-soft">Hourly Engagement</span>
-                </div>
-                <div class="card-body">
-                    <div style="height: 280px; position: relative;">
-                        <canvas id="openTimelineChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Geolocation Tracking Map Row -->
     <div class="row g-4 mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-geo-alt me-1.5 text-zinc-500"></i> Recipient Geolocation Telemetry</span>
-                    <span class="badge bg-secondary-soft">Live Interactive Map</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-geo-alt me-1.5 text-zinc-500"></i> Email Delivery & Telemetry Map</span>
+                    <span class="badge bg-secondary-soft">Global Dispatch Locations</span>
                 </div>
                 <div class="card-body p-3">
                     <div id="geo-map"></div>
@@ -207,7 +200,7 @@
         <div class="col-md-5">
             <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-compass me-1.5 text-zinc-500"></i> Top Geographic Open Hubs</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-compass me-1.5 text-zinc-500"></i> Top Delivery & Engagement Hubs</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive border-0" style="max-height: 380px;">
@@ -215,12 +208,14 @@
                             <thead>
                                 <tr>
                                     <th class="ps-4">City / Region / Country</th>
-                                    <th class="text-center pe-4">Opens Count</th>
+                                    <th class="text-center">Delivered</th>
+                                    <th class="text-center pe-4">Opens</th>
                                 </tr>
                             </thead>
                             <tbody id="geo-table-body">
                                 <tr>
-                                    <td colspan="2" class="text-center text-muted py-4">No geolocation logs available.</td>
+                                    <td colspan="3" class="text-center text-muted py-4">No delivery geolocation logs available.
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -233,7 +228,8 @@
         <div class="col-md-7">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-envelope me-1.5 text-zinc-500"></i> Outbound Campaigns</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-envelope me-1.5 text-zinc-500"></i> Outbound
+                        Campaigns</span>
                     @can('bulk-mail.create')
                     <a href="{{ route('campaign_create_view') }}" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-lg"></i> New Campaign
@@ -254,7 +250,8 @@
                             </thead>
                             <tbody id="campaigns-table-body">
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">No outbound campaigns dispatched.</td>
+                                    <td colspan="5" class="text-center text-muted py-4">No outbound campaigns
+                                        dispatched.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -270,7 +267,8 @@
         <div class="col-md-5">
             <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-laptop me-1.5 text-zinc-500"></i> Device Telemetry</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-laptop me-1.5 text-zinc-500"></i> Device
+                        Telemetry</span>
                     <span class="badge bg-secondary-soft">User-Agent Parser</span>
                 </div>
                 <div class="card-body p-0">
@@ -297,7 +295,8 @@
         <div class="col-md-7">
             <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-link-45deg me-1.5 text-zinc-500"></i> Link Clicks Breakdown</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-link-45deg me-1.5 text-zinc-500"></i> Link
+                        Clicks Breakdown</span>
                     <span class="badge bg-secondary-soft">Tracked Clicks</span>
                 </div>
                 <div class="card-body p-0">
@@ -328,7 +327,8 @@
             <div class="modal-content">
                 <div class="modal-header py-3 px-4" style="border-bottom: 1px solid var(--border-color);">
                     <h6 class="modal-title fw-semibold text-zinc-900" id="recipientModalTitle">Recipient Emails</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem;"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                        style="font-size: 0.75rem;"></button>
                 </div>
                 <div class="modal-body p-0">
                     <div class="table-responsive border-0" style="max-height: 400px; overflow-y: auto;">
@@ -361,29 +361,204 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-    let myChart = null;
     let myMap = null;
     let markerGroup = null;
 
     const countryCoords = {
+        // North America
         "US": [37.0902, -95.7129],
-        "GB": [55.3781, -3.4360],
-        "IN": [20.5937, 78.9629],
-        "DE": [51.1657, 10.4515],
+        "USA": [37.0902, -95.7129],
+        "UNITED STATES": [37.0902, -95.7129],
+        "UNITED STATES OF AMERICA": [37.0902, -95.7129],
         "CA": [56.1304, -106.3468],
-        "AU": [-25.2744, 133.7751],
+        "CAN": [56.1304, -106.3468],
+        "CANADA": [56.1304, -106.3468],
+        "MX": [23.6345, -102.5528],
+        "MEX": [23.6345, -102.5528],
+        "MEXICO": [23.6345, -102.5528],
+
+        // Europe
+        "GB": [55.3781, -3.4360],
+        "GBR": [55.3781, -3.4360],
+        "UK": [55.3781, -3.4360],
+        "UNITED KINGDOM": [55.3781, -3.4360],
+        "GREAT BRITAIN": [55.3781, -3.4360],
+        "DE": [51.1657, 10.4515],
+        "DEU": [51.1657, 10.4515],
+        "GERMANY": [51.1657, 10.4515],
         "FR": [46.2276, 2.2137],
-        "JP": [36.2048, 138.2529],
-        "BR": [-14.2350, -51.9253],
+        "FRA": [46.2276, 2.2137],
+        "FRANCE": [46.2276, 2.2137],
+        "NL": [52.1326, 5.2913],
+        "NLD": [52.1326, 5.2913],
+        "NETHERLANDS": [52.1326, 5.2913],
+        "ES": [40.4637, -3.7492],
+        "ESP": [40.4637, -3.7492],
+        "SPAIN": [40.4637, -3.7492],
+        "IT": [41.8719, 12.5674],
+        "ITA": [41.8719, 12.5674],
+        "ITALY": [41.8719, 12.5674],
+        "BE": [50.5039, 4.4699],
+        "BEL": [50.5039, 4.4699],
+        "BELGIUM": [50.5039, 4.4699],
+        "IE": [53.1424, -7.6921],
+        "IRL": [53.1424, -7.6921],
+        "IRELAND": [53.1424, -7.6921],
+        "CH": [46.8182, 8.2275],
+        "CHE": [46.8182, 8.2275],
+        "SWITZERLAND": [46.8182, 8.2275],
+        "SE": [60.1282, 18.6435],
+        "SWE": [60.1282, 18.6435],
+        "SWEDEN": [60.1282, 18.6435],
+        "NO": [60.4720, 8.4689],
+        "NOR": [60.4720, 8.4689],
+        "NORWAY": [60.4720, 8.4689],
+        "DK": [56.2639, 9.5018],
+        "DNK": [56.2639, 9.5018],
+        "DENMARK": [56.2639, 9.5018],
+        "PL": [51.9194, 19.1451],
+        "POL": [51.9194, 19.1451],
+        "POLAND": [51.9194, 19.1451],
         "RU": [61.5240, 105.3188],
-        "ZA": [-30.5595, 22.9375]
+        "RUS": [61.5240, 105.3188],
+        "RUSSIA": [61.5240, 105.3188],
+
+        // Asia / Pacific
+        "IN": [20.5937, 78.9629],
+        "IND": [20.5937, 78.9629],
+        "INDIA": [20.5937, 78.9629],
+        "JP": [36.2048, 138.2529],
+        "JPN": [36.2048, 138.2529],
+        "JAPAN": [36.2048, 138.2529],
+        "AU": [-25.2744, 133.7751],
+        "AUS": [-25.2744, 133.7751],
+        "AUSTRALIA": [-25.2744, 133.7751],
+        "NZ": [-40.9006, 174.8860],
+        "NZL": [-40.9006, 174.8860],
+        "NEW ZEALAND": [-40.9006, 174.8860],
+        "SG": [1.3521, 103.8198],
+        "SGP": [1.3521, 103.8198],
+        "SINGAPORE": [1.3521, 103.8198],
+        "AE": [23.4241, 53.8478],
+        "ARE": [23.4241, 53.8478],
+        "UAE": [23.4241, 53.8478],
+        "UNITED ARAB EMIRATES": [23.4241, 53.8478],
+        "PK": [30.3753, 69.3451],
+        "PAK": [30.3753, 69.3451],
+        "PAKISTAN": [30.3753, 69.3451],
+        "VN": [14.0583, 108.2772],
+        "VNM": [14.0583, 108.2772],
+        "VIETNAM": [14.0583, 108.2772],
+        "VIET NAM": [14.0583, 108.2772],
+        "TH": [15.8700, 100.9925],
+        "THA": [15.8700, 100.9925],
+        "THAILAND": [15.8700, 100.9925],
+        "MY": [4.2105, 101.9758],
+        "MYS": [4.2105, 101.9758],
+        "MALAYSIA": [4.2105, 101.9758],
+        "ID": [-0.7893, 113.9213],
+        "IDN": [-0.7893, 113.9213],
+        "INDONESIA": [-0.7893, 113.9213],
+        "PH": [12.8797, 121.7740],
+        "PHL": [12.8797, 121.7740],
+        "PHILIPPINES": [12.8797, 121.7740],
+        "CN": [35.8617, 104.1954],
+        "CHN": [35.8617, 104.1954],
+        "CHINA": [35.8617, 104.1954],
+        "SA": [23.8859, 45.0792],
+        "SAU": [23.8859, 45.0792],
+        "SAUDI ARABIA": [23.8859, 45.0792],
+        "LA": [19.8563, 102.4955],
+        "LAOS": [19.8563, 102.4955],
+        "LAO PEOPLE'S DEMOCRATIC REPUBLIC": [19.8563, 102.4955],
+
+        // South America
+        "BR": [-14.2350, -51.9253],
+        "BRA": [-14.2350, -51.9253],
+        "BRAZIL": [-14.2350, -51.9253],
+        "AR": [-38.4161, -63.6167],
+        "ARG": [-38.4161, -63.6167],
+        "ARGENTINA": [-38.4161, -63.6167],
+        "CO": [4.5709, -74.2973],
+        "COL": [4.5709, -74.2973],
+        "COLOMBIA": [4.5709, -74.2973],
+        "CL": [-35.6751, -71.5430],
+        "CHL": [-35.6751, -71.5430],
+        "CHILE": [-35.6751, -71.5430],
+
+        // Africa
+        "ZA": [-30.5595, 22.9375],
+        "ZAF": [-30.5595, 22.9375],
+        "SOUTH AFRICA": [-30.5595, 22.9375],
+        "KE": [-0.0236, 37.9062],
+        "KEN": [-0.0236, 37.9062],
+        "KENYA": [-0.0236, 37.9062],
+        "ZW": [-19.0154, 29.1549],
+        "ZWE": [-19.0154, 29.1549],
+        "ZIMBABWE": [-19.0154, 29.1549],
+        "NG": [9.0820, 8.6753],
+        "NGA": [9.0820, 8.6753],
+        "NIGERIA": [9.0820, 8.6753],
+        "EG": [26.8206, 30.8025],
+        "EGY": [26.8206, 30.8025],
+        "EGYPT": [26.8206, 30.8025]
     };
 
+    const cityCoords = {
+        "SAN FRANCISCO": [37.7749, -122.4194],
+        "NEW YORK": [40.7128, -74.0060],
+        "BROOKLYN": [40.6782, -73.9442],
+        "LOS ANGELES": [34.0522, -118.2437],
+        "CHICAGO": [41.8781, -87.6298],
+        "LONDON": [51.5074, -0.1278],
+        "PARIS": [48.8566, 2.3522],
+        "FRANKFURT": [50.1109, 8.6821],
+        "BERLIN": [52.5200, 13.4050],
+        "TORONTO": [43.6532, -79.3832],
+        "SYDNEY": [-33.8688, 151.2093],
+        "MELBOURNE": [-37.8136, 144.9631],
+        "TOKYO": [35.6762, 139.6503],
+        "MUMBAI": [19.0760, 72.8777],
+        "DELHI": [28.6139, 77.2090],
+        "BENGALURU": [12.9716, 77.5946],
+        "SAO PAULO": [-23.5505, -46.6333],
+        "SÃO PAULO": [-23.5505, -46.6333],
+        "SHARJAH": [25.3463, 55.4209],
+        "DUBAI": [25.2048, 55.2708],
+        "VIENTIANE": [17.9757, 102.6331],
+        "TUY HOA": [13.0882, 109.3090],
+        "TUY HÒA": [13.0882, 109.3090],
+        "ANTWERPEN": [51.2194, 4.4025],
+        "CHANDLER": [33.3062, -111.8413],
+    };
+
+    function resolveLocationCoords(city, country) {
+        if (city) {
+            const cleanCity = city.trim().toUpperCase();
+            if (cityCoords[cleanCity]) {
+                const base = cityCoords[cleanCity];
+                const jitterLat = (Math.random() - 0.5) * 0.15;
+                const jitterLng = (Math.random() - 0.5) * 0.15;
+                return [base[0] + jitterLat, base[1] + jitterLng];
+            }
+        }
+        if (country) {
+            const cleanCountry = country.trim().toUpperCase();
+            if (countryCoords[cleanCountry]) {
+                const base = countryCoords[cleanCountry];
+                const jitterLat = (Math.random() - 0.5) * 1.8;
+                const jitterLng = (Math.random() - 0.5) * 1.8;
+                return [base[0] + jitterLat, base[1] + jitterLng];
+            }
+        }
+        return null;
+    }
+
     function initMap() {
-        myMap = L.map('geo-map', { zoomControl: true }).setView([20, 0], 1);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 10,
-            attribution: '&copy; CartoDB'
+        myMap = L.map('geo-map', { zoomControl: true, scrollWheelZoom: false }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
         }).addTo(myMap);
         markerGroup = L.layerGroup().addTo(myMap);
     }
@@ -459,15 +634,19 @@
 
                 document.getElementById('stat-sent').textContent = data.counters.total_sent.toLocaleString();
                 document.getElementById('stat-delivered').textContent = data.counters.delivered.toLocaleString();
+                if (document.getElementById('stat-opened-count')) {
+                    document.getElementById('stat-opened-count').textContent = (data.counters.opened ?? data.counters.unique_opens ?? 0).toLocaleString();
+                }
                 document.getElementById('stat-bounced').textContent = data.counters.bounced.toLocaleString();
                 document.getElementById('stat-undelivered').textContent = data.counters.undelivered.toLocaleString();
                 document.getElementById('stat-spam').textContent = data.counters.spam_marked.toLocaleString();
+                if (document.getElementById('stat-unsubscribed-count')) {
+                    document.getElementById('stat-unsubscribed-count').textContent = (data.counters.unsubscribed || 0).toLocaleString();
+                }
                 document.getElementById('stat-openrate').textContent = data.counters.open_rate.toFixed(2) + '%';
                 document.getElementById('stat-clickrate').textContent = data.counters.click_rate.toFixed(2) + '%';
                 document.getElementById('stat-unsub').textContent = data.counters.unsubscribe_rate.toFixed(2) + '%';
 
-                renderChart(data.chart_data);
-                renderTimelineChart(data.timeline_data);
                 renderGeoData(data.geo_data);
                 renderCampaignList(data.recent_campaigns);
                 renderDeviceBreakdown(data.device_breakdown);
@@ -513,157 +692,66 @@
         tbody.innerHTML = html;
     }
 
-    function renderChart(chartData) {
-        const labels = chartData.map(d => d.send_date);
-        const counts = chartData.map(d => d.count);
-
-        if (myChart) {
-            myChart.destroy();
-        }
-
-        const ctx = document.getElementById('volumeChart').getContext('2d');
-        myChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Emails Sent',
-                    data: counts,
-                    borderColor: '#09090b',
-                    backgroundColor: 'rgba(9, 9, 11, 0.04)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.35,
-                    pointBackgroundColor: '#09090b',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 1.5,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#09090b',
-                        padding: 8,
-                        titleFont: { family: 'Inter', size: 11 },
-                        bodyFont: { family: 'Inter', size: 11 },
-                        cornerRadius: 6
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#71717a', font: { family: 'Inter', size: 11 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f4f4f5' },
-                        ticks: { precision: 0, color: '#71717a', font: { family: 'Inter', size: 11 } }
-                    }
-                }
-            }
-        });
-    }
-
-    let timelineChart = null;
-    function renderTimelineChart(timelineData) {
-        const labels = timelineData.map(d => d.open_time);
-        const counts = timelineData.map(d => d.count);
-
-        if (timelineChart) {
-            timelineChart.destroy();
-        }
-
-        const ctx = document.getElementById('openTimelineChart').getContext('2d');
-        timelineChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Unique Opens',
-                    data: counts,
-                    borderColor: '#059669',
-                    backgroundColor: 'rgba(5, 150, 105, 0.05)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.35,
-                    pointBackgroundColor: '#059669',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 1.5,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#09090b',
-                        padding: 8,
-                        titleFont: { family: 'Inter', size: 11 },
-                        bodyFont: { family: 'Inter', size: 11 },
-                        cornerRadius: 6
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#71717a', font: { family: 'Inter', size: 11 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f4f4f5' },
-                        ticks: { precision: 0, color: '#71717a', font: { family: 'Inter', size: 11 } }
-                    }
-                }
-            }
-        });
-    }
-
     function renderGeoData(geoData) {
         markerGroup.clearLayers();
         const tableBody = document.getElementById('geo-table-body');
-        if (geoData.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-4">No geolocation logs available.</td></tr>';
+        if (!geoData || geoData.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No delivery geolocation logs available.</td></tr>';
             return;
         }
 
         let html = '';
         geoData.forEach(row => {
-            const locName = `${row.city}, ${row.region}, ${row.country}`;
+            const city = row.city ? String(row.city).trim() : '';
+            const region = row.region ? String(row.region).trim() : '';
+            const country = row.country ? String(row.country).trim() : '';
+
+            const parts = [city, region, country].filter(p => p && p !== 'Global' && p !== 'null');
+            const locName = parts.length > 0 ? parts.join(', ') : (country || 'Unknown Hub');
+
+            const delivered = parseInt(row.delivered_count) || (parseInt(row.total_count) || 0);
+            const opens = parseInt(row.open_count) || 0;
+
             html += `
                 <tr>
                     <td class="ps-4">
                         <i class="bi bi-geo-alt text-zinc-400 me-2"></i>
-                        <span class="text-zinc-900 fw-medium">${locName}</span>
+                        <span class="text-zinc-900 fw-medium">${escapeHtml(locName)}</span>
                     </td>
-                    <td class="text-center pe-4"><span class="badge bg-secondary-soft px-2 py-1 fw-medium">${row.open_count}</span></td>
+                    <td class="text-center">
+                        <span class="badge bg-success-soft text-success px-2 py-1 fw-semibold">${delivered}</span>
+                    </td>
+                    <td class="text-center pe-4">
+                        <span class="badge bg-secondary-soft text-zinc-800 px-2 py-1 fw-medium">${opens}</span>
+                    </td>
                 </tr>
             `;
 
-            const code = row.country;
-            if (countryCoords[code]) {
-                const baseCoord = countryCoords[code];
-                const jitterLat = (Math.random() - 0.5) * 1.5;
-                const jitterLng = (Math.random() - 0.5) * 1.5;
-                const finalCoord = [baseCoord[0] + jitterLat, baseCoord[1] + jitterLng];
-
-                L.circleMarker(finalCoord, {
-                    radius: 6,
+            const coords = resolveLocationCoords(city, country);
+            if (coords) {
+                const radius = Math.min(14, Math.max(5, Math.sqrt(delivered + opens) * 2.2));
+                const marker = L.circleMarker(coords, {
+                    radius: radius,
                     fillColor: '#09090b',
                     color: '#ffffff',
                     weight: 2,
                     opacity: 1,
                     fillOpacity: 0.85
-                })
-                .bindPopup(`<b>${row.city}, ${row.country}</b><br>Opens: ${row.open_count}`)
-                .addTo(markerGroup);
+                });
+
+                marker.bindPopup(`
+                    <div style="min-width: 140px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 2px 0;">
+                        <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; color: #09090b;">${escapeHtml(locName)}</div>
+                        <div style="font-size: 0.78rem; color: #16a34a; margin-bottom: 2px;">
+                            <i class="bi bi-check-circle me-1"></i> Delivered: <b>${delivered}</b>
+                        </div>
+                        <div style="font-size: 0.78rem; color: #2563eb;">
+                            <i class="bi bi-envelope-open me-1"></i> Opened: <b>${opens}</b>
+                        </div>
+                    </div>
+                `);
+
+                marker.addTo(markerGroup);
             }
         });
         tableBody.innerHTML = html;
@@ -735,6 +823,7 @@
         const labels = {
             'total': 'Total Attempted Dispatches',
             'delivered': 'Delivered Recipient Inboxes',
+            'opened': 'Opened Recipient Inboxes',
             'bounce': 'Bounced Recipient Addresses',
             'failed': 'Undelivered (SMTP Errors)',
             'spam': 'Spam Complaints',
