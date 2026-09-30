@@ -23,7 +23,6 @@ class TrackingController extends Controller
     {
         $ipAddr = $request->ip();
         $userAgent = $request->userAgent();
-
         $simCountry = $request->input('country');
         $simRegion = $request->input('region');
         $simCity = $request->input('city');

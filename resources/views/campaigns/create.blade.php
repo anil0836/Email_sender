@@ -178,7 +178,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         {{ $isPasteMode ? 'Bulk Email Recipients (Paste List or Upload CSV)' : 'Configure Recipients' }}
                     </h6>
                     <small class="text-zinc-500" style="font-size: 0.76rem;">
-                        {{ $isPasteMode ? 'Upload a CSV file or paste email addresses directly. Opt-out, suppression, and compliance records will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and consent checks are applied automatically.' }}
+                        {{ $isPasteMode ? 'Upload a CSV file or paste email addresses directly. Suppression and duplicate checks will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and consent checks are applied automatically.' }}
                     </small>
                 </div>
                 <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">{{
@@ -468,7 +468,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                     <i class="bi bi-pencil-square text-zinc-500 me-1"></i> Recipient Email List (Manual or CSV Extracted)
                                 </span>
                                 <small class="text-zinc-500 d-block" style="font-size: 0.74rem;">
-                                    One email per line or separated by commas. Opt-out and compliance records will be verified automatically.
+                                    One email per line or separated by commas. Suppression and duplicate checks will be verified automatically.
                                 </small>
                             </div>
                             <div class="d-flex align-items-center gap-2">
@@ -876,6 +876,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                             <span class="fs-6 fw-bold text-rose-700" id="sum-blocked">0</span>
                         </div>
                     </div>
+                    @if(!$isPasteMode)
                     <div class="col">
                         <div class="p-2.5 rounded-3 bg-warning-soft border border-warning-subtle">
                             <span class="stat-label d-block text-amber-800">Diff Owner</span>
@@ -888,6 +889,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                             <span class="fs-6 fw-bold text-amber-700" id="sum-optout-blocked">0</span>
                         </div>
                     </div>
+                    @endif
                     <div class="col">
                         <div class="p-2.5 rounded-3 bg-warning-soft border border-warning-subtle">
                             <span class="stat-label d-block text-amber-800">Suppressed</span>
@@ -1987,9 +1989,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             const optOutCount = (data.blocked_by_reason["EMAIL_OPT_OUT"] || []).length;
             const spamCount = (data.blocked_by_reason["GLOBAL_SUPPRESSION"] || []).length;
 
-            document.getElementById('sum-owner-blocked').innerText = diffOwnerCount;
-            document.getElementById('sum-optout-blocked').innerText = optOutCount;
-            document.getElementById('sum-spam-blocked').innerText = spamCount;
+            const sumOwnerEl = document.getElementById('sum-owner-blocked');
+            if (sumOwnerEl) sumOwnerEl.innerText = diffOwnerCount;
+            const sumOptoutEl = document.getElementById('sum-optout-blocked');
+            if (sumOptoutEl) sumOptoutEl.innerText = optOutCount;
+            const sumSpamEl = document.getElementById('sum-spam-blocked');
+            if (sumSpamEl) sumSpamEl.innerText = spamCount;
 
             document.getElementById('val-badge-total').innerText = `${data.total_approved} Deliverable`;
 
@@ -1999,7 +2004,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             data.duplicates.forEach(d => {
                 errHtml += `
                     <li class="list-group-item d-flex justify-content-between align-items-center py-1.5 px-3 text-danger border-light-subtle" style="font-size: 0.78rem;">
-                        <span><span class="badge bg-secondary-soft me-1">${escapeHtml(d.record_type || 'CRM')}</span><strong>${escapeHtml(d.name)}</strong> (${escapeHtml(d.email)})</span>
+                        <span><span class="badge bg-secondary-soft me-1">${escapeHtml(d.record_type || 'Raw')}</span><strong>${escapeHtml(d.name || d.email)}</strong> (${escapeHtml(d.email)})</span>
                         <span class="badge bg-danger-soft text-danger fw-semibold" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Duplicate Entry</span>
                     </li>
                 `;
@@ -2009,7 +2014,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 "EMAIL_OPT_OUT": "Salesforce Email Opt-Out (HasOptedOutOfEmail)",
                 "GLOBAL_SUPPRESSION": "Global Suppression List",
                 "DIFFERENT_OWNER": "Salesforce Ownership Check Failed (Wrong Owner)",
-                "INVALID_EMAIL": "Not found in CRM / Invalid Email",
+                "INVALID_EMAIL": "Invalid Email Address",
                 "INACTIVE_RECORD": "Inactive Record Status",
                 "MISSING_CONSENT": "GDPR Compliance Check Failed"
             };
@@ -2017,10 +2022,10 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             for (const [reason, list] of Object.entries(data.blocked_by_reason)) {
                 list.forEach(r => {
                     const typeLabel = r.record_type ? `<span class="badge bg-secondary-soft me-1">${escapeHtml(r.record_type)}</span>` : '';
-                    const vStatusLabel = r.owner_verification_status ? `<span class="badge bg-light text-muted ms-1">${escapeHtml(r.owner_verification_status)}</span>` : '';
+                    const vStatusLabel = (r.owner_verification_status && r.owner_verification_status !== 'unverified') ? `<span class="badge bg-light text-muted ms-1">${escapeHtml(r.owner_verification_status)}</span>` : '';
                     errHtml += `
                         <li class="list-group-item d-flex justify-content-between align-items-center py-1.5 px-3 text-danger border-light-subtle" style="font-size: 0.78rem;">
-                            <span>${typeLabel}<strong>${escapeHtml(r.name)}</strong> (${escapeHtml(r.email)})${vStatusLabel}</span>
+                            <span>${typeLabel}<strong>${escapeHtml(r.name || r.email)}</strong> (${escapeHtml(r.email)})${vStatusLabel}</span>
                             <span class="badge bg-danger-soft text-danger fw-semibold" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">${reasonLabels[reason] || reason}</span>
                         </li>
                     `;

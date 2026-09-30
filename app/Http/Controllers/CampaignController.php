@@ -215,7 +215,7 @@ class CampaignController extends Controller
             }
         }
 
-        // 2. Process pasted raw email list / CSV upload
+        // 2. Process pasted raw email list / CSV upload (Checks ONLY suppressed and duplicate, NO CRM verification)
         foreach ($recipientEmails as $rawEmail) {
             $email = trim($rawEmail);
             if (empty($email)) {
@@ -229,7 +229,7 @@ class CampaignController extends Controller
                     'id' => 'N/A',
                     'name' => 'Duplicate Entry',
                     'email' => $email,
-                    'record_type' => 'Contact',
+                    'record_type' => 'Raw',
                     'owner_verification_status' => 'verified',
                 ];
                 continue;
@@ -240,52 +240,46 @@ class CampaignController extends Controller
                 $seenEmails[$normalizedEmail] = true;
                 $blockedReasons['GLOBAL_SUPPRESSION'][] = [
                     'id' => 'N/A',
-                    'name' => 'Suppressed Recipient (CSV / Pasted)',
+                    'name' => 'Suppressed Recipient',
                     'email' => $email,
-                    'record_type' => 'Contact',
+                    'record_type' => 'Raw',
                     'owner_verification_status' => 'verified',
                 ];
                 continue;
             }
 
-            [$isEligible, $reason, $record] = $this->sfService->checkRecipientEligibilityByEmail($email, $appUsername);
-
-            if (!$record) {
+            // Basic email format check
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $seenEmails[$normalizedEmail] = true;
                 $blockedReasons['INVALID_EMAIL'][] = [
                     'id' => 'N/A',
-                    'name' => 'Not in Salesforce CRM',
+                    'name' => 'Invalid Email Address',
                     'email' => $email,
-                    'record_type' => 'Contact',
+                    'record_type' => 'Raw',
                     'owner_verification_status' => 'unverified',
                 ];
                 continue;
             }
 
-            $recEmail = strtolower(trim($record['email']));
-            $recName = !empty($record['name']) ? $record['name'] : trim("{$record['first_name']} {$record['last_name']}");
-            $seenEmails[$recEmail] = true;
+            $seenEmails[$normalizedEmail] = true;
 
             $recordSummary = [
-                'id' => $record['id'],
-                'local_id' => $record['local_id'] ?? null,
-                'name' => $recName,
-                'email' => $recEmail,
-                'company' => $record['company'] ?? '',
-                'record_type' => $record['object_type'] ?? 'Contact',
-                'owner_id' => $record['owner_id'] ?? '',
-                'salesforce_owner_id' => $record['salesforce_owner_id'] ?? ($record['owner_id'] ?? null),
-                'prime_owner_id' => $record['prime_owner_id'] ?? null,
-                'owner_name' => $record['owner_name'] ?? '',
-                'owner_email' => $record['owner_email'] ?? '',
-                'owner_verification_status' => $record['owner_verification_status'] ?? 'verified',
-                'last_owner_verified_at' => $record['last_owner_verified_at'] ?? null,
+                'id' => 'RAW_' . substr(md5($normalizedEmail), 0, 15),
+                'local_id' => null,
+                'name' => $email,
+                'email' => $email,
+                'company' => '',
+                'record_type' => 'Raw',
+                'owner_id' => $user->salesforce_id ?? $appUsername,
+                'salesforce_owner_id' => $user->salesforce_id ?? null,
+                'prime_owner_id' => null,
+                'owner_name' => $user->name ?? $appUsername,
+                'owner_email' => $user->email ?? '',
+                'owner_verification_status' => 'verified',
+                'last_owner_verified_at' => Carbon::now(),
             ];
 
-            if ($isEligible) {
-                $approved[] = $recordSummary;
-            } else {
-                $blockedReasons[$reason][] = $recordSummary;
-            }
+            $approved[] = $recordSummary;
         }
 
         $totalBlocked = array_sum(array_map('count', $blockedReasons)) + count($duplicates);
@@ -446,32 +440,39 @@ class CampaignController extends Controller
             $normalizedEmail = strtolower($email);
 
             if (isset($seenEmails[$normalizedEmail])) {
-                $blockedRecords[] = ['N/A', 'COMPLIANCE_RULE', 'Contact', 'unknown_owner', $email, null, null];
+                $blockedRecords[] = ['N/A', 'COMPLIANCE_RULE', 'Contact', $appUsername, $email, ['name' => 'Duplicate Entry', 'email' => $email], null];
                 continue;
             }
 
             if (\App\Models\GlobalSuppression::isSuppressed($normalizedEmail)) {
                 $seenEmails[$normalizedEmail] = true;
-                $blockedRecords[] = ['N/A', 'GLOBAL_SUPPRESSION', 'Contact', $appUsername, $email, null, null];
+                $blockedRecords[] = ['N/A', 'GLOBAL_SUPPRESSION', 'Contact', $appUsername, $email, ['name' => 'Suppressed Recipient', 'email' => $email], null];
                 continue;
             }
 
-            [$isEligible, $reason, $record] = $this->sfService->checkRecipientEligibilityByEmail($email, $appUsername);
-            if (!$record) {
-                $blockedRecords[] = ['N/A', 'INVALID_EMAIL', 'Contact', 'unknown_owner', $email, null, null];
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $seenEmails[$normalizedEmail] = true;
+                $blockedRecords[] = ['N/A', 'INVALID_EMAIL', 'Contact', $appUsername, $email, ['name' => 'Invalid Email Address', 'email' => $email], null];
                 continue;
             }
 
-            $recEmail = $record['email'];
-            $recObj = $record['object_type'] ?? 'Contact';
-            $recOwner = $record['owner_id'] ?? 'unknown_owner';
-            $seenEmails[$recEmail] = true;
-
-            if ($isEligible) {
-                $approvedRecords[] = $record;
-            } else {
-                $blockedRecords[] = [$record['id'], $reason, $recObj, $recOwner, $recEmail, $record, null];
-            }
+            $seenEmails[$normalizedEmail] = true;
+            $rawId = 'RAW_' . substr(md5($normalizedEmail), 0, 15);
+            $approvedRecords[] = [
+                'id' => $rawId,
+                'local_id' => null,
+                'name' => $email,
+                'email' => $email,
+                'company' => '',
+                'object_type' => 'Contact',
+                'owner_id' => $user->salesforce_id ?? $appUsername,
+                'salesforce_owner_id' => $user->salesforce_id ?? null,
+                'prime_owner_id' => null,
+                'owner_name' => $user->name ?? $appUsername,
+                'owner_email' => $user->email ?? '',
+                'owner_verification_status' => 'verified',
+                'last_owner_verified_at' => Carbon::now(),
+            ];
         }
 
         $campaignId = (string) Str::uuid();

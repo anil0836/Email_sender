@@ -169,7 +169,9 @@ class BulkEmailClientTest extends TestCase
                 'john.doe@example.com',
                 'david.jones@example.com',
                 'unsubscribed-lead@gmail.com',
-                'non-existent@corp.com'
+                'non-existent@corp.com',
+                'invalid-email-address',
+                'david.jones@example.com' // Duplicate
             ]
         ];
 
@@ -184,11 +186,12 @@ class BulkEmailClientTest extends TestCase
         $res->assertStatus(200);
         $data = $res->json();
 
-        $this->assertEquals(4, $data['total_selected']);
-        $this->assertEquals(1, $data['total_approved']);
-        $this->assertCount(1, $data['blocked_by_reason']['DIFFERENT_OWNER']);
-        $this->assertCount(1, $data['blocked_by_reason']['GLOBAL_SUPPRESSION']);
-        $this->assertCount(1, $data['blocked_by_reason']['INVALID_EMAIL']);
+        $this->assertEquals(6, $data['total_selected']);
+        $this->assertEquals(3, $data['total_approved']); // john.doe, david.jones, non-existent are approved
+        $this->assertCount(1, $data['blocked_by_reason']['GLOBAL_SUPPRESSION']); // unsubscribed-lead
+        $this->assertCount(1, $data['blocked_by_reason']['INVALID_EMAIL']); // invalid-email-address
+        $this->assertCount(1, $data['duplicates']); // duplicate david.jones
+        $this->assertCount(0, $data['blocked_by_reason']['DIFFERENT_OWNER']); // No CRM owner checks
     }
 
     public function test_send_with_emails_and_attachments(): void
@@ -1115,5 +1118,60 @@ class BulkEmailClientTest extends TestCase
         $this->assertContains('alpha@example.com', $emails);
         $this->assertContains('beta@example.com', $emails);
     }
+
+    public function test_bulk_raw_emails_not_in_crm_are_approved_and_sent(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        // 1. Validate pasted emails: non-CRM email, suppressed email, duplicate email
+        $validateRes = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/campaign/validate', [
+                'recipient_emails' => [
+                    'not_in_crm_user@example.com',
+                    'unsubscribed-lead@gmail.com', // Suppressed
+                    'not_in_crm_user@example.com'  // Duplicate
+                ]
+            ]);
+
+        $validateRes->assertStatus(200);
+        $valData = $validateRes->json();
+        $this->assertEquals(3, $valData['total_selected']);
+        $this->assertEquals(1, $valData['total_approved']);
+        $this->assertEquals('not_in_crm_user@example.com', $valData['approved'][0]['email']);
+        $this->assertCount(1, $valData['duplicates']);
+        $this->assertCount(1, $valData['blocked_by_reason']['GLOBAL_SUPPRESSION']);
+        $this->assertCount(0, $valData['blocked_by_reason']['DIFFERENT_OWNER']);
+        $this->assertCount(0, $valData['blocked_by_reason']['EMAIL_OPT_OUT']);
+
+        // 2. Send campaign with non-CRM email
+        $sendRes = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/campaign/send', [
+                'subject' => 'Bulk Non-CRM Campaign',
+                'body' => '<p>Hello non-CRM recipient</p>',
+                'sending_domain' => 'proitbuyer.com',
+                'from_address' => 'rma@proitbuyer.com',
+                'reply_to' => 'support@b2bexportsllc.com',
+                'recipient_emails' => ['not_in_crm_user@example.com']
+            ]);
+
+        $sendRes->assertStatus(200);
+        $campaignId = $sendRes->json('campaign_id');
+        $this->assertNotNull($campaignId);
+
+        $campaign = Campaign::find($campaignId);
+        $this->assertEquals(1, $campaign->total_approved);
+        $this->assertEquals(0, $campaign->total_blocked);
+
+        // 3. Process queued emails: verify non-CRM email is approved and sent, NOT blocked at send-time
+        $this->processingService->processQueuedEmails();
+
+        $log = RecipientLog::where('campaign_id', $campaignId)->first();
+        $this->assertNotNull($log);
+        $this->assertEquals('approved', $log->decision);
+        $this->assertNotEquals('blocked', $log->delivery_status);
+    }
 }
+
 

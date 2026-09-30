@@ -105,7 +105,22 @@ class CampaignProcessingService
                 }
 
                 // MANDATORY FINAL SEND-TIME REVALIDATION AGAINST SALESFORCE CRM
-                if ($recordId && $recordId !== 'N/A' && !str_starts_with($recordId, '003SF0000000_')) {
+                $isRawRecipient = str_starts_with($recordId ?? '', 'RAW_') || $recordId === 'N/A' || ($recipient->salesforce_object ?? '') === 'Raw';
+
+                if ($isRawRecipient) {
+                    // Bulk raw list emails do not verify against Salesforce CRM data
+                    $isEligible = true;
+                    $reason = null;
+                    $sfRecord = [
+                        'id' => $recordId,
+                        'name' => $email,
+                        'email' => $email,
+                        'first_name' => '',
+                        'last_name' => '',
+                        'company' => '',
+                        'object_type' => 'Contact',
+                    ];
+                } elseif ($recordId && !str_starts_with($recordId, '003SF0000000_')) {
                     [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibility($recordId, $appUsername);
                 } else {
                     [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibilityByEmail($email, $appUsername);
