@@ -72,7 +72,10 @@ class CampaignProcessingService
                 continue;
             }
 
-            $fromEmail = $campaign->from_address ?: config('pabbly.from_email', 'rma@proitbuyer.com');
+            $fromEmail = $campaign->from_address ?: config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com');
+            if ($fromEmail === 'rma@proitbuyer.com' || str_ends_with($fromEmail, '@proitbuyer.com')) {
+                $fromEmail = config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com');
+            }
             $fromName = config('pabbly.from_name', 'anil patel');
             $deliveryServerId = config('pabbly.delivery_server_id', 'send-with-us');
             $pabblyApiKey = config('pabbly.api_key');

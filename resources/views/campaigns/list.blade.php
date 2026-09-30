@@ -221,10 +221,10 @@
                                 </td>
                                 <td>
                                     <div class="text-zinc-800" style="font-size: 0.76rem;">
-                                        {{ $c->from_address ?: 'rma@proitbuyer.com' }}
+                                        {{ $c->from_address ?: config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}
                                     </div>
                                     <div class="text-zinc-400 font-monospace" style="font-size: 0.7rem;">
-                                        Domain: {{ $c->sending_domain ?: 'proitbuyer.com' }}
+                                        Domain: {{ $c->sending_domain ?: config('pabbly.sending_domain', 'mailer-b2bexportsllc.com') }}
                                     </div>
                                 </td>
                                 <td>

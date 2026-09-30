@@ -109,13 +109,24 @@ class DatabaseSeeder extends Seeder
         // 3. Sending Domains
         if (SendingDomain::count() === 0) {
             SendingDomain::create([
-                'domain_name' => 'marketing.example.com',
+                'domain_name' => 'mailer-b2bexportsllc.com',
                 'status' => 'enabled',
                 'spf_status' => 'verified',
                 'dkim_status' => 'verified',
                 'dmarc_status' => 'verified',
                 'server_id' => 1,
                 'is_default' => true,
+                'rate_limit_per_hour' => 10000,
+            ]);
+
+            SendingDomain::create([
+                'domain_name' => 'marketing.example.com',
+                'status' => 'enabled',
+                'spf_status' => 'verified',
+                'dkim_status' => 'verified',
+                'dmarc_status' => 'verified',
+                'server_id' => 1,
+                'is_default' => false,
                 'rate_limit_per_hour' => 5000,
             ]);
 

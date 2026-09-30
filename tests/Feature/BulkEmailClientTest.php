@@ -888,7 +888,7 @@ class BulkEmailClientTest extends TestCase
             'subject' => 'Test Default Reply-To Support',
             'body' => 'Hello from bulk email testing',
             'sending_domain' => 'domain.com',
-            'from_address' => 'rma@proitbuyer.com',
+            'from_address' => 'contact@mailer-b2bexportsllc.com',
             // reply_to omitted to verify default
             'recipient_emails' => ['lead1@proitbuyer.com'],
         ];
@@ -914,7 +914,7 @@ class BulkEmailClientTest extends TestCase
             'subject' => 'Test Custom Reply-To',
             'body' => 'Hello with custom reply to',
             'sending_domain' => 'domain.com',
-            'from_address' => 'rma@proitbuyer.com',
+            'from_address' => 'contact@mailer-b2bexportsllc.com',
             'reply_to' => 'custom-replies@example.com',
             'recipient_emails' => ['lead1@proitbuyer.com'],
         ];
@@ -954,7 +954,7 @@ class BulkEmailClientTest extends TestCase
             'Customer Name',
             'Test Subject',
             '<p>Test Body</p>',
-            'sender@proitbuyer.com',
+            'contact@mailer-b2bexportsllc.com',
             'Sender Name',
             'send-with-us',
             'support@b2bexportsllc.com'
@@ -1150,8 +1150,8 @@ class BulkEmailClientTest extends TestCase
             ->postJson('/api/campaign/send', [
                 'subject' => 'Bulk Non-CRM Campaign',
                 'body' => '<p>Hello non-CRM recipient</p>',
-                'sending_domain' => 'proitbuyer.com',
-                'from_address' => 'rma@proitbuyer.com',
+                'sending_domain' => 'mailer-b2bexportsllc.com',
+                'from_address' => 'contact@mailer-b2bexportsllc.com',
                 'reply_to' => 'support@b2bexportsllc.com',
                 'recipient_emails' => ['not_in_crm_user@example.com']
             ]);
@@ -1171,6 +1171,59 @@ class BulkEmailClientTest extends TestCase
         $this->assertNotNull($log);
         $this->assertEquals('approved', $log->decision);
         $this->assertNotEquals('blocked', $log->delivery_status);
+    }
+
+    public function test_campaign_creation_defaults_to_mailer_b2bexportsllc_domain_and_sender(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+
+        // Dispatch campaign without specifying domain or from_address
+        $sendRes = $this->actingAs($admin)
+            ->withSession(['user_id' => $admin->id, 'username' => $admin->username, 'role' => 'admin'])
+            ->postJson('/api/campaign/send', [
+                'subject' => 'Default Sender Verification Campaign',
+                'body' => '<p>Testing default sender migration</p>',
+                'recipient_emails' => ['recipient.test@example.com']
+            ]);
+
+        $sendRes->assertStatus(200);
+        $campaignId = $sendRes->json('campaign_id');
+        $this->assertNotNull($campaignId);
+
+        $campaign = Campaign::find($campaignId);
+        $this->assertEquals('mailer-b2bexportsllc.com', $campaign->sending_domain);
+        $this->assertEquals('contact@mailer-b2bexportsllc.com', $campaign->from_address);
+
+        // Mock Pabbly API to verify the outgoing payload receives contact@mailer-b2bexportsllc.com
+        Http::fake([
+            'https://emails.pabbly.com/api/v2/campaigns' => Http::response([
+                'status' => 'success',
+                'data' => ['_id' => 'pabbly_default_sender_123'],
+            ], 200),
+            'https://emails.pabbly.com/api/v2/campaigns/send-to-individual' => Http::response([
+                'status' => 'success',
+                'data' => ['queued' => 1],
+            ], 200),
+        ]);
+
+        // Verify PabblyService outgoing payload receives contact@mailer-b2bexportsllc.com
+        $pabbly = new PabblyService();
+        $sendResult = $pabbly->sendEmail(
+            'recipient.test@example.com',
+            'Test Recipient',
+            'Default Sender Verification Campaign',
+            '<p>Testing default sender migration</p>',
+            $campaign->from_address
+        );
+
+        $this->assertTrue($sendResult['success']);
+
+        Http::assertSent(function ($request) {
+            if ($request->url() === 'https://emails.pabbly.com/api/v2/campaigns/send-to-individual') {
+                return ($request['senderEmail'] ?? null) === 'contact@mailer-b2bexportsllc.com';
+            }
+            return true;
+        });
     }
 }
 

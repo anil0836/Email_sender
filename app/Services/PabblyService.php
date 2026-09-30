@@ -23,7 +23,7 @@ class PabblyService
         $this->apiKey = config('pabbly.api_key', '');
         $this->baseUrl = config('pabbly.base_url', 'https://emails.pabbly.com/api/v2');
         $this->deliveryServerId = config('pabbly.delivery_server_id', 'send-with-us');
-        $this->fromEmail = config('pabbly.from_email', 'rma@proitbuyer.com');
+        $this->fromEmail = config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com');
         $this->fromName = config('pabbly.from_name', 'anil patel');
         $this->replyTo = config('pabbly.reply_to', 'support@b2bexportsllc.com');
     }

@@ -361,12 +361,19 @@ class CampaignController extends Controller
             }
             if (!$sendingDomain) {
                 $defaultDomain = SendingDomain::where('is_default', true)->first();
-                $sendingDomain = $defaultDomain ? $defaultDomain->domain_name : 'proitbuyer.com';
+                $sendingDomain = $defaultDomain ? $defaultDomain->domain_name : config('pabbly.sending_domain', 'mailer-b2bexportsllc.com');
             }
         }
 
-        if (!$fromAddress || (!app()->environment('testing') && in_array($fromAddress, ["{$appUsername}@{$sendingDomain}", 'user@proitbuyer.com', 'admin@proitbuyer.com']))) {
-            $fromAddress = config('pabbly.from_email', 'rma@proitbuyer.com');
+        if (!$fromAddress || (!app()->environment('testing') && in_array($fromAddress, [
+            "{$appUsername}@{$sendingDomain}",
+            'user@proitbuyer.com',
+            'admin@proitbuyer.com',
+            'rma@proitbuyer.com',
+            'user@mailer-b2bexportsllc.com',
+            'admin@mailer-b2bexportsllc.com',
+        ]))) {
+            $fromAddress = config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com');
         }
 
         if (!$replyTo) {

@@ -589,8 +589,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         </div>
                         <div class="col-md-6">
                             <label for="from-address" class="form-label mb-1">From Address</label>
-                            <input type="email" class="form-control" id="from-address" placeholder="rma@proitbuyer.com"
-                                value="rma@proitbuyer.com" required>
+                            <input type="email" class="form-control" id="from-address" placeholder="{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}"
+                                value="{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}" required>
                         </div>
                     </div>
 
@@ -1131,7 +1131,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">FROM:
                         </div>
                         <div class="col text-zinc-900 fw-medium" style="font-size: 0.825rem;" id="prev_from_field">
-                            rma@proitbuyer.com</div>
+                            {{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1">
                         <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">REPLY-TO:
@@ -1686,7 +1686,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 const activeDomains = Array.isArray(domains) ? domains.filter(d => d.status === 'enabled') : [];
                 
                 if (activeDomains.length === 0) {
-                    select.innerHTML = '<option value="proitbuyer.com" selected>proitbuyer.com (Default)</option>';
+                    select.innerHTML = '<option value="{{ config('pabbly.sending_domain', 'mailer-b2bexportsllc.com') }}" selected>{{ config('pabbly.sending_domain', 'mailer-b2bexportsllc.com') }} (Default)</option>';
                     updateFromEmail();
                     return;
                 }
@@ -1721,7 +1721,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             .catch(() => {
                 const select = document.getElementById('sending-domain');
                 if (select) {
-                    select.innerHTML = '<option value="proitbuyer.com" selected>proitbuyer.com (Default)</option>';
+                    select.innerHTML = '<option value="{{ config('pabbly.sending_domain', 'mailer-b2bexportsllc.com') }}" selected>{{ config('pabbly.sending_domain', 'mailer-b2bexportsllc.com') }} (Default)</option>';
                     updateFromEmail();
                 }
             });
@@ -1730,7 +1730,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     function updateFromEmail() {
         const fromInput = document.getElementById('from-address');
         if (fromInput) {
-            fromInput.value = 'rma@proitbuyer.com';
+            fromInput.value = '{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}';
         }
     }
 
@@ -2061,8 +2061,9 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     function submitCampaign() {
         const subject = document.getElementById('subject').value;
         const sendingDomainEl = document.getElementById('sending-domain');
-        const sending_domain = (sendingDomainEl && sendingDomainEl.value) ? sendingDomainEl.value : 'proitbuyer.com';
-        const from_address = 'rma@proitbuyer.com';
+        const sending_domain = (sendingDomainEl && sendingDomainEl.value) ? sendingDomainEl.value : '{{ config('pabbly.sending_domain', 'mailer-b2bexportsllc.com') }}';
+        const fromAddressEl = document.getElementById('from-address');
+        const from_address = (fromAddressEl && fromAddressEl.value.trim()) ? fromAddressEl.value.trim() : '{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}';
         const replyToEl = document.getElementById('reply-to');
         const reply_to = (replyToEl && replyToEl.value.trim()) ? replyToEl.value.trim() : 'support@b2bexportsllc.com';
         const body = getCampaignBodyContent();
@@ -2485,7 +2486,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         const signatureId = document.getElementById('signature-select').value || null;
         const recipientId = document.getElementById('prev_recipient_select').value || null;
 
-        document.getElementById('prev_from_field').textContent = document.getElementById('from-address').value || 'rma@proitbuyer.com';
+        document.getElementById('prev_from_field').textContent = document.getElementById('from-address').value || '{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}';
         const replyToVal = (document.getElementById('reply-to') ? document.getElementById('reply-to').value.trim() : '') || 'support@b2bexportsllc.com';
         const prevReplyTo = document.getElementById('prev_reply_to_field');
         if (prevReplyTo) {
