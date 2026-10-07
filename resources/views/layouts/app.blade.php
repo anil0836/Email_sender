@@ -314,6 +314,8 @@
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .sidebar-brand {
@@ -393,6 +395,113 @@
             letter-spacing: 0.06em;
             color: var(--text-tertiary);
             padding: 14px 10px 4px 10px;
+        }
+
+        /* Sidebar Collapsible Dropdown Menu (OneSignal / Modern SaaS Style) */
+        .sidebar-dropdown-toggle {
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+            user-select: none;
+            background: transparent;
+            border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-decoration: none !important;
+        }
+
+        .sidebar-dropdown-toggle:hover {
+            color: #09090b;
+            background-color: #f4f4f5;
+        }
+
+        .sidebar-dropdown-toggle .sidebar-dropdown-label {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            flex-grow: 1;
+        }
+
+        .sidebar-dropdown-toggle .sidebar-chevron {
+            font-size: 0.68rem;
+            color: #a1a1aa;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-dropdown-toggle:hover .sidebar-chevron {
+            color: #52525b;
+        }
+
+        .sidebar-dropdown-toggle:not(.collapsed) .sidebar-chevron,
+        .sidebar-dropdown-toggle[aria-expanded="true"] .sidebar-chevron {
+            transform: rotate(180deg);
+            color: var(--primary-color, #4f46e5);
+        }
+
+        .sidebar-dropdown-toggle.active-parent {
+            color: #18181b;
+            font-weight: 600;
+        }
+
+        .sidebar-dropdown-toggle.active-parent .sidebar-dropdown-label i {
+            color: var(--primary-color, #4f46e5);
+        }
+
+        /* Submenu container inside collapsed section */
+        .sidebar-submenu {
+            list-style: none;
+            padding: 2px 0 2px 8px;
+            margin: 2px 0 4px 18px;
+            border-left: 1.5px solid var(--border-color);
+        }
+
+        .sidebar-submenu .nav-link {
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #52525b;
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 2px;
+            gap: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar-submenu .nav-link i {
+            font-size: 0.825rem;
+            color: #71717a;
+            flex-shrink: 0;
+            transition: color 0.15s ease;
+        }
+
+        .sidebar-submenu .nav-link:hover {
+            color: #09090b;
+            background-color: #f4f4f5;
+        }
+
+        .sidebar-submenu .nav-link:hover i {
+            color: #18181b;
+        }
+
+        .sidebar-submenu .nav-link.active {
+            color: var(--active-pill-color, #4338ca);
+            background: var(--active-pill-bg, #eef2ff);
+            border: 1px solid var(--active-pill-border, #c7d2fe);
+            font-weight: 600;
+        }
+
+        .sidebar-submenu .nav-link.active i {
+            color: var(--active-pill-color, #4338ca);
+        }
+
+        .sidebar-divider {
+            border: 0;
+            border-top: 1px solid var(--border-color, #e4e4e7);
+            margin: 6px 10px;
+            opacity: 0.6;
         }
 
         /* Top Sticky Header */
@@ -678,85 +787,160 @@
             $isTeamManager = $currentUser ? $currentUser->isTeamManager() : false;
             $isAdmin = $userRole === 'admin' || ($currentUser && method_exists($currentUser, 'hasRole') &&
             $currentUser->hasRole('Admin'));
+
+            $isManagementActive = request()->routeIs('team_campaigns_view');
+            $isAdminActive = request()->routeIs('admin.roles.*') || request()->routeIs('admin_users_view') || request()->routeIs('admin_infrastructure_view') || request()->routeIs('admin.suppressions.*');
+            $isSalesforceActive = request()->routeIs('admin.salesforce_*') || request()->routeIs('admin.salesforce*');
+            $canSeeManagement = in_array($userRole, ['admin', 'manager', 'line_manager']) || $isTeamManager || ($currentUser &&
+            method_exists($currentUser, 'hasRole') && ($currentUser->hasRole('Manager') || $currentUser->hasRole('Line Manager')));
             @endphp
 
-            @if(in_array($userRole, ['admin', 'manager', 'line_manager']) || $isTeamManager || ($currentUser &&
-            method_exists($currentUser, 'hasRole') && ($currentUser->hasRole('Manager') || $currentUser->hasRole('Line Manager'))))
-            <li class="nav-item-header">Management</li>
+            @if($canSeeManagement)
+            <li class="my-2">
+                <hr class="sidebar-divider">
+            </li>
+
+            <!-- Management Dropdown Menu -->
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"
-                    href="{{ route('team_campaigns_view') }}">
-                    <i class="bi bi-shield-check"></i> Team Campaigns
+                <a class="nav-link sidebar-dropdown-toggle {{ $isManagementActive ? 'active-parent' : 'collapsed' }}"
+                    href="#collapseManagement"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#collapseManagement"
+                    role="button"
+                    aria-expanded="{{ $isManagementActive ? 'true' : 'false' }}"
+                    aria-controls="collapseManagement">
+                    <span class="sidebar-dropdown-label">
+                        <i class="bi bi-briefcase"></i>
+                        <span>Management</span>
+                    </span>
+                    <i class="bi bi-chevron-down sidebar-chevron"></i>
                 </a>
+                <div class="collapse {{ $isManagementActive ? 'show' : '' }}" id="collapseManagement">
+                    <ul class="nav flex-column sidebar-submenu">
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('team_campaigns_view') ? 'active' : '' }}"
+                                href="{{ route('team_campaigns_view') }}">
+                                <i class="bi bi-shield-check"></i> Team Campaigns
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </li>
             @endif
 
             @if($isAdmin)
-            <li class="nav-item-header">Administration</li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"
-                    href="{{ route('admin.roles.index') }}">
-                    <i class="bi bi-shield-lock"></i> Roles & Permissions
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin_users_view') ? 'active' : '' }}"
-                    href="{{ route('admin_users_view') }}">
-                    <i class="bi bi-people"></i> Users & Limits
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin_infrastructure_view') ? 'active' : '' }}"
-                    href="{{ route('admin_infrastructure_view') }}">
-                    <i class="bi bi-hdd-network"></i> IPs & Domains
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.suppressions.index') ? 'active' : '' }}"
-                    href="{{ route('admin.suppressions.index') }}">
-                    <i class="bi bi-shield-x"></i> Email Suppressions
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.suppressions.import') ? 'active' : '' }}"
-                    href="{{ route('admin.suppressions.import') }}">
-                    <i class="bi bi-file-earmark-arrow-up"></i> Import Suppression CSV
-                </a>
-            </li>
-            <li class="nav-item-header">Salesforce Sync</li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.salesforce_leads*') ? 'active' : '' }}"
-                    href="{{ route('admin.salesforce_leads.index') }}">
-                    <i class="bi bi-funnel"></i> Synced Leads
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.salesforce_accounts*') ? 'active' : '' }}"
-                    href="{{ route('admin.salesforce_accounts.index') }}">
-                    <i class="bi bi-buildings"></i> Synced Accounts
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.salesforce_contacts*') ? 'active' : '' }}"
-                    href="{{ route('admin.salesforce_contacts.index') }}">
-                    <i class="bi bi-person-rolodex"></i> Synced Contacts
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.salesforce_users*') ? 'active' : '' }}"
-                    href="{{ route('admin.salesforce_users.index') }}">
-                    <i class="bi bi-person-gear"></i> Synced Standard Users
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.salesforce_sf_users*') ? 'active' : '' }}"
-                    href="{{ route('admin.salesforce_sf_users.index') }}">
-                    <i class="bi bi-person-badge"></i> Synced SF Users (SF_User__c)
-                </a>
+            @if(!$canSeeManagement)
+            <li class="my-2">
+                <hr class="sidebar-divider">
             </li>
             @endif
 
-            <li class="nav-item-header">Developer Tools</li>
+            <!-- Administration Dropdown Menu -->
+            <li class="nav-item">
+                <a class="nav-link sidebar-dropdown-toggle {{ $isAdminActive ? 'active-parent' : 'collapsed' }}"
+                    href="#collapseAdmin"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#collapseAdmin"
+                    role="button"
+                    aria-expanded="{{ $isAdminActive ? 'true' : 'false' }}"
+                    aria-controls="collapseAdmin">
+                    <span class="sidebar-dropdown-label">
+                        <i class="bi bi-sliders"></i>
+                        <span>Administration</span>
+                    </span>
+                    <i class="bi bi-chevron-down sidebar-chevron"></i>
+                </a>
+                <div class="collapse {{ $isAdminActive ? 'show' : '' }}" id="collapseAdmin">
+                    <ul class="nav flex-column sidebar-submenu">
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"
+                                href="{{ route('admin.roles.index') }}">
+                                <i class="bi bi-shield-lock"></i> Roles & Permissions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin_users_view') ? 'active' : '' }}"
+                                href="{{ route('admin_users_view') }}">
+                                <i class="bi bi-people"></i> Users & Limits
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin_infrastructure_view') ? 'active' : '' }}"
+                                href="{{ route('admin_infrastructure_view') }}">
+                                <i class="bi bi-hdd-network"></i> IPs & Domains
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.suppressions.index') ? 'active' : '' }}"
+                                href="{{ route('admin.suppressions.index') }}">
+                                <i class="bi bi-shield-x"></i> Email Suppressions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.suppressions.import') ? 'active' : '' }}"
+                                href="{{ route('admin.suppressions.import') }}">
+                                <i class="bi bi-file-earmark-arrow-up"></i> Import Suppression CSV
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+
+            <!-- Salesforce Sync Dropdown Menu -->
+            <li class="nav-item">
+                <a class="nav-link sidebar-dropdown-toggle {{ $isSalesforceActive ? 'active-parent' : 'collapsed' }}"
+                    href="#collapseSalesforce"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#collapseSalesforce"
+                    role="button"
+                    aria-expanded="{{ $isSalesforceActive ? 'true' : 'false' }}"
+                    aria-controls="collapseSalesforce">
+                    <span class="sidebar-dropdown-label">
+                        <i class="bi bi-cloud-arrow-down"></i>
+                        <span>Salesforce Sync</span>
+                    </span>
+                    <i class="bi bi-chevron-down sidebar-chevron"></i>
+                </a>
+                <div class="collapse {{ $isSalesforceActive ? 'show' : '' }}" id="collapseSalesforce">
+                    <ul class="nav flex-column sidebar-submenu">
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.salesforce_leads*') ? 'active' : '' }}"
+                                href="{{ route('admin.salesforce_leads.index') }}">
+                                <i class="bi bi-funnel"></i> Synced Leads
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.salesforce_accounts*') ? 'active' : '' }}"
+                                href="{{ route('admin.salesforce_accounts.index') }}">
+                                <i class="bi bi-buildings"></i> Synced Accounts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.salesforce_contacts*') ? 'active' : '' }}"
+                                href="{{ route('admin.salesforce_contacts.index') }}">
+                                <i class="bi bi-person-rolodex"></i> Synced Contacts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.salesforce_users*') ? 'active' : '' }}"
+                                href="{{ route('admin.salesforce_users.index') }}">
+                                <i class="bi bi-person-gear"></i> Synced Standard Users
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('admin.salesforce_sf_users*') ? 'active' : '' }}"
+                                href="{{ route('admin.salesforce_sf_users.index') }}">
+                                <i class="bi bi-person-badge"></i> Synced SF Users (SF_User__c)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            @endif
+
+            <li class="my-2">
+                <hr class="sidebar-divider">
+            </li>
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('simulator_view') ? 'active' : '' }}"
                     href="{{ route('simulator_view') }}">
