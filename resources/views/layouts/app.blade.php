@@ -1045,16 +1045,16 @@
 
                 <!-- User Account Pill -->
                 <div class="d-flex align-items-center gap-2 px-2.5 py-1 bg-white border rounded-pill text-zinc-800"
-                    style="font-size: 0.78rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    style="font-size: 0.78rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02); padding-right: 0.5rem !important; padding-left: 0.5rem !important;">
                     <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold"
                         style="width: 22px; height: 22px; font-size: 0.65rem; background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); box-shadow: 0 1px 4px rgba(99,102,241,0.3);">
                         {{ strtoupper(substr($username, 0, 1)) }}
                     </div>
                     <span class="fw-semibold text-zinc-900">{{ $username }}</span>
-                    <span class="text-zinc-300">&bull;</span>
-                    <span class="text-zinc-500 font-medium">
+                    {{-- <span class="text-zinc-300">&bull;</span> --}}
+                    {{-- <span class="text-zinc-500 font-medium">
                         @if($userRole === 'admin') Admin @elseif($userRole === 'manager') Manager @else Sender @endif
-                    </span>
+                    </span> --}}
                 </div>
 
                 <!-- Logout Action -->

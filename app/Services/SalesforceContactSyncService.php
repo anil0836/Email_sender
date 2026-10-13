@@ -514,6 +514,7 @@ class SalesforceContactSyncService
                     'name' => $truncate($rec['name'] ?? null, 255),
                     'title' => $truncate($rec['title'] ?? null, 255),
                     'department' => $truncate($rec['department'] ?? null, 150),
+                    'Deal_Category__c' => $truncate($rec['Deal_Category__c'] ?? null, 255),
                     'email' => $truncate($rec['email'] ?? null, 255),
                     'phone' => $truncate($rec['phone'] ?? null, 100),
                     'mobile_phone' => $truncate($rec['mobile_phone'] ?? null, 100),
@@ -523,6 +524,7 @@ class SalesforceContactSyncService
                     'mailing_state' => $truncate($rec['mailing_state'] ?? null, 150),
                     'mailing_postal_code' => $truncate($rec['mailing_postal_code'] ?? null, 50),
                     'mailing_country' => $truncate($rec['mailing_country'] ?? null, 150),
+                    'Region_Acc__c' => $truncate($rec['Region_Acc__c'] ?? null, 100),
                     'owner_id' => $incomingOwnerId,
                     'prime_owner_id' => $incomingPrimeOwnerId,
                     'salesforce_sf_user_id' => $salesforceSfUserId,
@@ -545,9 +547,9 @@ class SalesforceContactSyncService
 
             $upsertColumns = [
                 'account_id', 'first_name', 'last_name', 'name', 'title',
-                'department', 'email', 'phone', 'mobile_phone', 'lead_source',
+                'department', 'Deal_Category__c', 'email', 'phone', 'mobile_phone', 'lead_source',
                 'mailing_street', 'mailing_city', 'mailing_state',
-                'mailing_postal_code', 'mailing_country', 'owner_id',
+                'mailing_postal_code', 'mailing_country', 'Region_Acc__c', 'owner_id',
                 'prime_owner_id', 'salesforce_sf_user_id', 'secondary_owner', 'Custom_Owner__c',
                 'owner_name', 'owner_email', 'owner_verification_status',
                 'last_owner_verified_at', 'previous_owner_id',

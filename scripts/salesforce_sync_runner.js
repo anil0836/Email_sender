@@ -145,9 +145,9 @@ const OBJECT_CONFIGS = {
     Contact: {
         sfObjectName: 'Contact',
         fields: [
-            'Id', 'AccountId', 'FirstName', 'LastName', 'Name', 'Title', 'Department',
+            'Id', 'AccountId', 'FirstName', 'LastName', 'Name', 'Title', 'Department', 'Deal_Category__c',
             'Email', 'Phone', 'MobilePhone', 'LeadSource',
-            'MailingStreet', 'MailingCity', 'MailingState', 'MailingPostalCode', 'MailingCountry',
+            'MailingStreet', 'MailingCity', 'MailingState', 'MailingPostalCode', 'MailingCountry', 'Region_Acc__c',
             'OwnerId', 'Prime_Owner__c', 'Secondary_Owner__c', 'Custom_Owner__c', 'CreatedDate', 'LastModifiedDate'
         ],
         mapRecord: (r) => ({
@@ -158,6 +158,7 @@ const OBJECT_CONFIGS = {
             name: r.Name || `${r.FirstName || ''} ${r.LastName || ''}`.trim() || '',
             title: r.Title || '',
             department: r.Department || '',
+            Deal_Category__c: r.Deal_Category__c || '',
             email: r.Email || '',
             phone: r.Phone || '',
             mobile_phone: r.MobilePhone || '',
@@ -167,6 +168,7 @@ const OBJECT_CONFIGS = {
             mailing_state: r.MailingState || '',
             mailing_postal_code: r.MailingPostalCode || '',
             mailing_country: r.MailingCountry || '',
+            Region_Acc__c: r.Region_Acc__c || '',
             owner_id: r.OwnerId || '',
             prime_owner_id: r.Prime_Owner__c || '',
             secondary_owner: r.Secondary_Owner__c || '',

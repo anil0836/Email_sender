@@ -265,63 +265,11 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                     <div class="row g-2">
                                         <!-- Category Multiselect -->
                                         @php
-                                        $dealCategories = [
-                                        'AC Adaptors',
-                                        'AIO',
-                                        'Audio Accessories',
-                                        'Bar Code Scanner',
-                                        'Barebone/Scrap Desktops',
-                                        'Barebone/Scrap Laptops',
-                                        'Cable Assemblies',
-                                        'Camera',
-                                        'CCTV/DVR',
-                                        'Chromebook',
-                                        'CPU',
-                                        'CPU Fan',
-                                        'Desktop C2D',
-                                        'Desktop I Series',
-                                        'Docking Stations',
-                                        'Energy Audit Equipment',
-                                        'E-Scrap',
-                                        'Fax machine',
-                                        'Gaming PC/Consoles',
-                                        'HDD',
-                                        'HighEnd Desktops',
-                                        'HighEnd Laptops',
-                                        'iMac',
-                                        'iPads',
-                                        'iPhones',
-                                        'IP Phone',
-                                        'Keyboard',
-                                        'Laptop C2D',
-                                        'Laptop I Series',
-                                        'LCD',
-                                        'MacBooks',
-                                        'MacMini',
-                                        'Memory',
-                                        'Mobiles',
-                                        'Mouse',
-                                        'Networking Equipment',
-                                        'Phone',
-                                        'POS',
-                                        'Power Cable',
-                                        'Printers',
-                                        'RAM',
-                                        'Router',
-                                        'Servers / Rack Servers',
-                                        'Solar Panel',
-                                        'Speakers',
-                                        'Stylus',
-                                        'Switch Board',
-                                        'Tablet',
-                                        'Thin Clients',
-                                        'Toner/Cartridges',
-                                        'Video Cards',
-                                        'Wearables',
-                                        'Workstation',
-                                        'Other',
-                                        ];
+                                        $dealCategories = !empty($contactPicklists['Deal_Category__c']['values']) ? $contactPicklists['Deal_Category__c']['values'] : (!empty($leadPicklists['Deal_Category__c']['values']) ? $leadPicklists['Deal_Category__c']['values'] : []);
+                                        $regionPicklists = !empty($contactPicklists['Region_Acc__c']['values']) ? $contactPicklists['Region_Acc__c']['values'] : (!empty($leadPicklists['Region__c']['values']) ? $leadPicklists['Region__c']['values'] : []);
+                                        $countryPicklists = !empty($contactPicklists['MailingCountry']['values']) ? $contactPicklists['MailingCountry']['values'] : (!empty($leadPicklists['Country_Custom__c']['values']) ? $leadPicklists['Country_Custom__c']['values'] : []);
                                         @endphp
+                                        <!-- Category Multiselect (Deal_Category__c) -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Deal Category</label>
                                             <div class="dropdown w-100">
@@ -330,29 +278,39 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     type="button" id="btn-filter-category" data-bs-toggle="dropdown"
                                                     aria-expanded="false"
                                                     style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-category">All
-                                                        Categories</span>
+                                                    <span class="text-truncate" id="label-filter-category">All Categories</span>
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-category" aria-labelledby="btn-filter-category"
-                                                    style="max-height: 250px; overflow-y: auto;">
-                                                    @foreach($dealCategories as $idx => $cat)
-                                                    <div
-                                                        class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
-                                                        <input class="form-check-input filter-category-checkbox mt-0"
-                                                            type="checkbox" value="{{ $cat }}" id="cat-{{ $idx }}"
-                                                            onchange="filterRecipients()">
-                                                        <label class="form-check-label text-zinc-800"
-                                                            for="cat-{{ $idx }}"
-                                                            style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{
-                                                            $cat }}</label>
+                                                    style="max-height: 260px; overflow-y: auto;">
+                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()">
+                                                        <input type="text" class="form-control form-control-sm" placeholder="Search categories..."
+                                                            onkeyup="filterDropdownMenuOptions(this, 'menu-filter-category', '.filter-category-item')"
+                                                            style="font-size: 0.78rem;">
                                                     </div>
-                                                    @endforeach
+                                                    <div class="category-options-list">
+                                                        @forelse($dealCategories as $idx => $cat)
+                                                            @php
+                                                                $catVal = is_array($cat) ? ($cat['value'] ?? '') : $cat;
+                                                                $catLabel = is_array($cat) ? ($cat['label'] ?? $catVal) : $cat;
+                                                            @endphp
+                                                            <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-category-item">
+                                                                <input class="form-check-input filter-category-checkbox mt-0"
+                                                                    type="checkbox" value="{{ $catVal }}" data-label="{{ $catLabel }}" id="cat-{{ $idx }}"
+                                                                    onchange="filterRecipients()">
+                                                                <label class="form-check-label text-zinc-800"
+                                                                    for="cat-{{ $idx }}"
+                                                                    style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $catLabel }}</label>
+                                                            </div>
+                                                        @empty
+                                                            <div class="text-zinc-400 p-2 text-center empty-category-msg" style="font-size: 0.8125rem;">Loading categories...</div>
+                                                        @endforelse
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- Region Multiselect -->
+                                        <!-- Region Multiselect (Region__c) -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Region</label>
                                             <div class="dropdown w-100">
@@ -361,19 +319,39 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     type="button" id="btn-filter-region" data-bs-toggle="dropdown"
                                                     aria-expanded="false"
                                                     style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-region">All
-                                                        Regions</span>
+                                                    <span class="text-truncate" id="label-filter-region">All Regions</span>
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-region" aria-labelledby="btn-filter-region"
-                                                    style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center"
-                                                        style="font-size: 0.8125rem;">Loading regions...</div>
+                                                    style="max-height: 260px; overflow-y: auto;">
+                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()">
+                                                        <input type="text" class="form-control form-control-sm" placeholder="Search regions..."
+                                                            onkeyup="filterDropdownMenuOptions(this, 'menu-filter-region', '.filter-region-item')"
+                                                            style="font-size: 0.78rem;">
+                                                    </div>
+                                                    <div class="region-options-list">
+                                                        @forelse($regionPicklists as $idx => $reg)
+                                                            @php
+                                                                $regVal = is_array($reg) ? ($reg['value'] ?? '') : $reg;
+                                                                $regLabel = is_array($reg) ? ($reg['label'] ?? $regVal) : $reg;
+                                                            @endphp
+                                                            <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-region-item">
+                                                                <input class="form-check-input filter-region-checkbox mt-0"
+                                                                    type="checkbox" value="{{ $regVal }}" data-label="{{ $regLabel }}" id="reg-{{ $idx }}"
+                                                                    onchange="filterRecipients()">
+                                                                <label class="form-check-label text-zinc-800"
+                                                                    for="reg-{{ $idx }}"
+                                                                    style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $regLabel }}</label>
+                                                            </div>
+                                                        @empty
+                                                            <div class="text-zinc-400 p-2 text-center empty-region-msg" style="font-size: 0.8125rem;">Loading regions...</div>
+                                                        @endforelse
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- Country Multiselect -->
+                                        <!-- Country Multiselect (Country_Custom__c) -->
                                         <div class="col-md-4">
                                             <label class="form-label mb-1">Country</label>
                                             <div class="dropdown w-100">
@@ -382,14 +360,35 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     type="button" id="btn-filter-country" data-bs-toggle="dropdown"
                                                     aria-expanded="false"
                                                     style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-country">All
-                                                        Countries</span>
+                                                    <span class="text-truncate" id="label-filter-country">All Countries</span>
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-country" aria-labelledby="btn-filter-country"
-                                                    style="max-height: 220px; overflow-y: auto;">
-                                                    <div class="text-zinc-400 p-2 text-center"
-                                                        style="font-size: 0.8125rem;">Loading countries...</div>
+                                                    style="max-height: 260px; overflow-y: auto;">
+                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()">
+                                                        <input type="text" class="form-control form-control-sm" placeholder="Search countries..."
+                                                            onkeyup="filterDropdownMenuOptions(this, 'menu-filter-country', '.filter-country-item')"
+                                                            style="font-size: 0.78rem;">
+                                                    </div>
+                                                    <div class="country-options-list">
+                                                        @forelse($countryPicklists as $idx => $cty)
+                                                            @php
+                                                                $ctyVal = is_array($cty) ? ($cty['value'] ?? '') : $cty;
+                                                                $ctyLabel = is_array($cty) ? ($cty['label'] ?? $ctyVal) : $cty;
+                                                                $ctyCode = is_array($cty) ? ($cty['code'] ?? '') : '';
+                                                            @endphp
+                                                            <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-country-item">
+                                                                <input class="form-check-input filter-country-checkbox mt-0"
+                                                                    type="checkbox" value="{{ $ctyVal }}" data-label="{{ $ctyLabel }}" data-code="{{ $ctyCode }}" id="cty-{{ $idx }}"
+                                                                    onchange="filterRecipients()">
+                                                                <label class="form-check-label text-zinc-800"
+                                                                    for="cty-{{ $idx }}"
+                                                                    style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $ctyLabel }}</label>
+                                                            </div>
+                                                        @empty
+                                                            <div class="text-zinc-400 p-2 text-center empty-country-msg" style="font-size: 0.8125rem;">Loading countries...</div>
+                                                        @endforelse
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1797,7 +1796,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     throw new Error(records.error || records.message || "Invalid data format received");
                 }
                 allRecords = records || [];
-                populateFilterPicklists(allRecords);
+                renderLeadPicklistsDropdowns();
                 renderRecipients(allRecords);
             })
             .catch(err => {
@@ -1808,71 +1807,322 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             });
     }
 
-    const DEAL_CATEGORIES = @json($dealCategories);
+    let salesforceLeadPicklists = @json($leadPicklists ?? (object)[]);
+    let salesforceContactPicklists = @json($contactPicklists ?? (object)[]);
 
-    function populateFilterPicklists(records) {
-        // Keep track of currently checked values
+    /**
+     * Filter dropdown items locally by typing in the search box
+     */
+    function filterDropdownMenuOptions(input, menuId, itemSelector) {
+        const query = (input.value || '').trim().toLowerCase();
+        const menu = document.getElementById(menuId);
+        if (!menu) return;
+        const items = menu.querySelectorAll(itemSelector);
+        items.forEach(item => {
+            const text = (item.textContent || '').trim().toLowerCase();
+            item.style.display = (!query || text.includes(query)) ? '' : 'none';
+        });
+    }
+
+    /**
+     * Decode base64 validFor bitmask for dependent picklists
+     */
+    function decodePicklistValidFor(validForBase64) {
+        if (!validForBase64) return null;
+        try {
+            const binary = atob(validForBase64);
+            const validIndices = [];
+            for (let i = 0; i < binary.length; i++) {
+                const byte = binary.charCodeAt(i);
+                for (let bit = 7; bit >= 0; bit--) {
+                    if ((byte & (1 << bit)) !== 0) {
+                        validIndices.push(i * 8 + (7 - bit));
+                    }
+                }
+            }
+            return validIndices;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Asynchronously fetch active Lead picklists metadata from Salesforce API
+     */
+    function loadLeadPicklists(forceRefresh = false) {
+        const url = '/api/salesforce/lead-picklists' + (forceRefresh ? '?refresh=1' : '');
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && data.fields) {
+                    salesforceLeadPicklists = data.fields;
+                    renderPicklistsDropdowns();
+                }
+            })
+            .catch(err => {
+                console.warn("Could not fetch remote Salesforce Lead picklists:", err);
+            });
+    }
+
+    /**
+     * Asynchronously fetch active Contact dropdown metadata from Salesforce API
+     */
+    function loadContactPicklists(forceRefresh = false) {
+        const url = '/api/salesforce/contact-picklists' + (forceRefresh ? '?refresh=1' : '');
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && data.fields) {
+                    salesforceContactPicklists = data.fields;
+                    renderPicklistsDropdowns();
+                }
+            })
+            .catch(err => {
+                console.warn("Could not fetch remote Salesforce Contact picklists:", err);
+            });
+    }
+
+    function mergePicklistFields(field1, field2) {
+        if (!field1 && !field2) return null;
+        if (!field1) return field2;
+        if (!field2) return field1;
+        const valsMap = new Map();
+        (field1.values || []).forEach(v => {
+            if (v && v.value) valsMap.set(v.value.trim().toLowerCase(), v);
+        });
+        (field2.values || []).forEach(v => {
+            if (v && v.value && !valsMap.has(v.value.trim().toLowerCase())) {
+                valsMap.set(v.value.trim().toLowerCase(), v);
+            }
+        });
+        return {
+            key: field1.key || field2.key,
+            name: field1.name || field2.name,
+            label: field1.label || field2.label,
+            type: field1.type || field2.type,
+            values: Array.from(valsMap.values())
+        };
+    }
+
+    /**
+     * Resolve active picklists meta based on current Object Type (Contact, Lead, or All)
+     */
+    function getActivePicklistsMeta() {
+        let catField = null;
+        let regField = null;
+        let ctyField = null;
+
+        if (currentCrmTypeFilter === 'Contact') {
+            catField = (salesforceContactPicklists && salesforceContactPicklists['Deal_Category__c']) || (salesforceLeadPicklists && salesforceLeadPicklists['Deal_Category__c']);
+            regField = (salesforceContactPicklists && salesforceContactPicklists['Region_Acc__c']) || (salesforceLeadPicklists && salesforceLeadPicklists['Region__c']);
+            ctyField = (salesforceContactPicklists && salesforceContactPicklists['MailingCountry']) || (salesforceLeadPicklists && salesforceLeadPicklists['Country_Custom__c']);
+        } else if (currentCrmTypeFilter === 'Lead') {
+            catField = (salesforceLeadPicklists && salesforceLeadPicklists['Deal_Category__c']) || (salesforceContactPicklists && salesforceContactPicklists['Deal_Category__c']);
+            regField = (salesforceLeadPicklists && salesforceLeadPicklists['Region__c']) || (salesforceContactPicklists && salesforceContactPicklists['Region_Acc__c']);
+            ctyField = (salesforceLeadPicklists && salesforceLeadPicklists['Country_Custom__c']) || (salesforceContactPicklists && salesforceContactPicklists['MailingCountry']);
+        } else {
+            // All CRM Records: merge options from both Contact and Lead
+            catField = mergePicklistFields(
+                salesforceContactPicklists && salesforceContactPicklists['Deal_Category__c'],
+                salesforceLeadPicklists && salesforceLeadPicklists['Deal_Category__c']
+            );
+            regField = mergePicklistFields(
+                salesforceContactPicklists && salesforceContactPicklists['Region_Acc__c'],
+                salesforceLeadPicklists && salesforceLeadPicklists['Region__c']
+            );
+            ctyField = mergePicklistFields(
+                salesforceContactPicklists && salesforceContactPicklists['MailingCountry'],
+                salesforceLeadPicklists && salesforceLeadPicklists['Country_Custom__c']
+            );
+        }
+
+        // If any field still has no options, extract distinct values from allRecords as fallback
+        if (Array.isArray(allRecords) && allRecords.length > 0) {
+            const recordsToInspect = currentCrmTypeFilter === 'all' 
+                ? allRecords 
+                : allRecords.filter(r => r.object_type === currentCrmTypeFilter);
+
+            if (!regField || !regField.values || regField.values.length === 0) {
+                const uniqueRegions = new Set();
+                recordsToInspect.forEach(r => {
+                    const val = (r.Region_Acc__c || r.Region__c || r.region || '').trim();
+                    if (val && val.toLowerCase() !== 'global' && val.toLowerCase() !== 'none') {
+                        uniqueRegions.add(val);
+                    }
+                });
+                if (uniqueRegions.size > 0) {
+                    regField = {
+                        key: 'region',
+                        name: 'Region',
+                        label: 'Region',
+                        values: Array.from(uniqueRegions).sort().map(r => ({ label: r, value: r, active: true }))
+                    };
+                }
+            }
+
+            if (!ctyField || !ctyField.values || ctyField.values.length === 0) {
+                const uniqueCountries = new Set();
+                recordsToInspect.forEach(r => {
+                    const val = (r.MailingCountry || r.Country_Custom__c || r.country || '').trim();
+                    if (val && val.toLowerCase() !== 'none') {
+                        uniqueCountries.add(val);
+                    }
+                });
+                if (uniqueCountries.size > 0) {
+                    ctyField = {
+                        key: 'country',
+                        name: 'Country',
+                        label: 'Country',
+                        values: Array.from(uniqueCountries).sort().map(c => ({ label: c, value: c, active: true }))
+                    };
+                }
+            }
+
+            if (!catField || !catField.values || catField.values.length === 0) {
+                const uniqueCats = new Set();
+                recordsToInspect.forEach(r => {
+                    const raw = (r.Deal_Category__c || r.deal_category || '').trim();
+                    if (raw && raw.toLowerCase() !== 'general' && raw.toLowerCase() !== 'none') {
+                        raw.split(';').forEach(p => {
+                            const trimmed = p.trim();
+                            if (trimmed) uniqueCats.add(trimmed);
+                        });
+                    }
+                });
+                if (uniqueCats.size > 0) {
+                    catField = {
+                        key: 'deal_category',
+                        name: 'Deal Category',
+                        label: 'Deal Category',
+                        values: Array.from(uniqueCats).sort().map(c => ({ label: c, value: c, active: true }))
+                    };
+                }
+            }
+        }
+
+        return {
+            category: catField,
+            region: regField,
+            country: ctyField,
+            allFields: Object.assign({}, salesforceLeadPicklists, salesforceContactPicklists)
+        };
+    }
+
+    /**
+     * Render the active picklist options for Deal Category, Region, and Country
+     */
+    function renderPicklistsDropdowns() {
+        const meta = getActivePicklistsMeta();
+        if (!meta.category && !meta.region && !meta.country) return;
+
+        // Remember currently checked values
         const prevCategories = new Set(Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value));
         const prevRegions = new Set(Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value));
         const prevCountries = new Set(Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value));
 
-        // 1. Categories (Fixed Deal Categories)
-        const catMenu = document.getElementById('menu-filter-category');
-        if (catMenu) {
-            let catHtml = '';
-            DEAL_CATEGORIES.forEach((cat, idx) => {
-                const isChecked = prevCategories.has(cat) ? 'checked' : '';
-                catHtml += `
-                    <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
-                        <input class="form-check-input filter-category-checkbox mt-0" type="checkbox" value="${escapeHtml(cat)}" id="cat-${idx}" ${isChecked} onchange="filterRecipients()">
-                        <label class="form-check-label text-zinc-800" for="cat-${idx}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">${escapeHtml(cat)}</label>
-                    </div>
-                `;
-            });
-            catMenu.innerHTML = catHtml;
+        // 1. Deal Category
+        const catField = meta.category;
+        const catContainer = document.querySelector('#menu-filter-category .category-options-list');
+        if (catField && catContainer) {
+            const activeVals = (catField.values || []).filter(v => v.active !== false);
+            if (activeVals.length > 0) {
+                let html = '';
+                activeVals.forEach((cat, idx) => {
+                    const isChecked = prevCategories.has(cat.value) ? 'checked' : '';
+                    html += `
+                        <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-category-item">
+                            <input class="form-check-input filter-category-checkbox mt-0" type="checkbox"
+                                value="${escapeHtml(cat.value)}" data-label="${escapeHtml(cat.label)}" id="cat-${idx}" ${isChecked} onchange="filterRecipients()">
+                            <label class="form-check-label text-zinc-800" for="cat-${idx}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">
+                                ${escapeHtml(cat.label)}
+                            </label>
+                        </div>
+                    `;
+                });
+                catContainer.innerHTML = html;
+            } else {
+                catContainer.innerHTML = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No active categories</div>';
+            }
         }
 
-        // 2. Regions
-        const regions = Array.from(new Set(records.map(r => r.region).filter(Boolean))).sort();
-        const regMenu = document.getElementById('menu-filter-region');
-        if (regMenu) {
-            let regHtml = '';
-            regions.forEach((reg, idx) => {
-                const isChecked = prevRegions.has(reg) ? 'checked' : '';
-                regHtml += `
-                    <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
-                        <input class="form-check-input filter-region-checkbox mt-0" type="checkbox" value="${escapeHtml(reg)}" id="reg-${idx}" ${isChecked} onchange="filterRecipients()">
-                        <label class="form-check-label text-zinc-800" for="reg-${idx}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">${escapeHtml(reg)}</label>
-                    </div>
-                `;
-            });
-            if (!regHtml) regHtml = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No regions in Salesforce</div>';
-            regMenu.innerHTML = regHtml;
+        // 2. Region
+        const regField = meta.region;
+        const regContainer = document.querySelector('#menu-filter-region .region-options-list');
+        if (regField && regContainer) {
+            const activeVals = (regField.values || []).filter(v => v.active !== false);
+            if (activeVals.length > 0) {
+                let html = '';
+                activeVals.forEach((reg, idx) => {
+                    const isChecked = prevRegions.has(reg.value) ? 'checked' : '';
+                    html += `
+                        <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-region-item">
+                            <input class="form-check-input filter-region-checkbox mt-0" type="checkbox"
+                                value="${escapeHtml(reg.value)}" data-label="${escapeHtml(reg.label)}" id="reg-${idx}" ${isChecked} onchange="filterRecipients()">
+                            <label class="form-check-label text-zinc-800" for="reg-${idx}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">
+                                ${escapeHtml(reg.label)}
+                            </label>
+                        </div>
+                    `;
+                });
+                regContainer.innerHTML = html;
+            } else {
+                regContainer.innerHTML = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No active regions</div>';
+            }
         }
 
-        // 3. Countries
-        const countries = Array.from(new Set(records.map(r => r.country).filter(Boolean))).sort();
-        const ctyMenu = document.getElementById('menu-filter-country');
-        if (ctyMenu) {
-            let ctyHtml = '';
-            countries.forEach((cty, idx) => {
-                const isChecked = prevCountries.has(cty) ? 'checked' : '';
-                ctyHtml += `
-                    <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
-                        <input class="form-check-input filter-country-checkbox mt-0" type="checkbox" value="${escapeHtml(cty)}" id="cty-${idx}" ${isChecked} onchange="filterRecipients()">
-                        <label class="form-check-label text-zinc-800" for="cty-${idx}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">${escapeHtml(cty)}</label>
-                    </div>
-                `;
-            });
-            if (!ctyHtml) ctyHtml = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No countries in Salesforce</div>';
-            ctyMenu.innerHTML = ctyHtml;
+        // 3. Country
+        const ctyField = meta.country;
+        const ctyContainer = document.querySelector('#menu-filter-country .country-options-list');
+        if (ctyField && ctyContainer) {
+            let activeVals = (ctyField.values || []).filter(v => v.active !== false);
+
+            // Handle controlling field dependency if configured in Salesforce
+            if (ctyField.controllerName && meta.allFields && meta.allFields[ctyField.controllerName]) {
+                const controllerField = meta.allFields[ctyField.controllerName];
+                const selectedControllerVals = Array.from(document.querySelectorAll(`.filter-${ctyField.controllerName.toLowerCase().replace(/__c$/, '')}-checkbox:checked`)).map(cb => cb.value);
+                if (selectedControllerVals.length > 0) {
+                    const controllerIndices = [];
+                    (controllerField.values || []).forEach((cv, idx) => {
+                        if (selectedControllerVals.includes(cv.value)) controllerIndices.push(idx);
+                    });
+                    activeVals = activeVals.filter(v => {
+                        const validIndices = decodePicklistValidFor(v.validFor);
+                        return !validIndices || validIndices.some(idx => controllerIndices.includes(idx));
+                    });
+                }
+            }
+
+            if (activeVals.length > 0) {
+                let html = '';
+                activeVals.forEach((cty, idx) => {
+                    const isChecked = prevCountries.has(cty.value) ? 'checked' : '';
+                    html += `
+                        <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-country-item">
+                            <input class="form-check-input filter-country-checkbox mt-0" type="checkbox"
+                                value="${escapeHtml(cty.value)}" data-label="${escapeHtml(cty.label)}" data-code="${escapeHtml(cty.code || '')}" id="cty-${idx}" ${isChecked} onchange="filterRecipients()">
+                            <label class="form-check-label text-zinc-800" for="cty-${idx}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">
+                                ${escapeHtml(cty.label)}
+                            </label>
+                        </div>
+                    `;
+                });
+                ctyContainer.innerHTML = html;
+            } else {
+                ctyContainer.innerHTML = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No active countries</div>';
+            }
         }
+
+        // Re-filter with current checked state
+        filterRecipients();
     }
+
+    const renderLeadPicklistsDropdowns = renderPicklistsDropdowns;
 
     let currentCrmTypeFilter = 'all';
 
     function filterRecipientsType(type) {
         currentCrmTypeFilter = type;
+        renderPicklistsDropdowns();
         filterRecipients();
     }
 
@@ -1884,15 +2134,16 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             filtered = records.filter(r => r.object_type === currentCrmTypeFilter);
         }
 
-        // Deal Category Picklist filter
+        // Deal Category Picklist filter (Lead.Deal_Category__c)
         const activeCategories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value.trim().toLowerCase());
         if (activeCategories.length > 0) {
             filtered = filtered.filter(r => {
-                if (!r.deal_category) return false;
-                const recCat = r.deal_category.trim().toLowerCase();
-                return activeCategories.includes(recCat);
+                const recVal = (r.Deal_Category__c || r.deal_category || '').trim().toLowerCase();
+                if (!recVal) return false;
+                const recParts = recVal.split(';').map(p => p.trim());
+                return activeCategories.some(ac => recParts.includes(ac) || recVal.includes(ac));
             });
-            const checkedLabels = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
+            const checkedLabels = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.dataset.label || cb.value);
             document.getElementById('label-filter-category').innerText = checkedLabels.length <= 2 
                 ? checkedLabels.join(', ') 
                 : `${checkedLabels.length} selected`;
@@ -1900,24 +2151,64 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             document.getElementById('label-filter-category').innerText = 'All Categories';
         }
 
-        // Region Picklist filter
-        const activeRegions = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value);
+        // Region Picklist filter (Lead.Region__c / Contact.Region_Acc__c)
+        const activeRegions = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value.trim().toLowerCase());
         if (activeRegions.length > 0) {
-            filtered = filtered.filter(r => activeRegions.includes(r.region));
-            document.getElementById('label-filter-region').innerText = activeRegions.length <= 2 
-                ? activeRegions.join(', ') 
-                : `${activeRegions.length} selected`;
+            filtered = filtered.filter(r => {
+                const recVal = (r.Region_Acc__c || r.Region__c || r.region || '').trim().toLowerCase();
+                const recCountry = (r.MailingCountry || r.Country_Custom__c || r.country || '').trim().toLowerCase();
+                if (!recVal && !recCountry) return false;
+
+                if (activeRegions.includes(recVal)) return true;
+
+                // Smart matching for compound region "Far East Asia + Southeast Asia Countries + Latin America"
+                for (const ar of activeRegions) {
+                    if (ar.includes('+') || ar.includes('far east')) {
+                        const parts = ar.split('+').map(p => p.trim());
+                        if (parts.some(p => recVal === p || recVal.includes(p) || (p.includes('latin america') && (recVal === 'latam' || recVal.includes('latin america'))))) {
+                            return true;
+                        }
+                        const compoundCountries = [
+                            'japan', 'china', 'hong kong', 'taiwan', 'south korea', 'korea',
+                            'singapore', 'malaysia', 'thailand', 'vietnam', 'viet nam', 'philippines', 'indonesia',
+                            'brazil', 'mexico', 'colombia', 'argentina', 'chile', 'peru', 'panama', 'costa rica',
+                            'uruguay', 'paraguay', 'ecuador', 'bolivia', 'venezuela', 'guatemala'
+                        ];
+                        if (compoundCountries.some(c => recCountry.includes(c) || recVal.includes(c))) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+            const checkedLabels = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.dataset.label || cb.value);
+            document.getElementById('label-filter-region').innerText = checkedLabels.length <= 2 
+                ? checkedLabels.join(', ') 
+                : `${checkedLabels.length} selected`;
         } else {
             document.getElementById('label-filter-region').innerText = 'All Regions';
         }
 
-        // Country Picklist filter
-        const activeCountries = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value);
+        // Country Picklist filter (Lead.Country_Custom__c / Contact.MailingCountry)
+        const activeCountries = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => ({
+            val: cb.value.trim().toLowerCase(),
+            label: (cb.dataset.label || '').trim().toLowerCase(),
+            code: (cb.dataset.code || '').trim().toLowerCase()
+        }));
         if (activeCountries.length > 0) {
-            filtered = filtered.filter(r => activeCountries.includes(r.country));
-            document.getElementById('label-filter-country').innerText = activeCountries.length <= 2 
-                ? activeCountries.join(', ') 
-                : `${activeCountries.length} selected`;
+            filtered = filtered.filter(r => {
+                const recVal = (r.MailingCountry || r.Country_Custom__c || r.country || '').trim().toLowerCase();
+                const recCode = (r.mailing_country_code || '').trim().toLowerCase();
+                if (!recVal && !recCode) return false;
+                return activeCountries.some(ac => 
+                    (recVal && (recVal === ac.val || recVal === ac.label || (ac.code && recVal === ac.code))) ||
+                    (recCode && (ac.code && recCode === ac.code))
+                );
+            });
+            const checkedLabels = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.dataset.label || cb.value);
+            document.getElementById('label-filter-country').innerText = checkedLabels.length <= 2 
+                ? checkedLabels.join(', ') 
+                : `${checkedLabels.length} selected`;
         } else {
             document.getElementById('label-filter-country').innerText = 'All Countries';
         }
@@ -1952,7 +2243,10 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             const emailText = r.email ? ` &bull; <span class="text-indigo-600 font-monospace" style="font-size: 0.775rem;">${escapeHtml(r.email)}</span>` : '';
             const companyText = r.company ? ` &bull; <span class="text-zinc-600">${escapeHtml(r.company)}</span>` : '';
             const ownerText = r.owner_name ? ` &bull; <span class="text-zinc-500">Owner: ${escapeHtml(r.owner_name)}</span>` : '';
-            const detailsText = `<div class="text-zinc-500 mt-0.5" style="font-size: 0.74rem;">Category: <span class="text-zinc-800 fw-medium">${escapeHtml(r.deal_category || 'None')}</span> &bull; Region: <span class="text-zinc-800 fw-medium">${escapeHtml(r.region || 'None')}</span> &bull; Country: <span class="text-zinc-800 fw-medium">${escapeHtml(r.country || 'None')}</span>${ownerText}</div>`;
+            const catVal = r.Deal_Category__c || r.deal_category || 'None';
+            const regVal = r.Region_Acc__c || r.Region__c || r.region || 'None';
+            const cntVal = r.MailingCountry || r.Country_Custom__c || r.country || 'None';
+            const detailsText = `<div class="text-zinc-500 mt-0.5" style="font-size: 0.74rem;">Category: <span class="text-zinc-800 fw-medium">${escapeHtml(catVal)}</span> &bull; Region: <span class="text-zinc-800 fw-medium">${escapeHtml(regVal)}</span> &bull; Country: <span class="text-zinc-800 fw-medium">${escapeHtml(cntVal)}</span>${ownerText}</div>`;
 
             html += `
                 <li class="list-group-item d-flex align-items-center py-2.5 px-3 recipient-row" data-id="${r.id}">
@@ -2012,6 +2306,9 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 return;
             }
             payload.recipient_ids = Array.from(selectedRecords);
+            payload.selected_deal_categories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
+            payload.selected_regions = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value);
+            payload.selected_countries = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value);
         } else {
             const pastedText = document.getElementById('pasted-emails').value;
             const emails = pastedText.split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0);
@@ -2144,6 +2441,9 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 return;
             }
             payload.recipient_ids = recipient_ids;
+            payload.selected_deal_categories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
+            payload.selected_regions = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value);
+            payload.selected_countries = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value);
         } else {
             const pastedText = document.getElementById('pasted-emails').value;
             const emails = pastedText.split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0);
@@ -2651,6 +2951,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     window.onload = function() {
         loadSendingDomains();
         loadRecipients();
+        loadLeadPicklists();
+        loadContactPicklists();
         loadTemplates();
         loadSignatures();
 

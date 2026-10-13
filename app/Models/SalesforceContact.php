@@ -21,6 +21,7 @@ class SalesforceContact extends Model
         'name',
         'title',
         'department',
+        'Deal_Category__c',
         'email',
         'phone',
         'mobile_phone',
@@ -30,6 +31,7 @@ class SalesforceContact extends Model
         'mailing_state',
         'mailing_postal_code',
         'mailing_country',
+        'Region_Acc__c',
         'owner_id',
         'prime_owner_id',
         'secondary_owner',
@@ -101,6 +103,30 @@ class SalesforceContact extends Model
     public function setCustomOwnerAttribute(?string $value): void
     {
         $this->attributes['Custom_Owner__c'] = $value;
+    }
+
+    /**
+     * Accessor for deal_category / Deal_Category__c.
+     */
+    public function getDealCategoryAttribute(): ?string
+    {
+        return $this->attributes['Deal_Category__c'] ?? $this->attributes['department'] ?? null;
+    }
+
+    /**
+     * Accessor for region / Region_Acc__c.
+     */
+    public function getRegionAttribute(): ?string
+    {
+        return $this->attributes['Region_Acc__c'] ?? $this->attributes['mailing_state'] ?? null;
+    }
+
+    /**
+     * Accessor for MailingCountry.
+     */
+    public function getCountryAttribute(): ?string
+    {
+        return $this->attributes['mailing_country'] ?? null;
     }
 
     /**

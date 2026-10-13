@@ -191,10 +191,15 @@ class SalesforceService
             'status' => 'Active',
             'consent_status' => 'valid',
             'lawful_basis' => 'Consent',
-            'deal_category' => $contact->department ?: 'General',
+            'deal_category' => $contact->Deal_Category__c ?: ($contact->department ?: 'General'),
+            'Deal_Category__c' => $contact->Deal_Category__c ?: '',
             'city' => $contact->mailing_city ?: '',
-            'region' => $contact->mailing_state ?: 'Global',
+            'region' => $contact->Region_Acc__c ?: ($contact->mailing_state ?: 'Global'),
+            'Region_Acc__c' => $contact->Region_Acc__c ?: '',
+            'Region__c' => $contact->Region_Acc__c ?: '',
             'country' => $contact->mailing_country ?: '',
+            'MailingCountry' => $contact->mailing_country ?: '',
+            'Country_Custom__c' => $contact->mailing_country ?: '',
         ];
     }
 

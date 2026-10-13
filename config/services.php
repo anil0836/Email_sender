@@ -36,9 +36,9 @@ return [
     ],
 
     'salesforce' => [
-        'login_url' => env('SF_LOGIN_URL', 'https://login.salesforce.com'),
-        'username' => env('SF_USERNAME'),
-        'password' => env('SF_PASSWORD'),
+        'login_url' => env('SF_LOGIN_URL', env('SALESFORCE_LOGIN_URL', 'https://login.salesforce.com')),
+        'username' => env('SF_USERNAME', env('SALESFORCE_USERNAME')),
+        'password' => env('SF_PASSWORD', env('SALESFORCE_PASSWORD')),
     ],
 
 ];

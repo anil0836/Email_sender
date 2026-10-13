@@ -12,6 +12,7 @@ use App\Models\SendingDomain;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\CampaignProcessingService;
+use App\Services\SalesforceLeadService;
 use App\Services\SalesforceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -48,7 +49,12 @@ class CampaignController extends Controller
         }
 
         $mode = $request->query('mode', 'crm');
-        return view('campaigns.create', compact('mode'));
+        $leadResult = app(SalesforceLeadService::class)->getLeadPicklists();
+        $leadPicklists = $leadResult['success'] ? ($leadResult['fields'] ?? []) : [];
+        $contactResult = app(SalesforceLeadService::class)->getContactPicklists();
+        $contactPicklists = $contactResult['success'] ? ($contactResult['fields'] ?? []) : [];
+
+        return view('campaigns.create', compact('mode', 'leadPicklists', 'contactPicklists'));
     }
 
     /**
@@ -66,7 +72,12 @@ class CampaignController extends Controller
         }
 
         $mode = 'paste';
-        return view('campaigns.create', compact('mode'));
+        $leadResult = app(SalesforceLeadService::class)->getLeadPicklists();
+        $leadPicklists = $leadResult['success'] ? ($leadResult['fields'] ?? []) : [];
+        $contactResult = app(SalesforceLeadService::class)->getContactPicklists();
+        $contactPicklists = $contactResult['success'] ? ($contactResult['fields'] ?? []) : [];
+
+        return view('campaigns.create', compact('mode', 'leadPicklists', 'contactPicklists'));
     }
 
     /**
@@ -764,33 +775,39 @@ class CampaignController extends Controller
             foreach ($leads as $l) {
                 $ownerName = $l->owner_name ?: ($l->salesforceOwner ? $l->salesforceOwner->name : ($l->owner ? $l->owner->name : ($l->primeOwner ? $l->primeOwner->name : '')));
                 $ownerEmail = $l->owner_email ?: ($l->salesforceOwner ? $l->salesforceOwner->emp_email : ($l->owner ? $l->owner->email : ($l->primeOwner ? $l->primeOwner->emp_email : '')));
-                $results[] = [
-                    'id' => $l->salesforce_id,
-                    'local_id' => $l->id,
-                    'object_type' => 'Lead',
-                    'first_name' => $l->first_name ?: '',
-                    'last_name' => $l->last_name ?: '',
-                    'name' => $l->name ?: trim($l->first_name . ' ' . $l->last_name) ?: 'Unnamed Lead',
-                    'email' => $l->email ?: '',
-                    'company' => $l->company ?: '',
-                    'phone' => $l->phone ?: $l->mobile_phone,
-                    'owner_id' => $l->owner_id ?: ($l->prime_owner_id ?: ''),
-                    'salesforce_owner_id' => $l->owner_id,
-                    'prime_owner_id' => $l->prime_owner_id,
-                    'owner_name' => $ownerName,
-                    'owner_email' => $ownerEmail,
-                    'owner_verification_status' => $l->owner_verification_status ?: 'verified',
-                    'last_owner_verified_at' => $l->last_owner_verified_at ? $l->last_owner_verified_at->toIso8601String() : null,
-                    'status' => $l->status ?: 'New',
-                    'opted_out' => 0,
-                    'consent_status' => 'valid',
-                    'deal_category' => $l->Deal_Category__c ?: ($l->industry ?: 'General'),
-                    'Deal_Category__c' => $l->Deal_Category__c,
-                    'region' => $l->state ?: 'Global',
-                    'country' => $l->country ?: '',
-                    'custom_owner' => $l->custom_owner ?: ($l->Custom_Owner__c ?: ''),
-                    'Custom_Owner__c' => $l->Custom_Owner__c ?: ($l->custom_owner ?: ''),
-                ];
+                    $raw = is_array($l->raw_data) ? $l->raw_data : [];
+                    $reg = $raw['Region__c'] ?? ($l->Region__c ?? ($l->state ?: 'Global'));
+                    $cty = $raw['Country_Custom__c'] ?? ($l->Country_Custom__c ?? ($l->country ?: ''));
+                    $cat = $l->Deal_Category__c ?: ($raw['Deal_Category__c'] ?? ($l->industry ?: 'General'));
+                    $results[] = [
+                        'id' => $l->salesforce_id,
+                        'local_id' => $l->id,
+                        'object_type' => 'Lead',
+                        'first_name' => $l->first_name ?: '',
+                        'last_name' => $l->last_name ?: '',
+                        'name' => $l->name ?: trim($l->first_name . ' ' . $l->last_name) ?: 'Unnamed Lead',
+                        'email' => $l->email ?: '',
+                        'company' => $l->company ?: '',
+                        'phone' => $l->phone ?: $l->mobile_phone,
+                        'owner_id' => $l->owner_id ?: ($l->prime_owner_id ?: ''),
+                        'salesforce_owner_id' => $l->owner_id,
+                        'prime_owner_id' => $l->prime_owner_id,
+                        'owner_name' => $ownerName,
+                        'owner_email' => $ownerEmail,
+                        'owner_verification_status' => $l->owner_verification_status ?: 'verified',
+                        'last_owner_verified_at' => $l->last_owner_verified_at ? $l->last_owner_verified_at->toIso8601String() : null,
+                        'status' => $l->status ?: 'New',
+                        'opted_out' => 0,
+                        'consent_status' => 'valid',
+                        'deal_category' => $cat,
+                        'Deal_Category__c' => $cat,
+                        'region' => $reg,
+                        'Region__c' => $reg,
+                        'country' => $cty,
+                        'Country_Custom__c' => $cty,
+                        'custom_owner' => $l->custom_owner ?: ($l->Custom_Owner__c ?: ''),
+                        'Custom_Owner__c' => $l->Custom_Owner__c ?: ($l->custom_owner ?: ''),
+                    ];
             }
         }
 
@@ -826,6 +843,11 @@ class CampaignController extends Controller
                 $ownerName = $c->owner_name ?: ($c->salesforceOwner ? $c->salesforceOwner->name : ($c->owner ? $c->owner->name : ($c->primeOwner ? $c->primeOwner->name : '')));
                 $ownerEmail = $c->owner_email ?: ($c->salesforceOwner ? $c->salesforceOwner->emp_email : ($c->owner ? $c->owner->email : ($c->primeOwner ? $c->primeOwner->emp_email : '')));
                 $company = $c->account ? $c->account->name : '';
+                $raw = is_array($c->raw_data) ? $c->raw_data : [];
+                $cat = $c->Deal_Category__c ?: ($raw['Deal_Category__c'] ?? ($c->department ?: ''));
+                $reg = $c->Region_Acc__c ?: ($raw['Region_Acc__c'] ?? ($c->mailing_state ?: ''));
+                $cty = $c->mailing_country ?: ($raw['MailingCountry'] ?? '');
+
                 $results[] = [
                     'id' => $c->salesforce_id,
                     'local_id' => $c->id,
@@ -846,9 +868,15 @@ class CampaignController extends Controller
                     'status' => 'Active',
                     'opted_out' => 0,
                     'consent_status' => 'valid',
-                    'deal_category' => $c->department ?: 'General',
-                    'region' => $c->mailing_state ?: 'Global',
-                    'country' => $c->mailing_country ?: '',
+                    'deal_category' => $cat,
+                    'Deal_Category__c' => $cat,
+                    'region' => $reg,
+                    'Region_Acc__c' => $reg,
+                    'Region__c' => $reg,
+                    'country' => $cty,
+                    'MailingCountry' => $cty,
+                    'Country_Custom__c' => $cty,
+                    'mailing_country_code' => $c->raw_data['MailingCountryCode'] ?? '',
                     'custom_owner' => $c->Custom_Owner__c ?: '',
                     'Custom_Owner__c' => $c->Custom_Owner__c ?: '',
                 ];
@@ -1103,5 +1131,27 @@ class CampaignController extends Controller
             'detected_count' => count($emails),
             'emails' => $emails,
         ]);
+    }
+
+    /**
+     * Dynamically fetch active Salesforce Lead picklist values for Deal Category, Region, and Country.
+     */
+    public function apiLeadPicklists(Request $request)
+    {
+        $forceRefresh = $request->boolean('refresh', false);
+        $result = app(SalesforceLeadService::class)->getLeadPicklists($forceRefresh);
+
+        return response()->json($result);
+    }
+
+    /**
+     * Dynamically fetch active Salesforce Contact dropdown values for Deal Category, Region, and Country.
+     */
+    public function apiContactPicklists(Request $request)
+    {
+        $forceRefresh = $request->boolean('refresh', false);
+        $result = app(SalesforceLeadService::class)->getContactPicklists($forceRefresh);
+
+        return response()->json($result);
     }
 }

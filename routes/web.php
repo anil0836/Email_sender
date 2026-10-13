@@ -130,6 +130,8 @@ Route::middleware(['app_auth'])->group(function () {
     // Salesforce & Campaign Compose APIs
     Route::get('/api/salesforce/recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.recipients');
     Route::get('/api/salesforce/campaign-recipients', [CampaignController::class, 'apiRecipients'])->name('api.salesforce.campaign_recipients');
+    Route::get('/api/salesforce/lead-picklists', [CampaignController::class, 'apiLeadPicklists'])->name('api.salesforce.lead_picklists');
+    Route::get('/api/salesforce/contact-picklists', [CampaignController::class, 'apiContactPicklists'])->name('api.salesforce.contact_picklists');
 
     // Bulk Mail APIs (Protected by Spatie Bulk-Mail permissions)
     Route::middleware(['permission:bulk-mail|bulk-mail.create|campaign.new|campaign.create|/campaign/new|bulk-mail.view'])->group(function () {
