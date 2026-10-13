@@ -171,7 +171,7 @@
         </div>
         <!-- Stat 10: Unsubscribed Rate -->
         <div class="col">
-            <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('unsubscribed')">
+            <div class="card stat-card h-100 p-3">
                 <div class="stat-label">Unsub Rate</div>
                 <div class="stat-value text-zinc-900" id="stat-unsub">0.00%</div>
             </div>
@@ -184,7 +184,8 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-geo-alt me-1.5 text-zinc-500"></i> Email Delivery & Telemetry Map</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-geo-alt me-1.5 text-zinc-500"></i> Email
+                        Delivery & Telemetry Map</span>
                     <span class="badge bg-secondary-soft">Global Dispatch Locations</span>
                 </div>
                 <div class="card-body p-3">
@@ -200,7 +201,8 @@
         <div class="col-md-5">
             <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-compass me-1.5 text-zinc-500"></i> Top Delivery & Engagement Hubs</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-compass me-1.5 text-zinc-500"></i> Top
+                        Delivery & Engagement Hubs</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive border-0" style="max-height: 380px;">
@@ -214,7 +216,8 @@
                             </thead>
                             <tbody id="geo-table-body">
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted py-4">No delivery geolocation logs available.
+                                    <td colspan="3" class="text-center text-muted py-4">No delivery geolocation logs
+                                        available.
                                     </td>
                                 </tr>
                             </tbody>
@@ -336,7 +339,6 @@
                             <thead>
                                 <tr>
                                     <th class="ps-4">Recipient Email</th>
-                                    <th>Salesforce ID</th>
                                     <th>Campaign Subject</th>
                                     <th class="pe-4">Sent Timestamp</th>
                                 </tr>
@@ -768,11 +770,11 @@
         campaigns.forEach(c => {
             let statusBadge = '';
             if (c.status === 'completed') {
-                statusBadge = '<span class="badge badge-success-soft">Completed</span>';
+                statusBadge = '<span class="badge badge-success-soft" style="color: #16a34a;">Completed</span>';
             } else if (c.status === 'sending') {
-                statusBadge = '<span class="badge badge-info-soft"><span class="spinner-grow spinner-grow-sm me-1" role="status"></span>Sending</span>';
+                statusBadge = '<span class="badge badge-info-soft" style="color: #2563eb;"><span class="spinner-grow spinner-grow-sm me-1" role="status"></span>Sending</span>';
             } else if (c.status === 'queued') {
-                statusBadge = '<span class="badge badge-warning-soft">Queued</span>';
+                statusBadge = '<span class="badge badge-warning-soft" style="color: #d97706;">Queued</span>';
             } else {
                 statusBadge = '<span class="badge bg-secondary-soft">Draft</span>';
             }
@@ -832,7 +834,7 @@
         
         document.getElementById('recipientModalTitle').innerText = labels[statusType] || 'Recipient Emails';
         const tbody = document.getElementById('recipientModalTableBody');
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">Fetching email list...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">Fetching email list...</td></tr>';
         
         const myModal = new bootstrap.Modal(document.getElementById('recipientListModal'));
         myModal.show();
@@ -841,7 +843,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No recipients matching this status.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">No recipients matching this status.</td></tr>';
                     return;
                 }
                 
@@ -854,7 +856,6 @@
                     html += `
                         <tr>
                             <td class="ps-4 fw-medium text-zinc-900">${escapeHtml(r.email)}</td>
-                            <td><code class="text-zinc-600">${escapeHtml(r.salesforce_record_id || 'N/A')}</code></td>
                             <td class="text-zinc-700">${escapeHtml(r.campaign_subject)}</td>
                             <td class="pe-4 text-zinc-500">${dateStr}</td>
                         </tr>
@@ -864,7 +865,7 @@
             })
             .catch(err => {
                 console.error("Error loading recipients modal:", err);
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-danger">Failed to load emails.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-danger">Failed to load emails.</td></tr>';
             });
     }
 

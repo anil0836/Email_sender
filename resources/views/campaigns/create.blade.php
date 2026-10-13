@@ -12,39 +12,48 @@
         border-radius: var(--radius-input);
         background-color: #ffffff;
     }
+
     /* Quill custom font family dropdown labels */
     .ql-snow .ql-picker.ql-font .ql-picker-label::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item::before {
         content: 'Default' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="abadi"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="abadi"]::before {
         content: 'Abadi' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="inter"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="inter"]::before {
         content: 'Inter' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
         content: 'Arial' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="courier-new"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier-new"]::before {
         content: 'Courier New' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before {
         content: 'Georgia' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="tahoma"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="tahoma"]::before {
         content: 'Tahoma' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before {
         content: 'Times New Roman' !important;
     }
+
     .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,
     .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before {
         content: 'Verdana' !important;
@@ -55,34 +64,42 @@
     .ql-snow .ql-picker.ql-size .ql-picker-item::before {
         content: '14px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before {
         content: '10px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
         content: '12px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before {
         content: '14px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before {
         content: '16px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before {
         content: '18px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
         content: '20px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before {
         content: '24px' !important;
     }
+
     .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before,
     .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before {
         content: '32px' !important;
@@ -94,6 +111,7 @@
         border-top-right-radius: var(--radius-input);
         background-color: #fafafa;
     }
+
     .ql-container.ql-snow {
         border: 1px solid var(--border-color) !important;
         border-top: none !important;
@@ -140,6 +158,7 @@
         gap: 3px;
         border: 1px solid var(--border-color);
     }
+
     .segmented-control .nav-link {
         border-radius: 6px;
         padding: 0.35rem 0.85rem;
@@ -149,6 +168,7 @@
         transition: all 0.15s ease;
         border: 1px solid transparent;
     }
+
     .segmented-control .nav-link.active {
         background: #ffffff;
         color: #4338ca;
@@ -178,7 +198,9 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         {{ $isPasteMode ? 'Bulk Email Recipients (Paste List or Upload CSV)' : 'Configure Recipients' }}
                     </h6>
                     <small class="text-zinc-500" style="font-size: 0.76rem;">
-                        {{ $isPasteMode ? 'Upload a CSV file or paste email addresses directly. Suppression and duplicate checks will be verified automatically.' : 'Select CRM contacts or paste a custom list. Compliance and consent checks are applied automatically.' }}
+                        {{ $isPasteMode ? 'Upload a CSV file or paste email addresses directly. Suppression and
+                        duplicate checks will be verified automatically.' : 'Select CRM contacts or paste a custom list.
+                        Compliance and consent checks are applied automatically.' }}
                     </small>
                 </div>
                 <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2.5 py-1" id="selected-count">{{
@@ -244,60 +266,60 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                         <!-- Category Multiselect -->
                                         @php
                                         $dealCategories = [
-                                            'AC Adaptors',
-                                            'AIO',
-                                            'Audio Accessories',
-                                            'Bar Code Scanner',
-                                            'Barebone/Scrap Desktops',
-                                            'Barebone/Scrap Laptops',
-                                            'Cable Assemblies',
-                                            'Camera',
-                                            'CCTV/DVR',
-                                            'Chromebook',
-                                            'CPU',
-                                            'CPU Fan',
-                                            'Desktop C2D',
-                                            'Desktop I Series',
-                                            'Docking Stations',
-                                            'Energy Audit Equipment',
-                                            'E-Scrap',
-                                            'Fax machine',
-                                            'Gaming PC/Consoles',
-                                            'HDD',
-                                            'HighEnd Desktops',
-                                            'HighEnd Laptops',
-                                            'iMac',
-                                            'iPads',
-                                            'iPhones',
-                                            'IP Phone',
-                                            'Keyboard',
-                                            'Laptop C2D',
-                                            'Laptop I Series',
-                                            'LCD',
-                                            'MacBooks',
-                                            'MacMini',
-                                            'Memory',
-                                            'Mobiles',
-                                            'Mouse',
-                                            'Networking Equipment',
-                                            'Phone',
-                                            'POS',
-                                            'Power Cable',
-                                            'Printers',
-                                            'RAM',
-                                            'Router',
-                                            'Servers / Rack Servers',
-                                            'Solar Panel',
-                                            'Speakers',
-                                            'Stylus',
-                                            'Switch Board',
-                                            'Tablet',
-                                            'Thin Clients',
-                                            'Toner/Cartridges',
-                                            'Video Cards',
-                                            'Wearables',
-                                            'Workstation',
-                                            'Other',
+                                        'AC Adaptors',
+                                        'AIO',
+                                        'Audio Accessories',
+                                        'Bar Code Scanner',
+                                        'Barebone/Scrap Desktops',
+                                        'Barebone/Scrap Laptops',
+                                        'Cable Assemblies',
+                                        'Camera',
+                                        'CCTV/DVR',
+                                        'Chromebook',
+                                        'CPU',
+                                        'CPU Fan',
+                                        'Desktop C2D',
+                                        'Desktop I Series',
+                                        'Docking Stations',
+                                        'Energy Audit Equipment',
+                                        'E-Scrap',
+                                        'Fax machine',
+                                        'Gaming PC/Consoles',
+                                        'HDD',
+                                        'HighEnd Desktops',
+                                        'HighEnd Laptops',
+                                        'iMac',
+                                        'iPads',
+                                        'iPhones',
+                                        'IP Phone',
+                                        'Keyboard',
+                                        'Laptop C2D',
+                                        'Laptop I Series',
+                                        'LCD',
+                                        'MacBooks',
+                                        'MacMini',
+                                        'Memory',
+                                        'Mobiles',
+                                        'Mouse',
+                                        'Networking Equipment',
+                                        'Phone',
+                                        'POS',
+                                        'Power Cable',
+                                        'Printers',
+                                        'RAM',
+                                        'Router',
+                                        'Servers / Rack Servers',
+                                        'Solar Panel',
+                                        'Speakers',
+                                        'Stylus',
+                                        'Switch Board',
+                                        'Tablet',
+                                        'Thin Clients',
+                                        'Toner/Cartridges',
+                                        'Video Cards',
+                                        'Wearables',
+                                        'Workstation',
+                                        'Other',
                                         ];
                                         @endphp
                                         <div class="col-md-4">
@@ -315,10 +337,16 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     id="menu-filter-category" aria-labelledby="btn-filter-category"
                                                     style="max-height: 250px; overflow-y: auto;">
                                                     @foreach($dealCategories as $idx => $cat)
-                                                        <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
-                                                            <input class="form-check-input filter-category-checkbox mt-0" type="checkbox" value="{{ $cat }}" id="cat-{{ $idx }}" onchange="filterRecipients()">
-                                                            <label class="form-check-label text-zinc-800" for="cat-{{ $idx }}" style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $cat }}</label>
-                                                        </div>
+                                                    <div
+                                                        class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2">
+                                                        <input class="form-check-input filter-category-checkbox mt-0"
+                                                            type="checkbox" value="{{ $cat }}" id="cat-{{ $idx }}"
+                                                            onchange="filterRecipients()">
+                                                        <label class="form-check-label text-zinc-800"
+                                                            for="cat-{{ $idx }}"
+                                                            style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{
+                                                            $cat }}</label>
+                                                    </div>
                                                     @endforeach
                                                 </div>
                                             </div>
@@ -399,61 +427,79 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <!-- Tab 2: Paste Email List & CSV Upload -->
                     <div class="tab-pane fade {{ $isPasteMode ? 'show active' : '' }}" id="paste-pane" role="tabpanel">
                         <!-- CSV File Upload Dropzone Card -->
-                        <div class="p-3 mb-3 bg-zinc-50 rounded-3" style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
+                        <div class="p-3 mb-3 bg-zinc-50 rounded-3"
+                            style="background-color: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius-card);">
                             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="fw-semibold text-zinc-900" style="font-size: 0.82rem;">
-                                        <i class="bi bi-file-earmark-spreadsheet-fill text-indigo-600 me-1"></i> Upload Recipient CSV / Text File
+                                        <i class="bi bi-file-earmark-spreadsheet-fill text-indigo-600 me-1"></i> Upload
+                                        Recipient CSV / Text File
                                     </span>
-                                    <span class="badge bg-white text-zinc-600 border" style="font-size: 0.7rem;">.csv, .txt, .tsv</span>
+                                    <span class="badge bg-white text-zinc-600 border" style="font-size: 0.7rem;">.csv,
+                                        .txt, .tsv</span>
                                 </div>
                                 <div class="d-flex gap-2 align-items-center">
-                                    <a href="{{ route('campaign.sample_csv') }}" class="btn btn-outline-secondary btn-xs" title="Download formatted sample CSV template">
+                                    <a href="{{ route('campaign.sample_csv') }}"
+                                        class="btn btn-outline-secondary btn-xs"
+                                        title="Download formatted sample CSV template">
                                         <i class="bi bi-download me-1"></i> Sample CSV
                                     </a>
-                                    <button type="button" class="btn btn-primary btn-xs" onclick="document.getElementById('csv-file-input').click()">
+                                    <button type="button" class="btn btn-primary btn-xs"
+                                        onclick="document.getElementById('csv-file-input').click()">
                                         <i class="bi bi-folder2-open me-1"></i> Browse File
                                     </button>
-                                    <input type="file" id="csv-file-input" accept=".csv,.txt,.tsv" class="d-none" onchange="handleCsvFileInput(this.files)">
+                                    <input type="file" id="csv-file-input" accept=".csv,.txt,.tsv" class="d-none"
+                                        onchange="handleCsvFileInput(this.files)">
                                 </div>
                             </div>
 
                             <!-- Interactive Drag-and-Drop Area -->
-                            <div id="csv-dropzone" class="p-3 text-center rounded-3 position-relative" 
+                            <div id="csv-dropzone" class="p-3 text-center rounded-3 position-relative"
                                 style="border: 2px dashed #cbd5e1; background-color: #ffffff; cursor: pointer; transition: all 0.2s ease;"
                                 onclick="document.getElementById('csv-file-input').click()">
                                 <i class="bi bi-cloud-arrow-up text-indigo-600 fs-3 d-block mb-1"></i>
                                 <div class="fw-semibold text-zinc-800" style="font-size: 0.84rem;">
-                                    Drag and drop your CSV file here, or <span class="text-indigo-600 text-decoration-underline">browse to choose</span>
+                                    Drag and drop your CSV file here, or <span
+                                        class="text-indigo-600 text-decoration-underline">browse to choose</span>
                                 </div>
                                 <small class="text-zinc-500 d-block mt-0.5" style="font-size: 0.74rem;">
-                                    Auto-detects email columns (<code class="text-indigo-700">email</code>, <code class="text-indigo-700">recipient</code>, etc.) or scans multi-column sheets. Up to 10MB.
+                                    Auto-detects email columns (<code class="text-indigo-700">email</code>, <code
+                                        class="text-indigo-700">recipient</code>, etc.) or scans multi-column sheets. Up
+                                    to 10MB.
                                 </small>
                             </div>
 
                             <!-- Upload Status & Summary Box (Hidden until file parsed) -->
-                            <div id="csv-status-card" class="d-none mt-2 p-2.5 rounded-2 bg-white border border-indigo-200">
+                            <div id="csv-status-card"
+                                class="d-none mt-2 p-2.5 rounded-2 bg-white border border-indigo-200">
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="rounded-circle bg-success-soft text-success p-1 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+                                        <div class="rounded-circle bg-success-soft text-success p-1 d-flex align-items-center justify-content-center"
+                                            style="width: 28px; height: 28px;">
                                             <i class="bi bi-check2 text-success fw-bold"></i>
                                         </div>
                                         <div>
                                             <div class="fw-semibold text-zinc-900" style="font-size: 0.8rem;">
                                                 <span id="csv-status-filename">filename.csv</span>
-                                                <span class="badge bg-success-soft text-emerald-800 ms-1" id="csv-status-count-badge">0 Emails Extracted</span>
+                                                <span class="badge bg-success-soft text-emerald-800 ms-1"
+                                                    id="csv-status-count-badge">0 Emails Extracted</span>
                                             </div>
-                                            <small class="text-zinc-500" style="font-size: 0.72rem;" id="csv-status-details">
+                                            <small class="text-zinc-500" style="font-size: 0.72rem;"
+                                                id="csv-status-details">
                                                 Parsed 0 rows. Duplicates removed.
                                             </small>
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-outline-secondary btn-xs active" id="btn-import-replace" onclick="setImportMode('replace')">Replace List</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-xs" id="btn-import-append" onclick="setImportMode('append')">Append</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-xs active"
+                                                id="btn-import-replace" onclick="setImportMode('replace')">Replace
+                                                List</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-xs"
+                                                id="btn-import-append" onclick="setImportMode('append')">Append</button>
                                         </div>
-                                        <button type="button" class="btn btn-outline-danger btn-xs" onclick="clearCsvImport()" title="Remove imported file">
+                                        <button type="button" class="btn btn-outline-danger btn-xs"
+                                            onclick="clearCsvImport()" title="Remove imported file">
                                             <i class="bi bi-x-circle me-1"></i> Clear File
                                         </button>
                                     </div>
@@ -465,20 +511,26 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                             <div>
                                 <span class="fw-semibold text-zinc-800" style="font-size: 0.8rem;">
-                                    <i class="bi bi-pencil-square text-zinc-500 me-1"></i> Recipient Email List (Manual or CSV Extracted)
+                                    <i class="bi bi-pencil-square text-zinc-500 me-1"></i> Recipient Email List (Manual
+                                    or CSV Extracted)
                                 </span>
                                 <small class="text-zinc-500 d-block" style="font-size: 0.74rem;">
-                                    One email per line or separated by commas. Suppression and duplicate checks will be verified automatically.
+                                    One email per line or separated by commas. Suppression and duplicate checks will be
+                                    verified automatically.
                                 </small>
                             </div>
                             <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="cleanAndDeduplicatePasted()" title="Remove duplicate emails and normalize format">
+                                <button type="button" class="btn btn-outline-secondary btn-xs"
+                                    onclick="cleanAndDeduplicatePasted()"
+                                    title="Remove duplicate emails and normalize format">
                                     <i class="bi bi-magic me-1"></i> Clean &amp; Dedupe
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-xs" onclick="clearPastedList()" title="Clear all email text">
+                                <button type="button" class="btn btn-outline-secondary btn-xs"
+                                    onclick="clearPastedList()" title="Clear all email text">
                                     <i class="bi bi-trash me-1"></i> Clear
                                 </button>
-                                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2 py-1" id="pasted-email-counter">0 detected</span>
+                                <span class="badge bg-primary-soft text-indigo-700 fw-semibold px-2 py-1"
+                                    id="pasted-email-counter">0 detected</span>
                             </div>
                         </div>
 
@@ -563,11 +615,16 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         </div>
                     </div>
 
-                    <!-- Reply-To Settings Row (Visible to all roles) -->
-                    <div class="row g-3 mb-3">
+
+
+                    <!-- Sender Info Row (Visible only to Admin) -->
+                    <div
+                        class="row g-3 mb-3 {{ (session('role', Auth::user()->role ?? '') !== 'admin') ? 'd-none' : '' }}">
                         <div class="col-md-6">
-                            <label for="reply-to" class="form-label mb-1 fw-semibold text-zinc-700" style="font-size: 0.8rem;">
-                                <i class="bi bi-reply-fill me-1 text-primary"></i> Reply-To Email <span class="text-danger">*</span>
+                            <label for="reply-to" class="form-label mb-1 fw-semibold text-zinc-700"
+                                style="font-size: 0.8rem;">
+                                <i class="bi bi-reply-fill me-1 text-primary"></i> Reply-To Email <span
+                                    class="text-danger">*</span>
                             </label>
                             <input type="email" class="form-control" id="reply-to" name="reply_to"
                                 value="{{ config('pabbly.reply_to', 'support@b2bexportsllc.com') }}"
@@ -576,20 +633,10 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 Customer responses will be directed to this inbox (Default: support@b2bexportsllc.com).
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Sender Info Row (Visible only to Admin) -->
-                    <div
-                        class="row g-3 mb-3 {{ (session('role', Auth::user()->role ?? '') !== 'admin') ? 'd-none' : '' }}">
-                        <div class="col-md-6">
-                            <label for="sending-domain" class="form-label mb-1">Outbound Domain</label>
-                            <select class="form-select" id="sending-domain" onchange="updateFromEmail()" required>
-                                <!-- Populated dynamically -->
-                            </select>
-                        </div>
                         <div class="col-md-6">
                             <label for="from-address" class="form-label mb-1">From Address</label>
-                            <input type="email" class="form-control" id="from-address" placeholder="{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}"
+                            <input type="email" class="form-control" id="from-address"
+                                placeholder="{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}"
                                 value="{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}" required>
                         </div>
                     </div>
@@ -1134,9 +1181,11 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                             {{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1">
-                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">REPLY-TO:
+                        <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">
+                            REPLY-TO:
                         </div>
-                        <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;" id="prev_reply_to_field">
+                        <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;"
+                            id="prev_reply_to_field">
                             support@b2bexportsllc.com</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1">

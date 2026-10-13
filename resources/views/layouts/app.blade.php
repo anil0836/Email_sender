@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -708,6 +709,7 @@
             background: #d4d4d8;
             border-radius: 999px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: #a1a1aa;
         }
@@ -720,6 +722,7 @@
     </style>
     @yield('extra_head')
 </head>
+
 <body>
 
     @if(session('user_id') || Auth::check())
@@ -789,10 +792,13 @@
             $currentUser->hasRole('Admin'));
 
             $isManagementActive = request()->routeIs('team_campaigns_view');
-            $isAdminActive = request()->routeIs('admin.roles.*') || request()->routeIs('admin_users_view') || request()->routeIs('admin_infrastructure_view') || request()->routeIs('admin.suppressions.*');
+            $isAdminActive = request()->routeIs('admin.roles.*') || request()->routeIs('admin_users_view') ||
+            request()->routeIs('admin_infrastructure_view') || request()->routeIs('admin.suppressions.*');
             $isSalesforceActive = request()->routeIs('admin.salesforce_*') || request()->routeIs('admin.salesforce*');
-            $canSeeManagement = in_array($userRole, ['admin', 'manager', 'line_manager']) || $isTeamManager || ($currentUser &&
-            method_exists($currentUser, 'hasRole') && ($currentUser->hasRole('Manager') || $currentUser->hasRole('Line Manager')));
+            $canSeeManagement = in_array($userRole, ['admin', 'manager', 'line_manager']) || $isTeamManager ||
+            ($currentUser &&
+            method_exists($currentUser, 'hasRole') && ($currentUser->hasRole('Manager') || $currentUser->hasRole('Line
+            Manager')));
             @endphp
 
             @if($canSeeManagement)
@@ -803,11 +809,8 @@
             <!-- Management Dropdown Menu -->
             <li class="nav-item">
                 <a class="nav-link sidebar-dropdown-toggle {{ $isManagementActive ? 'active-parent' : 'collapsed' }}"
-                    href="#collapseManagement"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#collapseManagement"
-                    role="button"
-                    aria-expanded="{{ $isManagementActive ? 'true' : 'false' }}"
+                    href="#collapseManagement" data-bs-toggle="collapse" data-bs-target="#collapseManagement"
+                    role="button" aria-expanded="{{ $isManagementActive ? 'true' : 'false' }}"
                     aria-controls="collapseManagement">
                     <span class="sidebar-dropdown-label">
                         <i class="bi bi-briefcase"></i>
@@ -838,12 +841,8 @@
             <!-- Administration Dropdown Menu -->
             <li class="nav-item">
                 <a class="nav-link sidebar-dropdown-toggle {{ $isAdminActive ? 'active-parent' : 'collapsed' }}"
-                    href="#collapseAdmin"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#collapseAdmin"
-                    role="button"
-                    aria-expanded="{{ $isAdminActive ? 'true' : 'false' }}"
-                    aria-controls="collapseAdmin">
+                    href="#collapseAdmin" data-bs-toggle="collapse" data-bs-target="#collapseAdmin" role="button"
+                    aria-expanded="{{ $isAdminActive ? 'true' : 'false' }}" aria-controls="collapseAdmin">
                     <span class="sidebar-dropdown-label">
                         <i class="bi bi-sliders"></i>
                         <span>Administration</span>
@@ -889,11 +888,8 @@
             <!-- Salesforce Sync Dropdown Menu -->
             <li class="nav-item">
                 <a class="nav-link sidebar-dropdown-toggle {{ $isSalesforceActive ? 'active-parent' : 'collapsed' }}"
-                    href="#collapseSalesforce"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#collapseSalesforce"
-                    role="button"
-                    aria-expanded="{{ $isSalesforceActive ? 'true' : 'false' }}"
+                    href="#collapseSalesforce" data-bs-toggle="collapse" data-bs-target="#collapseSalesforce"
+                    role="button" aria-expanded="{{ $isSalesforceActive ? 'true' : 'false' }}"
                     aria-controls="collapseSalesforce">
                     <span class="sidebar-dropdown-label">
                         <i class="bi bi-cloud-arrow-down"></i>
@@ -909,12 +905,12 @@
                                 <i class="bi bi-funnel"></i> Synced Leads
                             </a>
                         </li>
-                        <li class="nav-item">
+                        {{-- <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.salesforce_accounts*') ? 'active' : '' }}"
                                 href="{{ route('admin.salesforce_accounts.index') }}">
                                 <i class="bi bi-buildings"></i> Synced Accounts
                             </a>
-                        </li>
+                        </li> --}}
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.salesforce_contacts*') ? 'active' : '' }}"
                                 href="{{ route('admin.salesforce_contacts.index') }}">
@@ -941,12 +937,12 @@
             <li class="my-2">
                 <hr class="sidebar-divider">
             </li>
-            <li class="nav-item">
+            {{-- <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('simulator_view') ? 'active' : '' }}"
                     href="{{ route('simulator_view') }}">
                     <i class="bi bi-terminal"></i> Client Simulator
                 </a>
-            </li>
+            </li> --}}
             {{-- <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('salesforce.connection_test') ? 'active' : '' }}"
                     href="{{ route('salesforce.connection_test') }}">
@@ -979,57 +975,55 @@
                                 style="font-size: 0.65rem; letter-spacing: 0.05em;">Color Theme</h6>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('indigo')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #4f46e5;"></i>Linear Indigo</span>
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('indigo')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #4f46e5;"></i>Indigo</span>
                                 <i class="bi bi-check-lg text-indigo-600 palette-check d-none"
                                     id="theme-check-indigo"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('emerald')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #059669;"></i>Emerald &
-                                    Mint</span>
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('emerald')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #059669;"></i>Mint</span>
                                 <i class="bi bi-check-lg text-emerald-600 palette-check d-none"
                                     id="theme-check-emerald"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('rose')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #e11d48;"></i>Electric Rose</span>
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('rose')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #e11d48;"></i>Rose</span>
                                 <i class="bi bi-check-lg text-rose-600 palette-check d-none" id="theme-check-rose"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('violet')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #7c3aed;"></i>Cyber Violet</span>
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('violet')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #7c3aed;"></i>Violet</span>
                                 <i class="bi bi-check-lg text-violet-600 palette-check d-none"
                                     id="theme-check-violet"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('blue')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #2563eb;"></i>Ocean Blue</span>
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('blue')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #2563eb;"></i>Blue</span>
                                 <i class="bi bi-check-lg text-blue-600 palette-check d-none" id="theme-check-blue"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('amber')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #d97706;"></i>Obsidian &
-                                    Amber</span>
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('amber')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #d97706;"></i>Amber</span>
                                 <i class="bi bi-check-lg text-amber-600 palette-check d-none"
                                     id="theme-check-amber"></i>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('teal')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #0d9488;"></i>Teal & Cyan
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('teal')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #0d9488;"></i>Cyan
                                     Wave</span>
                                 <i class="bi bi-check-lg text-teal-600 palette-check d-none" id="theme-check-teal"></i>
                             </a>
@@ -1038,9 +1032,9 @@
                             <hr class="dropdown-divider my-1">
                         </li>
                         <li>
-                            <a class="dropdown-item fw-medium d-flex align-items-center justify-content-between py-1.5"
-                                href="#" onclick="changeTheme('monochrome')">
-                                <span><i class="bi bi-circle-fill me-2" style="color: #18181b;"></i>Minimal
+                            <a class="dropdown-item  d-flex align-items-center justify-content-between py-1.5" href="#"
+                                onclick="changeTheme('monochrome')">
+                                <span><i class="bi bi-circle-fill me-2" style="color: #18181b;"></i>
                                     Charcoal</span>
                                 <i class="bi bi-check-lg text-dark palette-check d-none"
                                     id="theme-check-monochrome"></i>
