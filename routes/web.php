@@ -116,6 +116,15 @@ Route::middleware(['app_auth'])->group(function () {
         Route::get('/admin/email-suppressions/import', [EmailSuppressionImportController::class, 'showImportForm'])->name('admin.suppressions.import');
         Route::post('/admin/email-suppressions/import', [EmailSuppressionImportController::class, 'importCsv'])->name('admin.suppressions.import.post');
         Route::get('/admin/email-suppressions/sample-csv', [EmailSuppressionImportController::class, 'downloadSample'])->name('admin.suppressions.sample');
+
+        // Aliases for underscore URL support (/admin/email_suppressions/*)
+        Route::get('/admin/email_suppressions', [EmailSuppressionAdminController::class, 'index']);
+        Route::post('/admin/email_suppressions', [EmailSuppressionAdminController::class, 'store']);
+        Route::post('/admin/email_suppressions/{id}/resubscribe', [EmailSuppressionAdminController::class, 'resubscribe']);
+        Route::get('/admin/email_suppressions/export', [EmailSuppressionAdminController::class, 'export']);
+        Route::get('/admin/email_suppressions/import', [EmailSuppressionImportController::class, 'showImportForm']);
+        Route::post('/admin/email_suppressions/import', [EmailSuppressionImportController::class, 'importCsv']);
+        Route::get('/admin/email_suppressions/sample-csv', [EmailSuppressionImportController::class, 'downloadSample']);
     });
 
     // --- AUTHENTICATED JSON API ENDPOINTS ---

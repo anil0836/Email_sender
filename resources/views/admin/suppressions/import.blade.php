@@ -66,10 +66,25 @@
     </div>
     @endif
 
+    @if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show shadow-sm mb-4" role="alert">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+            <strong class="text-danger">Unable to Process Import</strong>
+        </div>
+        <ul class="mb-0 ps-3 small">
+            @foreach($errors->all() as $err)
+            <li>{{ $err }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    @endif
+
     <!-- Upload Card -->
     <div class="card border shadow-sm mb-4">
         <div class="card-body p-4">
-            <form action="{{ route('admin.suppressions.import.post') }}" method="POST" enctype="multipart/form-data">
+            <form id="suppression-import-form" action="{{ route('admin.suppressions.import.post') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
                 <!-- Dropzone / File Picker Area -->
@@ -94,8 +109,7 @@
                     <a href="{{ route('admin.suppressions.sample') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-filetype-csv me-1"></i> Download Sample CSV Format
                     </a>
-                    <button type="submit" class="btn btn-primary btn-sm px-4"
-                        onclick="this.disabled=true; this.innerHTML='<span class=&quot;spinner-border spinner-border-sm me-1&quot;></span> Processing Import...';">
+                    <button type="submit" id="import-submit-btn" class="btn btn-primary btn-sm px-4">
                         <i class="bi bi-upload me-1"></i> Process & Suppress
                     </button>
                 </div>
@@ -132,4 +146,30 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('extra_scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('suppression-import-form');
+    const btn = document.getElementById('import-submit-btn');
+
+    if (form && btn) {
+        form.addEventListener('submit', function (e) {
+            const fileInput = form.querySelector('input[name="file"]');
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                return;
+            }
+
+            // Update button UI to spinner
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing Import...';
+            
+            // Disable after event dispatch has begun so browser doesn't cancel form POST
+            setTimeout(function () {
+                btn.disabled = true;
+            }, 50);
+        });
+    }
+});
+</script>
 @endsection
