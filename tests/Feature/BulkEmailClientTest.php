@@ -932,6 +932,34 @@ class BulkEmailClientTest extends TestCase
         $this->assertEquals('custom-replies@example.com', $campaign->reply_to);
     }
 
+    public function test_campaign_creation_dynamically_binds_logged_in_user_email_for_reply_to(): void
+    {
+        $user = User::where('role', 'user')->first();
+        $user->update(['email' => 'ben@b2bexportsllc.com']);
+
+        $payload = [
+            'subject' => 'Test Dynamic Reply-To for Ben',
+            'body' => 'Hello from Ben testing dynamic reply-to',
+            'sending_domain' => 'domain.com',
+            'from_address' => 'contact@mailer-b2bexportsllc.com',
+            // Even if an older static default or empty string is passed, dynamic user email must be enforced
+            'reply_to' => 'support@b2bexportsllc.com',
+            'recipient_emails' => ['lead1@proitbuyer.com'],
+        ];
+
+        $res = $this->actingAs($user)
+            ->withSession(['user_id' => $user->id, 'username' => $user->username, 'role' => 'user', 'email' => 'ben@b2bexportsllc.com'])
+            ->postJson('/api/campaign/send', $payload);
+
+        $res->assertStatus(200);
+        $res->assertJson(['success' => true]);
+
+        $campaignId = $res->json('campaign_id');
+        $campaign = Campaign::find($campaignId);
+        $this->assertNotNull($campaign);
+        $this->assertEquals('ben@b2bexportsllc.com', $campaign->reply_to);
+    }
+
     public function test_pabbly_service_payload_includes_reply_to(): void
     {
         config(['pabbly.api_key' => 'test_api_key']);

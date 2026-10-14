@@ -147,7 +147,7 @@ Route::middleware(['app_auth'])->group(function () {
         Route::post('/api/campaign/validate', [CampaignController::class, 'apiValidate'])->name('api.campaign.validate');
         Route::post('/api/campaign/parse-csv', [CampaignController::class, 'apiParseCsv'])->name('api.campaign.parse_csv');
     });
-    Route::middleware(['permission:bulk-mail|bulk-mail.send'])->group(function () {
+    Route::middleware(['permission:bulk-mail|bulk-mail.send|bulk-mail.create|campaign.create'])->group(function () {
         Route::post('/api/campaign/send', [CampaignController::class, 'apiSend'])->name('api.campaign.send');
     });
 

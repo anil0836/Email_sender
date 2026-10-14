@@ -315,21 +315,33 @@ class CampaignController extends Controller
             return response()->json(['error' => 'Unauthenticated.'], 401);
         }
 
-        if (!$user->can('bulk-mail.send') && !$user->can('bulk-mail')) {
+        if (
+            !$user->can('bulk-mail.send') &&
+            !$user->can('bulk-mail') &&
+            !$user->can('campaign.create') &&
+            !$user->can('bulk-mail.create')
+        ) {
             return response()->json(['error' => 'Unauthorized. You do not have permission to send bulk emails.'], 403);
         }
 
         $userId = $user->id;
         $appUsername = $user->username;
         $userRole = $user->role;
+        $userEmail = trim((string) ($user->email ?: session('email')));
 
         $subject = $request->input('subject');
         $body = $request->input('body');
         $sendingDomain = $request->input('sending_domain');
         $fromAddress = $request->input('from_address');
-        $replyTo = trim((string) $request->input('reply_to'));
-        if (empty($replyTo)) {
-            $replyTo = config('pabbly.reply_to', 'support@b2bexportsllc.com');
+        $requestedReplyTo = trim((string) $request->input('reply_to'));
+
+        // Dynamic Reply-To resolution:
+        // For regular users, reply-to dynamically binds to current user's email ID (e.g. ben@b2bexportsllc.com).
+        // Admins can optionally specify a custom reply-to if explicitly provided.
+        if ($userRole === 'admin') {
+            $replyTo = !empty($requestedReplyTo) ? $requestedReplyTo : config('pabbly.reply_to', 'support@b2bexportsllc.com');
+        } else {
+            $replyTo = !empty($userEmail) ? $userEmail : (!empty($requestedReplyTo) ? $requestedReplyTo : config('pabbly.reply_to', 'support@b2bexportsllc.com'));
         }
         $recipientIds = $request->input('recipient_ids', []);
         $recipientEmails = $request->input('recipient_emails', []);
@@ -388,7 +400,7 @@ class CampaignController extends Controller
         }
 
         if (!$replyTo) {
-            $replyTo = config('pabbly.reply_to', 'support@b2bexportsllc.com');
+            $replyTo = !empty($userEmail) ? $userEmail : config('pabbly.reply_to', 'support@b2bexportsllc.com');
         }
 
         // 3. Schedule time validation
@@ -633,6 +645,7 @@ class CampaignController extends Controller
         // 8. Immediately process queued campaign if not scheduled, testing is not active, and campaign is fully approved
         if ($status === 'queued' && !app()->environment('testing') && $campaign->isFullyApproved()) {
             try {
+                @set_time_limit(180);
                 $this->processingService->processQueuedEmails();
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error("[CampaignController] Immediate processing error: " . $e->getMessage());
@@ -696,6 +709,7 @@ class CampaignController extends Controller
                 'campaigns.*',
                 'users.username as creator_username',
                 'users.name as creator_name',
+                'users.email as creator_email',
                 'users.manager_id',
                 'users.emp_id as creator_emp_id',
                 'approvers.username as approver_username',

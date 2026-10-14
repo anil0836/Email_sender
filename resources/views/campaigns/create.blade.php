@@ -626,10 +626,10 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                     class="text-danger">*</span>
                             </label>
                             <input type="email" class="form-control" id="reply-to" name="reply_to"
-                                value="{{ config('pabbly.reply_to', 'support@b2bexportsllc.com') }}"
-                                placeholder="support@b2bexportsllc.com" required>
+                                value="{{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }}"
+                                placeholder="{{ trim(Auth::user()->email ?? session('email', 'support@b2bexportsllc.com')) }}" required>
                             <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
-                                Customer responses will be directed to this inbox (Default: support@b2bexportsllc.com).
+                                Customer responses will be directed to this inbox (Default: {{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }} / support@b2bexportsllc.com).
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -878,7 +878,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         <button type="button" class="btn btn-outline-primary" onclick="openLivePreviewModal()">
                             <i class="bi bi-eye-fill me-1"></i> Preview Email
                         </button>
-                        @can('bulk-mail.send')
+                        @if(auth()->user()->can('bulk-mail.send') || auth()->user()->can('bulk-mail') || auth()->user()->can('campaign.create') || auth()->user()->can('bulk-mail.create'))
                         <button type="button" class="btn btn-primary" onclick="runPreSendValidation()">
                             <i class="bi bi-shield-check me-1"></i> Verify & Dispatch
                         </button>
@@ -887,7 +887,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                             title="You do not have permission to dispatch bulk campaigns.">
                             <i class="bi bi-shield-lock me-1"></i> Dispatch Restricted
                         </button>
-                        @endcan
+                        @endif
                     </div>
                 </form>
             </div>
@@ -976,7 +976,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 <!-- Final send actions -->
                 <div class="d-flex justify-content-end gap-2 align-items-center pt-2.5 border-top">
                     <button class="btn btn-outline-secondary btn-sm" onclick="hideValidationSummary()">Cancel</button>
-                    @can('bulk-mail.send')
+                    @if(auth()->user()->can('bulk-mail.send') || auth()->user()->can('bulk-mail') || auth()->user()->can('campaign.create') || auth()->user()->can('bulk-mail.create'))
                     <button class="btn btn-primary btn-sm" id="btn-submit-send" onclick="submitCampaign()">
                         <i class="bi bi-send-fill"></i> Confirm Dispatch
                     </button>
@@ -984,7 +984,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                     <button class="btn btn-secondary btn-sm" disabled>
                         <i class="bi bi-shield-lock"></i> Dispatch Restricted
                     </button>
-                    @endcan
+                    @endif
                 </div>
             </div>
         </div>
@@ -1185,7 +1185,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         </div>
                         <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;"
                             id="prev_reply_to_field">
-                            support@b2bexportsllc.com</div>
+                            {{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }}</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1">
                         <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">TO:
@@ -2411,7 +2411,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         const fromAddressEl = document.getElementById('from-address');
         const from_address = (fromAddressEl && fromAddressEl.value.trim()) ? fromAddressEl.value.trim() : '{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}';
         const replyToEl = document.getElementById('reply-to');
-        const reply_to = (replyToEl && replyToEl.value.trim()) ? replyToEl.value.trim() : 'support@b2bexportsllc.com';
+        const defaultUserReplyTo = @json(trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))));
+        const reply_to = (replyToEl && replyToEl.value.trim()) ? replyToEl.value.trim() : defaultUserReplyTo;
         const body = getCampaignBodyContent();
         const scheduled_at = document.getElementById('schedule-datetime').value || null;
         const templateId = document.getElementById('template-select').value || null;
@@ -2836,7 +2837,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         const recipientId = document.getElementById('prev_recipient_select').value || null;
 
         document.getElementById('prev_from_field').textContent = document.getElementById('from-address').value || '{{ config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com') }}';
-        const replyToVal = (document.getElementById('reply-to') ? document.getElementById('reply-to').value.trim() : '') || 'support@b2bexportsllc.com';
+        const defaultUserReplyTo = @json(trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))));
+        const replyToVal = (document.getElementById('reply-to') ? document.getElementById('reply-to').value.trim() : '') || defaultUserReplyTo;
         const prevReplyTo = document.getElementById('prev_reply_to_field');
         if (prevReplyTo) {
             prevReplyTo.textContent = replyToVal;

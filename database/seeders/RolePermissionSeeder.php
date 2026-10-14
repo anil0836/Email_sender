@@ -67,7 +67,7 @@ class RolePermissionSeeder extends Seeder
 
         // 5. Default baseline permissions for Manager, Line Manager & Employee (fully customizable/revocable by Admin)
         // Manager by default has bulk-mail, team campaigns, signatures, and inbound replies
-        if ($managerRole->permissions()->count() === 0) {
+        if (!$managerRole->hasPermissionTo('bulk-mail')) {
             $managerRole->givePermissionTo([
                 'bulk-mail',
                 'bulk-mail.view',
@@ -81,7 +81,7 @@ class RolePermissionSeeder extends Seeder
         }
 
         // Line Manager by default has bulk-mail, team campaigns, signatures, and inbound replies
-        if ($lineManagerRole->permissions()->count() === 0) {
+        if (!$lineManagerRole->hasPermissionTo('bulk-mail')) {
             $lineManagerRole->givePermissionTo([
                 'bulk-mail',
                 'bulk-mail.view',
@@ -95,7 +95,7 @@ class RolePermissionSeeder extends Seeder
         }
 
         // Employee by default has bulk-mail, signatures, and templates (Bulk mail is configurable & revocable by Admin!)
-        if ($employeeRole->permissions()->count() === 0) {
+        if (!$employeeRole->hasPermissionTo('bulk-mail')) {
             $employeeRole->givePermissionTo([
                 'bulk-mail',
                 'bulk-mail.view',

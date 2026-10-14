@@ -167,7 +167,7 @@ class PabblyService
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-            ])->timeout(30)->post("{$this->baseUrl}/campaigns", $campaignPayload);
+            ])->timeout(60)->post("{$this->baseUrl}/campaigns", $campaignPayload);
 
             if ($createResponse->successful()) {
                 $createData = $createResponse->json();
@@ -216,7 +216,7 @@ class PabblyService
             'Authorization' => 'Bearer ' . $this->apiKey,
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
-        ])->timeout(30)->post("{$this->baseUrl}/campaigns/send-to-individual", $sendPayload);
+        ])->timeout(60)->post("{$this->baseUrl}/campaigns/send-to-individual", $sendPayload);
 
         if (!$sendResponse->successful()) {
             $err = $sendResponse->json('message') ?? $sendResponse->json('error') ?? $sendResponse->body();

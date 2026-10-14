@@ -192,7 +192,7 @@ $unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
                 // Send via Pabbly if configured, or simulate if testing
                 if (!empty($pabblyApiKey) && !app()->environment('testing')) {
                     try {
-                        $replyToEmail = $campaign->reply_to ?: config('pabbly.reply_to', 'support@b2bexportsllc.com');
+                        $replyToEmail = trim((string) ($campaign->reply_to ?: ($campaign->user?->email ?: config('pabbly.reply_to', 'support@b2bexportsllc.com'))));
                         $pabblyResult = $this->pabblyService->sendEmail(
                             $email,
                             $recipientName,

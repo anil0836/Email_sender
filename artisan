@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
+define('ARTISAN_BINARY', __FILE__);
 
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
