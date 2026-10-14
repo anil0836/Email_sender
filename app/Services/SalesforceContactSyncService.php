@@ -96,11 +96,17 @@ class SalesforceContactSyncService
             if ($latestSuccessful && $latestSuccessful->last_modified_checkpoint) {
                 $checkpointCarbon = Carbon::parse($latestSuccessful->last_modified_checkpoint)->subMinutes(5);
                 $since = $checkpointCarbon->format('Y-m-d\TH:i:s\Z');
+            } else {
+                $maxCreatedAt = DB::table('salesforce_contacts')->max('salesforce_created_at');
+                if ($maxCreatedAt) {
+                    $checkpointCarbon = Carbon::parse($maxCreatedAt)->subMinutes(5);
+                    $since = $checkpointCarbon->format('Y-m-d\TH:i:s\Z');
+                }
             }
         }
 
-        // 3. Build Command Arguments
-        $command = ['node', $scriptPath, '--object', 'Contact'];
+        // 3. Build Command Arguments (Fetch only newly created records)
+        $command = ['node', $scriptPath, '--object', 'Contact', '--created-only'];
         if ($todayOnly) {
             $command[] = '--today';
         } elseif ($since) {
@@ -260,7 +266,7 @@ class SalesforceContactSyncService
                 'failed' => $processStats['failed'],
                 'duration_seconds' => $durationSeconds,
                 'last_checkpoint' => $newCheckpoint,
-                'message' => "Successfully imported {$processStats['created']} new contacts and updated {$processStats['updated']} contacts from Salesforce ({$totalFetched} records fetched).",
+                'message' => "Successfully imported {$processStats['created']} new contacts from Salesforce ({$totalFetched} fetched, {$processStats['skipped']} skipped/existing).",
             ];
 
         } catch (\Throwable $e) {
@@ -401,18 +407,15 @@ class SalesforceContactSyncService
                 }
             }
 
-            $existingContacts = !empty($salesforceIds)
+            $existingSalesforceIds = !empty($salesforceIds)
                 ? DB::table('salesforce_contacts')
                     ->whereIn('salesforce_id', $salesforceIds)
-                    ->get([
-                        'id', 'salesforce_id', 'owner_id', 'prime_owner_id',
-                        'owner_verification_status', 'previous_owner_id',
-                        'salesforce_sf_user_id', 'created_at', 'updated_at'
-                    ])
-                    ->keyBy('salesforce_id')
-                : collect();
+                    ->pluck('salesforce_id')
+                    ->flip()
+                    ->toArray()
+                : [];
 
-            $recordsToUpsert = [];
+            $recordsToInsert = [];
 
             $truncate = static function (?string $value, int $maxLength): ?string {
                 if ($value === null) {
@@ -439,6 +442,13 @@ class SalesforceContactSyncService
             foreach ($chunk as $rec) {
                 $sfId = $truncate((string)($rec['salesforce_id'] ?? ''), 50);
                 if (empty($sfId)) {
+                    $stats['skipped']++;
+                    continue;
+                }
+
+                // Check for duplicate: Skip records that already exist in the Laravel database
+                // Never update, overwrite, or delete existing records
+                if (isset($existingSalesforceIds[$sfId])) {
                     $stats['skipped']++;
                     continue;
                 }
@@ -488,24 +498,6 @@ class SalesforceContactSyncService
                     $ownerEmail = $standardUsersMap[$incomingOwnerId] ?? null;
                 }
 
-                $verificationStatus = 'verified';
-                $previousOwnerId = null;
-
-                $isExisting = isset($existingContacts[$sfId]);
-                if ($isExisting) {
-                    $existing = $existingContacts[$sfId];
-                    if ($existing->owner_id && $incomingOwnerId && $existing->owner_id !== $incomingOwnerId) {
-                        $verificationStatus = 'changed';
-                        $previousOwnerId = $truncate($existing->owner_id, 50);
-                    } else {
-                        $verificationStatus = $existing->owner_verification_status ?: 'verified';
-                        $previousOwnerId = $truncate($existing->previous_owner_id, 50);
-                    }
-                    $stats['updated']++;
-                } else {
-                    $stats['created']++;
-                }
-
                 $contactData = [
                     'salesforce_id' => $sfId,
                     'account_id' => $truncate($rec['account_id'] ?? null, 50),
@@ -532,59 +524,36 @@ class SalesforceContactSyncService
                     'Custom_Owner__c' => $truncate($rawCustomOwner, 255),
                     'owner_name' => $truncate($ownerName, 255),
                     'owner_email' => $truncate($ownerEmail, 255),
-                    'owner_verification_status' => $truncate($verificationStatus, 50),
+                    'owner_verification_status' => 'verified',
                     'last_owner_verified_at' => $now->toDateTimeString(),
-                    'previous_owner_id' => $previousOwnerId,
+                    'previous_owner_id' => null,
                     'salesforce_created_at' => $parseDate($rec['salesforce_created_at'] ?? null),
                     'salesforce_updated_at' => $parseDate($rec['salesforce_updated_at'] ?? null),
                     'synced_at' => $now->toDateTimeString(),
-                    'created_at' => $isExisting ? ($existingContacts[$sfId]->created_at ?? $now->toDateTimeString()) : $now->toDateTimeString(),
+                    'created_at' => $now->toDateTimeString(),
                     'updated_at' => $now->toDateTimeString(),
                 ];
 
-                $recordsToUpsert[$sfId] = $contactData;
+                $recordsToInsert[$sfId] = $contactData;
+                $stats['created']++;
             }
 
-            $upsertColumns = [
-                'account_id', 'first_name', 'last_name', 'name', 'title',
-                'department', 'Deal_Category__c', 'email', 'phone', 'mobile_phone', 'lead_source',
-                'mailing_street', 'mailing_city', 'mailing_state',
-                'mailing_postal_code', 'mailing_country', 'Region_Acc__c', 'owner_id',
-                'prime_owner_id', 'salesforce_sf_user_id', 'secondary_owner', 'Custom_Owner__c',
-                'owner_name', 'owner_email', 'owner_verification_status',
-                'last_owner_verified_at', 'previous_owner_id',
-                'salesforce_created_at', 'salesforce_updated_at',
-                'synced_at', 'updated_at'
-            ];
-
-            if (!empty($recordsToUpsert)) {
-                DB::table('salesforce_contacts')->upsert(
-                    array_values($recordsToUpsert),
-                    ['salesforce_id'],
-                    $upsertColumns
-                );
+            if (!empty($recordsToInsert)) {
+                DB::table('salesforce_contacts')->insertOrIgnore(array_values($recordsToInsert));
             }
 
             DB::commit();
         } catch (\Throwable $chunkEx) {
             DB::rollBack();
-            Log::warning('Error during Salesforce contact chunk upsert, falling back to individual record upserts: ' . $chunkEx->getMessage());
+            Log::warning('Error during Salesforce contact chunk insert, falling back to individual inserts: ' . $chunkEx->getMessage());
 
-            foreach ($recordsToUpsert as $sfId => $contactData) {
+            foreach ($recordsToInsert as $sfId => $contactData) {
                 try {
-                    DB::table('salesforce_contacts')->upsert(
-                        [$contactData],
-                        ['salesforce_id'],
-                        $upsertColumns
-                    );
+                    DB::table('salesforce_contacts')->insertOrIgnore([$contactData]);
                 } catch (\Throwable $singleEx) {
                     $stats['failed']++;
-                    if (isset($existingContacts[$sfId])) {
-                        $stats['updated'] = max(0, $stats['updated'] - 1);
-                    } else {
-                        $stats['created'] = max(0, $stats['created'] - 1);
-                    }
-                    Log::error("Failed to upsert single contact record [{$sfId}]: " . $singleEx->getMessage());
+                    $stats['created'] = max(0, $stats['created'] - 1);
+                    Log::error("Failed to insert single contact record [{$sfId}]: " . $singleEx->getMessage());
                 }
             }
         }

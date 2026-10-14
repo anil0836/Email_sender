@@ -104,11 +104,17 @@ class SalesforceLeadSyncService
                 // Buffer by 5 minutes to avoid missing records near boundary
                 $checkpointCarbon = Carbon::parse($latestSuccessful->last_modified_checkpoint)->subMinutes(5);
                 $since = $checkpointCarbon->format('Y-m-d\TH:i:s\Z');
+            } else {
+                $maxCreatedAt = DB::table('salesforce_leads')->max('salesforce_created_at');
+                if ($maxCreatedAt) {
+                    $checkpointCarbon = Carbon::parse($maxCreatedAt)->subMinutes(5);
+                    $since = $checkpointCarbon->format('Y-m-d\TH:i:s\Z');
+                }
             }
         }
 
-        // 3. Build Command Arguments
-        $command = ['node', $scriptPath, '--object', 'Lead'];
+        // 3. Build Command Arguments (Fetch only newly created records)
+        $command = ['node', $scriptPath, '--object', 'Lead', '--created-only'];
         if ($todayOnly) {
             $command[] = '--today';
         } elseif ($since) {
@@ -279,7 +285,7 @@ class SalesforceLeadSyncService
                 'owners_not_mapped' => $processStats['owners_not_mapped'],
                 'duration_seconds' => $durationSeconds,
                 'last_checkpoint' => $newCheckpoint,
-                'message' => "Successfully imported {$processStats['created']} new leads and updated {$processStats['updated']} leads from Salesforce ({$totalFetched} records fetched, {$processStats['owners_mapped']} owners mapped).",
+                'message' => "Successfully imported {$processStats['created']} new leads from Salesforce ({$totalFetched} fetched, {$processStats['skipped']} skipped/existing, {$processStats['owners_mapped']} owners mapped).",
             ];
 
         } catch (\Throwable $e) {
@@ -425,21 +431,15 @@ class SalesforceLeadSyncService
                 }
             }
 
-            $existingLeads = !empty($salesforceIds)
+            $existingSalesforceIds = !empty($salesforceIds)
                 ? DB::table('salesforce_leads')
                     ->whereIn('salesforce_id', $salesforceIds)
-                    ->get([
-                        'id', 'salesforce_id', 'owner_id', 'prime_owner_id',
-                        'salesforce_sf_user_id', 'owner_name', 'owner_email',
-                        'owner_verification_status', 'previous_owner_id',
-                        'custom_owner', 'Custom_Owner__c', 'Deal_Category__c',
-                        'created_at', 'updated_at'
-                    ])
-                    ->keyBy('salesforce_id')
-                : collect();
+                    ->pluck('salesforce_id')
+                    ->flip()
+                    ->toArray()
+                : [];
 
-            $convertedIdsToDelete = [];
-            $recordsToUpsert = [];
+            $recordsToInsert = [];
 
             $truncate = static function (?string $value, int $maxLength, bool $trim = true): ?string {
                 if ($value === null) {
@@ -472,13 +472,17 @@ class SalesforceLeadSyncService
                     continue;
                 }
 
-                // Enforce IsConverted = false: if IsConverted is true, do not store it as a lead
+                // Check for duplicate: Skip records that already exist in the Laravel database
+                // Never update, overwrite, or delete existing records
+                if (isset($existingSalesforceIds[$sfId])) {
+                    $stats['skipped']++;
+                    continue;
+                }
+
+                // Enforce IsConverted = false: if IsConverted is true, do not insert as a new lead
                 $isConverted = $rec['is_converted'] ?? $rec['IsConverted'] ?? false;
                 if ($isConverted === true || $isConverted === 'true' || $isConverted === 1 || $isConverted === '1') {
                     $stats['skipped']++;
-                    if (isset($existingLeads[$sfId])) {
-                        $convertedIdsToDelete[] = $sfId;
-                    }
                     continue;
                 }
 
@@ -531,49 +535,7 @@ class SalesforceLeadSyncService
                     $ownerEmail = $standardUsersMap[$incomingOwnerId] ?? null;
                 }
 
-                $verificationStatus = 'verified';
-                $previousOwnerId = null;
-
-                $isExisting = isset($existingLeads[$sfId]);
-                if ($isExisting) {
-                    $existing = $existingLeads[$sfId];
-                    if ($existing->owner_id && $incomingOwnerId && $existing->owner_id !== $incomingOwnerId) {
-                        $verificationStatus = 'changed';
-                        $previousOwnerId = $truncate($existing->owner_id, 50);
-                    } else {
-                        $verificationStatus = $existing->owner_verification_status ?: 'verified';
-                        $previousOwnerId = $truncate($existing->previous_owner_id, 50);
-                    }
-
-                    // Priority 3 preservation: If incoming Custom_Owner__c is null, preserve existing owner mapping/fallback
-                    if ($rawCustomOwner === null) {
-                        $rawCustomOwner = $existing->Custom_Owner__c ?: $existing->custom_owner;
-                        if ($salesforceSfUserId === null && $existing->salesforce_sf_user_id) {
-                            $salesforceSfUserId = $existing->salesforce_sf_user_id;
-                        }
-                        if (empty($ownerName) && $existing->owner_name) {
-                            $ownerName = $existing->owner_name;
-                        }
-                        if (empty($ownerEmail) && $existing->owner_email) {
-                            $ownerEmail = $existing->owner_email;
-                        }
-                        if (empty($incomingPrimeOwnerId) && $existing->prime_owner_id) {
-                            $incomingPrimeOwnerId = $truncate($existing->prime_owner_id, 50);
-                        }
-                        if (empty($incomingOwnerId) && $existing->owner_id) {
-                            $incomingOwnerId = $truncate($existing->owner_id, 50);
-                        }
-                    }
-                    $stats['updated']++;
-                } else {
-                    $stats['created']++;
-                }
-
-                // Deal_Category__c resolution: retrieve from Deal_Category__c or deal_category
                 $dealCategory = $rec['Deal_Category__c'] ?? $rec['deal_category'] ?? null;
-                if (($dealCategory === null || $dealCategory === '') && $isExisting && !empty($existingLeads[$sfId]->Deal_Category__c)) {
-                    $dealCategory = $existingLeads[$sfId]->Deal_Category__c;
-                }
 
                 $leadData = [
                     'salesforce_id' => $sfId,
@@ -604,71 +566,36 @@ class SalesforceLeadSyncService
                     'Custom_Owner__c' => $truncate($rawCustomOwner, 255, false),
                     'owner_name' => $truncate($ownerName, 255),
                     'owner_email' => $truncate($ownerEmail, 255),
-                    'owner_verification_status' => $truncate($verificationStatus, 50),
+                    'owner_verification_status' => 'verified',
                     'last_owner_verified_at' => $now->toDateTimeString(),
-                    'previous_owner_id' => $previousOwnerId,
+                    'previous_owner_id' => null,
                     'salesforce_created_at' => $parseDate($rec['salesforce_created_at'] ?? null),
                     'salesforce_updated_at' => $parseDate($rec['salesforce_updated_at'] ?? null),
                     'synced_at' => $now->toDateTimeString(),
-                    'created_at' => $isExisting ? ($existingLeads[$sfId]->created_at ?? $now->toDateTimeString()) : $now->toDateTimeString(),
+                    'created_at' => $now->toDateTimeString(),
                     'updated_at' => $now->toDateTimeString(),
                 ];
 
-                $recordsToUpsert[$sfId] = $leadData;
+                $recordsToInsert[$sfId] = $leadData;
+                $stats['created']++;
             }
 
-            $upsertColumns = [
-                'first_name', 'last_name', 'name', 'company', 'title', 'email',
-                'phone', 'mobile_phone', 'website', 'lead_source', 'industry',
-                'Deal_Category__c', 'status', 'is_converted', 'street', 'city',
-                'state', 'postal_code', 'country', 'owner_id', 'prime_owner_id',
-                'salesforce_sf_user_id', 'secondary_owner', 'custom_owner',
-                'Custom_Owner__c', 'owner_name', 'owner_email',
-                'owner_verification_status', 'last_owner_verified_at',
-                'previous_owner_id', 'salesforce_created_at',
-                'salesforce_updated_at', 'synced_at', 'updated_at'
-            ];
-
-            if (!empty($convertedIdsToDelete)) {
-                DB::table('salesforce_leads')->whereIn('salesforce_id', $convertedIdsToDelete)->delete();
-            }
-
-            if (!empty($recordsToUpsert)) {
-                DB::table('salesforce_leads')->upsert(
-                    array_values($recordsToUpsert),
-                    ['salesforce_id'],
-                    $upsertColumns
-                );
+            if (!empty($recordsToInsert)) {
+                DB::table('salesforce_leads')->insertOrIgnore(array_values($recordsToInsert));
             }
 
             DB::commit();
         } catch (\Throwable $chunkEx) {
             DB::rollBack();
-            Log::warning('Error during Salesforce lead chunk upsert, falling back to individual record upserts: ' . $chunkEx->getMessage());
+            Log::warning('Error during Salesforce lead chunk insert, falling back to individual inserts: ' . $chunkEx->getMessage());
 
-            if (!empty($convertedIdsToDelete)) {
+            foreach ($recordsToInsert as $sfId => $leadData) {
                 try {
-                    DB::table('salesforce_leads')->whereIn('salesforce_id', $convertedIdsToDelete)->delete();
-                } catch (\Throwable $delEx) {
-                    Log::warning('Error deleting converted leads during fallback: ' . $delEx->getMessage());
-                }
-            }
-
-            foreach ($recordsToUpsert as $sfId => $leadData) {
-                try {
-                    DB::table('salesforce_leads')->upsert(
-                        [$leadData],
-                        ['salesforce_id'],
-                        $upsertColumns
-                    );
+                    DB::table('salesforce_leads')->insertOrIgnore([$leadData]);
                 } catch (\Throwable $singleEx) {
                     $stats['failed']++;
-                    if (isset($existingLeads[$sfId])) {
-                        $stats['updated'] = max(0, $stats['updated'] - 1);
-                    } else {
-                        $stats['created'] = max(0, $stats['created'] - 1);
-                    }
-                    Log::error("Failed to upsert single lead record [{$sfId}]: " . $singleEx->getMessage());
+                    $stats['created'] = max(0, $stats['created'] - 1);
+                    Log::error("Failed to insert single lead record [{$sfId}]: " . $singleEx->getMessage());
                 }
             }
         }

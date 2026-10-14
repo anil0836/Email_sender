@@ -10,23 +10,23 @@ Artisan::command('inspire', function () {
 
 Schedule::command('email:process-queue')->everyMinute();
 
-// Salesforce Leads Synchronization (every 15 minutes, non-overlapping)
+// Salesforce Leads Synchronization (every 5 minutes, non-overlapping)
 Schedule::command('salesforce:sync-leads')
-    ->everyFifteenMinutes()
+    ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();
 
-// Salesforce Contacts Synchronization (every 30 minutes, non-overlapping)
+// Salesforce Contacts Synchronization (every 5 minutes, non-overlapping)
 Schedule::command('salesforce:sync-contacts')
-    ->everyThirtyMinutes()
+    ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();
 
-// Salesforce Accounts Synchronization (hourly, non-overlapping)
-Schedule::command('salesforce:sync-accounts')
-    ->hourly()
-    ->withoutOverlapping()
-    ->runInBackground();
+// Salesforce Accounts Synchronization (Disabled per scope: Leads and Contacts only)
+// Schedule::command('salesforce:sync-accounts')
+//     ->hourly()
+//     ->withoutOverlapping()
+//     ->runInBackground();
 
 // Salesforce Users Synchronization (daily at 02:00, non-overlapping)
 Schedule::command('salesforce:sync-users')

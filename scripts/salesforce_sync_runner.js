@@ -16,6 +16,7 @@ function parseArgs() {
         today: false,
         order: 'DESC',
         outputFile: null,
+        createdOnly: false,
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -30,6 +31,8 @@ function parseArgs() {
             i++;
         } else if (args[i] === '--full') {
             params.full = true;
+        } else if (args[i] === '--created-only') {
+            params.createdOnly = true;
         } else if (args[i] === '--today' || args[i] === '--from-today') {
             params.today = true;
         } else if (args[i] === '--order' && args[i + 1]) {
@@ -249,7 +252,7 @@ OBJECT_CONFIGS['SF_User'] = OBJECT_CONFIGS['SF_User__c'];
 OBJECT_CONFIGS['Sf_User'] = OBJECT_CONFIGS['SF_User__c'];
 
 async function main() {
-    const { object, since, limit, full, today, order, outputFile } = parseArgs();
+    const { object, since, limit, full, today, order, outputFile, createdOnly } = parseArgs();
 
     let config = OBJECT_CONFIGS[object];
     if (!config) {
@@ -287,15 +290,17 @@ async function main() {
 
         await conn.login(username.trim(), password.trim());
 
+        const dateField = createdOnly ? 'CreatedDate' : 'LastModifiedDate';
+
         let whereConditions = [];
         if (config.sfObjectName === 'Lead') {
             whereConditions.push('IsConverted = false');
         }
         if (today) {
-            whereConditions.push('LastModifiedDate >= TODAY');
+            whereConditions.push(`${dateField} >= TODAY`);
         } else if (!full && since) {
             const cleanSince = since.includes('T') ? since : `${since}T00:00:00Z`;
-            whereConditions.push(`LastModifiedDate > ${cleanSince}`);
+            whereConditions.push(`${dateField} > ${cleanSince}`);
         }
         const whereClause = whereConditions.length > 0 ? ` WHERE ${whereConditions.join(' AND ')}` : '';
 
@@ -322,16 +327,17 @@ async function main() {
         let maxLastModified = null;
 
         async function executeQuery(fields) {
-            const soql = `SELECT ${fields.join(', ')} FROM ${sfObj}${whereClause} ORDER BY LastModifiedDate ${sortOrder}${limitClause}`.trim();
+            const soql = `SELECT ${fields.join(', ')} FROM ${sfObj}${whereClause} ORDER BY ${dateField} ${sortOrder}${limitClause}`.trim();
             
             return new Promise((resolve, reject) => {
                 conn.query(soql)
                     .on('record', (r) => {
                         const mapped = config.mapRecord(r);
 
-                        if (r.LastModifiedDate) {
-                            if (!maxLastModified || r.LastModifiedDate > maxLastModified) {
-                                maxLastModified = r.LastModifiedDate;
+                        const recordDate = createdOnly ? (r.CreatedDate || r.LastModifiedDate) : r.LastModifiedDate;
+                        if (recordDate) {
+                            if (!maxLastModified || recordDate > maxLastModified) {
+                                maxLastModified = recordDate;
                             }
                         }
 
