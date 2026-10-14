@@ -283,9 +283,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-category" aria-labelledby="btn-filter-category"
                                                     style="max-height: 260px; overflow-y: auto;">
-                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()">
-                                                        <input type="text" class="form-control form-control-sm" placeholder="Search categories..."
+                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                                                        <input type="text" id="search-filter-category" class="form-control form-control-sm" placeholder="Search categories..."
+                                                            autocomplete="off"
+                                                            oninput="filterDropdownMenuOptions(this, 'menu-filter-category', '.filter-category-item')"
                                                             onkeyup="filterDropdownMenuOptions(this, 'menu-filter-category', '.filter-category-item')"
+                                                            onkeydown="event.stopPropagation()"
                                                             style="font-size: 0.78rem;">
                                                     </div>
                                                     <div class="category-options-list">
@@ -306,6 +309,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                             <div class="text-zinc-400 p-2 text-center empty-category-msg" style="font-size: 0.8125rem;">Loading categories...</div>
                                                         @endforelse
                                                     </div>
+                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none" style="font-size: 0.8125rem; display: none !important;">No matching options found</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -324,9 +328,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-region" aria-labelledby="btn-filter-region"
                                                     style="max-height: 260px; overflow-y: auto;">
-                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()">
-                                                        <input type="text" class="form-control form-control-sm" placeholder="Search regions..."
+                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                                                        <input type="text" id="search-filter-region" class="form-control form-control-sm" placeholder="Search regions..."
+                                                            autocomplete="off"
+                                                            oninput="filterDropdownMenuOptions(this, 'menu-filter-region', '.filter-region-item')"
                                                             onkeyup="filterDropdownMenuOptions(this, 'menu-filter-region', '.filter-region-item')"
+                                                            onkeydown="event.stopPropagation()"
                                                             style="font-size: 0.78rem;">
                                                     </div>
                                                     <div class="region-options-list">
@@ -347,6 +354,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                             <div class="text-zinc-400 p-2 text-center empty-region-msg" style="font-size: 0.8125rem;">Loading regions...</div>
                                                         @endforelse
                                                     </div>
+                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none" style="font-size: 0.8125rem; display: none !important;">No matching options found</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -365,9 +373,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-country" aria-labelledby="btn-filter-country"
                                                     style="max-height: 260px; overflow-y: auto;">
-                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()">
-                                                        <input type="text" class="form-control form-control-sm" placeholder="Search countries..."
+                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                                                        <input type="text" id="search-filter-country" class="form-control form-control-sm" placeholder="Search countries..."
+                                                            autocomplete="off"
+                                                            oninput="filterDropdownMenuOptions(this, 'menu-filter-country', '.filter-country-item')"
                                                             onkeyup="filterDropdownMenuOptions(this, 'menu-filter-country', '.filter-country-item')"
+                                                            onkeydown="event.stopPropagation()"
                                                             style="font-size: 0.78rem;">
                                                     </div>
                                                     <div class="country-options-list">
@@ -389,6 +400,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                             <div class="text-zinc-400 p-2 text-center empty-country-msg" style="font-size: 0.8125rem;">Loading countries...</div>
                                                         @endforelse
                                                     </div>
+                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none" style="font-size: 0.8125rem; display: none !important;">No matching options found</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1814,14 +1826,52 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
      * Filter dropdown items locally by typing in the search box
      */
     function filterDropdownMenuOptions(input, menuId, itemSelector) {
-        const query = (input.value || '').trim().toLowerCase();
-        const menu = document.getElementById(menuId);
+        if (!input) return;
+        const inputEl = (typeof input === 'string') ? document.getElementById(input) : input;
+        if (!inputEl) return;
+
+        const query = (inputEl.value || '').trim().toLowerCase();
+        const menu = (typeof menuId === 'string') ? document.getElementById(menuId) : menuId;
         if (!menu) return;
+
         const items = menu.querySelectorAll(itemSelector);
+        let matchCount = 0;
+
         items.forEach(item => {
-            const text = (item.textContent || '').trim().toLowerCase();
-            item.style.display = (!query || text.includes(query)) ? '' : 'none';
+            const labelEl = item.querySelector('label');
+            const cb = item.querySelector('input[type="checkbox"]');
+            const labelText = labelEl ? (labelEl.textContent || '') : '';
+            const itemText = item.textContent || '';
+            const cbVal = cb ? (cb.value || '') : '';
+            const dataLabel = cb ? (cb.getAttribute('data-label') || '') : '';
+            const dataCode = cb ? (cb.getAttribute('data-code') || '') : '';
+
+            const combinedText = `${labelText} ${itemText} ${cbVal} ${dataLabel} ${dataCode}`.toLowerCase();
+            const matches = !query || combinedText.includes(query);
+
+            if (matches) {
+                matchCount++;
+                item.classList.remove('d-none');
+                item.classList.add('d-flex');
+                item.style.removeProperty('display');
+            } else {
+                item.classList.add('d-none');
+                item.classList.remove('d-flex');
+                item.style.setProperty('display', 'none', 'important');
+            }
         });
+
+        // Toggle "No matching options found" empty state message
+        const noMatchMsg = menu.querySelector('.no-matching-options-msg');
+        if (noMatchMsg) {
+            if (query && matchCount === 0 && items.length > 0) {
+                noMatchMsg.classList.remove('d-none');
+                noMatchMsg.style.setProperty('display', 'block', 'important');
+            } else {
+                noMatchMsg.classList.add('d-none');
+                noMatchMsg.style.setProperty('display', 'none', 'important');
+            }
+        }
     }
 
     /**
@@ -2111,6 +2161,14 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 ctyContainer.innerHTML = '<div class="text-zinc-400 p-2 text-center" style="font-size: 0.8125rem;">No active countries</div>';
             }
         }
+
+        // Re-apply any active search filter after options are dynamically rendered
+        const catSearch = document.getElementById('search-filter-category');
+        if (catSearch) filterDropdownMenuOptions(catSearch, 'menu-filter-category', '.filter-category-item');
+        const regSearch = document.getElementById('search-filter-region');
+        if (regSearch) filterDropdownMenuOptions(regSearch, 'menu-filter-region', '.filter-region-item');
+        const ctySearch = document.getElementById('search-filter-country');
+        if (ctySearch) filterDropdownMenuOptions(ctySearch, 'menu-filter-country', '.filter-country-item');
 
         // Re-filter with current checked state
         filterRecipients();
@@ -2969,6 +3027,19 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             menu.addEventListener('click', function (e) {
                 e.stopPropagation();
             });
+        });
+
+        // Autofocus dropdown search input on open
+        ['btn-filter-category', 'btn-filter-region', 'btn-filter-country'].forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn && btn.parentElement) {
+                btn.parentElement.addEventListener('shown.bs.dropdown', function () {
+                    const searchInput = this.querySelector('input[type="text"]');
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                });
+            }
         });
     };
 </script>

@@ -39,8 +39,11 @@ class SalesforceLeadAdminController extends Controller
 
         $customOwner = $request->input('custom_owner');
 
+        $user = $request->user() ?: \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::find(session('user_id'));
+
         $query = SalesforceLead::query()
             ->with(['owner', 'primeOwner', 'salesforceOwner'])
+            ->forUser($user)
             ->search($search)
             ->filterStatus($status)
             ->filterLeadSource($leadSource)
@@ -54,7 +57,7 @@ class SalesforceLeadAdminController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $totalLocalLeads = SalesforceLead::count();
+        $totalLocalLeads = SalesforceLead::forUser($user)->count();
 
         $statuses = SalesforceLead::whereNotNull('status')
             ->where('status', '!=', '')
@@ -105,10 +108,22 @@ class SalesforceLeadAdminController extends Controller
      */
     public function show(Request $request, string|int $id): JsonResponse|View
     {
+        $user = $request->user() ?: \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::find(session('user_id'));
+
         $lead = SalesforceLead::with(['owner', 'primeOwner', 'salesforceOwner', 'campaignMembers.campaign'])
-            ->where('id', is_numeric($id) ? (int)$id : -1)
-            ->orWhere('salesforce_id', $id)
-            ->firstOrFail();
+            ->forUser($user)
+            ->where(function ($q) use ($id) {
+                if (is_numeric($id)) {
+                    $q->where('id', (int)$id)->orWhere('salesforce_id', (string)$id);
+                } else {
+                    $q->where('salesforce_id', (string)$id);
+                }
+            })
+            ->first();
+
+        if (!$lead) {
+            abort(404, 'Lead not found or access denied.');
+        }
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -151,10 +166,11 @@ class SalesforceLeadAdminController extends Controller
     /**
      * API endpoint to get latest synchronization status and stats.
      */
-    public function syncStatus(): JsonResponse
+    public function syncStatus(Request $request): JsonResponse
     {
+        $user = $request->user() ?: \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::find(session('user_id'));
         $latestSync = SalesforceSyncLog::orderByDesc('started_at')->first();
-        $totalLocalLeads = SalesforceLead::count();
+        $totalLocalLeads = SalesforceLead::forUser($user)->count();
 
         return response()->json([
             'latest_sync' => $latestSync,

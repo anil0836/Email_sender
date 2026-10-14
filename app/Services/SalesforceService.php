@@ -274,43 +274,13 @@ class SalesforceService
         $email = $record['email'] ?? '';
 
         // 1. Ownership validation
-        $isOwnerMatch = false;
         $currentUser = User::where('username', $appUsername)->orWhere('email', $appUsername)->first();
-        $ownerId = $record['owner_id'] ?? '';
-        $primeOwnerId = $record['prime_owner_id'] ?? '';
-        $ownerEmail = $record['owner_email'] ?? '';
-
-        if ($ownerId === $appUsername || $ownerEmail === $appUsername) {
-            $isOwnerMatch = true;
-        } elseif ($currentUser) {
-            if ($ownerId === $currentUser->username || $ownerEmail === $currentUser->email) {
-                $isOwnerMatch = true;
-            }
-            // Check if mapped to a SalesforceUser standard ID
-            $sfUser = SalesforceUser::where('salesforce_id', $ownerId)->first();
-            if ($sfUser && ($sfUser->username === $currentUser->username || $sfUser->email === $currentUser->email)) {
-                $isOwnerMatch = true;
-            }
-            // Check if mapped to a SalesforceSfUser custom prime owner
-            $sfCustom = SalesforceSfUser::where('salesforce_id', $primeOwnerId)->first();
-            if ($sfCustom && ($sfCustom->emp_email === $currentUser->email || $sfCustom->emp_code === $currentUser->emp_id)) {
-                $isOwnerMatch = true;
-            }
-            // Check if mapped to a SalesforceSfUser by foreign key
-            if (!empty($record['salesforce_sf_user_id'])) {
-                $sfUserOwner = SalesforceSfUser::find($record['salesforce_sf_user_id']);
-                if ($sfUserOwner && ($sfUserOwner->emp_email === $currentUser->email || $sfUserOwner->emp_code === $currentUser->emp_id)) {
-                    $isOwnerMatch = true;
-                }
-            }
-            // Check if Custom_Owner__c matches current user name or emp_name
-            $customOwnerVal = strtolower(trim((string)($record['custom_owner'] ?? ($record['Custom_Owner__c'] ?? ''))));
-            if (!empty($customOwnerVal) && (strtolower(trim($currentUser->name)) === $customOwnerVal || strtolower(trim($currentUser->username)) === $customOwnerVal)) {
-                $isOwnerMatch = true;
-            }
+        if (!$currentUser) {
+            return [false, 'DIFFERENT_OWNER', $record];
         }
 
-        if (!$isOwnerMatch) {
+        $ownerService = app(\App\Services\SalesforceOwnerService::class);
+        if (!$ownerService->isRecordOwnedByUser($record, $currentUser)) {
             return [false, 'DIFFERENT_OWNER', $record];
         }
 

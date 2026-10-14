@@ -29,8 +29,11 @@ class SalesforceContactAdminController extends Controller
             $perPage = 25;
         }
 
+        $user = $request->user() ?: \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::find(session('user_id'));
+
         $query = SalesforceContact::query()
             ->with(['account', 'owner', 'primeOwner', 'salesforceOwner'])
+            ->forUser($user)
             ->search($search)
             ->filterLeadSource($leadSource)
             ->filterCustomOwner($customOwner)
@@ -43,7 +46,7 @@ class SalesforceContactAdminController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $totalLocalContacts = SalesforceContact::count();
+        $totalLocalContacts = SalesforceContact::forUser($user)->count();
 
         $leadSources = SalesforceContact::whereNotNull('lead_source')
             ->where('lead_source', '!=', '')
@@ -113,12 +116,13 @@ class SalesforceContactAdminController extends Controller
     /**
      * API endpoint to get latest synchronization status and stats for Contacts.
      */
-    public function syncStatus(): JsonResponse
+    public function syncStatus(Request $request): JsonResponse
     {
+        $user = $request->user() ?: \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::find(session('user_id'));
         $latestSync = SalesforceSyncLog::where('object_type', 'Contact')
             ->orderByDesc('started_at')
             ->first();
-        $totalLocalContacts = SalesforceContact::count();
+        $totalLocalContacts = SalesforceContact::forUser($user)->count();
 
         return response()->json([
             'latest_sync' => $latestSync,

@@ -33,14 +33,11 @@ class SimulatorController extends Controller
     public function apiSalesforceRecipients(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
-        $role = $user ? $user->role : 'admin';
-        $username = $user ? $user->username : 'admin';
-
-        if ($role === 'admin') {
-            $records = SalesforceMockRecord::all();
-        } else {
-            $records = SalesforceMockRecord::where('owner_id', $username)->get();
+        if (!$user) {
+            return response()->json([], 401);
         }
+
+        $records = app(\App\Services\SalesforceOwnerService::class)->applyOwnerFilter(SalesforceMockRecord::query(), $user)->get();
 
         return response()->json($records);
     }

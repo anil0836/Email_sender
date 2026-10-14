@@ -749,8 +749,11 @@ class CampaignController extends Controller
     public function apiRecipients(Request $request)
     {
         $user = Auth::user() ?: User::find(session('user_id'));
-        $role = $user ? $user->role : 'admin';
-        $username = $user ? $user->username : 'admin';
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+        $role = $user->role;
+        $username = $user->username;
 
         $type = $request->input('type', 'all');
         $search = $request->input('search');
@@ -760,29 +763,11 @@ class CampaignController extends Controller
 
         // 1. Leads
         if (in_array($type, ['all', 'Lead', 'lead', 'leads'])) {
-            $leadsQuery = SalesforceLead::query()->with(['owner', 'primeOwner', 'salesforceOwner']);
+            $leadsQuery = SalesforceLead::query()
+                ->with(['owner', 'primeOwner', 'salesforceOwner'])
+                ->forUser($user);
             if ($search) {
                 $leadsQuery->search($search);
-            }
-            if ($role !== 'admin') {
-                $userEmail = $user ? $user->email : $username;
-                $leadsQuery->where(function ($q) use ($username, $userEmail) {
-                    $q->where('owner_id', $username)
-                      ->orWhere('owner_email', $userEmail)
-                      ->orWhereHas('owner', function ($oq) use ($username, $userEmail) {
-                          $oq->where('username', $username)->orWhere('email', $userEmail);
-                      })
-                      ->orWhereHas('salesforceOwner', function ($soq) use ($username, $userEmail) {
-                          $soq->where('emp_email', $userEmail)
-                              ->orWhere('name', $username)
-                              ->orWhere('emp_name', $username);
-                      })
-                      ->orWhereHas('primeOwner', function ($poq) use ($username, $userEmail) {
-                          $poq->where('emp_email', $userEmail)
-                              ->orWhere('name', $username)
-                              ->orWhere('emp_name', $username);
-                      });
-                });
             }
 
             $leads = $leadsQuery->orderBy('salesforce_updated_at', 'desc')->limit($limit)->get();
@@ -827,29 +812,11 @@ class CampaignController extends Controller
 
         // 2. Contacts
         if (in_array($type, ['all', 'Contact', 'contact', 'contacts'])) {
-            $contactsQuery = SalesforceContact::query()->with(['owner', 'primeOwner', 'salesforceOwner', 'account']);
+            $contactsQuery = SalesforceContact::query()
+                ->with(['owner', 'primeOwner', 'salesforceOwner', 'account'])
+                ->forUser($user);
             if ($search) {
                 $contactsQuery->search($search);
-            }
-            if ($role !== 'admin') {
-                $userEmail = $user ? $user->email : $username;
-                $contactsQuery->where(function ($q) use ($username, $userEmail) {
-                    $q->where('owner_id', $username)
-                      ->orWhere('owner_email', $userEmail)
-                      ->orWhereHas('owner', function ($oq) use ($username, $userEmail) {
-                          $oq->where('username', $username)->orWhere('email', $userEmail);
-                      })
-                      ->orWhereHas('salesforceOwner', function ($soq) use ($username, $userEmail) {
-                          $soq->where('emp_email', $userEmail)
-                              ->orWhere('name', $username)
-                              ->orWhere('emp_name', $username);
-                      })
-                      ->orWhereHas('primeOwner', function ($poq) use ($username, $userEmail) {
-                          $poq->where('emp_email', $userEmail)
-                              ->orWhere('name', $username)
-                              ->orWhere('emp_name', $username);
-                      });
-                });
             }
 
             $contacts = $contactsQuery->orderBy('salesforce_updated_at', 'desc')->limit($limit)->get();

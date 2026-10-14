@@ -41,7 +41,39 @@ class SalesforceLeadController extends Controller
 
         $offset = ($page - 1) * $perPage;
 
-        $result = $this->leadService->getLeads($perPage, $offset, $search);
+        $user = $request->user() ?: \Illuminate\Support\Facades\Auth::user() ?: \App\Models\User::find(session('user_id'));
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthenticated.',
+                'total' => 0,
+                'limit' => $perPage,
+                'offset' => $offset,
+                'page' => $page,
+                'totalPages' => 1,
+                'records' => [],
+            ], 401);
+        }
+
+        $ownerService = app(\App\Services\SalesforceOwnerService::class);
+        $criteria = $ownerService->resolveOwnerCriteria($user);
+
+        if (!$criteria['valid']) {
+            return response()->json([
+                'success' => true,
+                'total' => 0,
+                'limit' => $perPage,
+                'offset' => $offset,
+                'page' => $page,
+                'totalPages' => 1,
+                'records' => [],
+            ]);
+        }
+
+        $ownerName = $criteria['primary_owner_name'] ?? null;
+        $primeOwnerId = $criteria['prime_owner_ids'][0] ?? null;
+
+        $result = $this->leadService->getLeads($perPage, $offset, $search, $ownerName, $primeOwnerId);
 
         return response()->json($result);
     }

@@ -17,8 +17,21 @@ class SalesforceLeadService
      * @param string $search Optional search query
      * @return array
      */
-    public function getLeads(int $limit = 25, int $offset = 0, string $search = ''): array
+    public function getLeads(int $limit = 25, int $offset = 0, string $search = '', ?string $ownerName = null, ?string $primeOwnerId = null): array
     {
+        // Enforce ownership: If no owner criteria is provided, return empty records safely
+        if (empty(trim((string)$ownerName)) && empty(trim((string)$primeOwnerId))) {
+            return [
+                'success' => true,
+                'total' => 0,
+                'limit' => $limit,
+                'offset' => $offset,
+                'page' => floor($offset / $limit) + 1,
+                'totalPages' => 1,
+                'records' => [],
+            ];
+        }
+
         // Fetch Salesforce credentials securely from server-side config/env
         $loginUrl = (string) (config('services.salesforce.login_url') ?: env('SF_LOGIN_URL', 'https://login.salesforce.com'));
         $username = (string) (config('services.salesforce.username') ?: env('SF_USERNAME', ''));
@@ -54,7 +67,16 @@ class SalesforceLeadService
         }
 
         // Build command arguments
-        $command = ['node', $scriptPath, '--limit', (string) $limit, '--offset', (string) $offset];
+        $nodeBinary = $this->resolveNodeBinary();
+        $command = [$nodeBinary, $scriptPath, '--limit', (string) $limit, '--offset', (string) $offset];
+        if (!empty(trim((string)$ownerName))) {
+            $command[] = '--owner';
+            $command[] = trim($ownerName);
+        }
+        if (!empty(trim((string)$primeOwnerId))) {
+            $command[] = '--prime-owner-id';
+            $command[] = trim($primeOwnerId);
+        }
         if (!empty(trim($search))) {
             $command[] = '--search';
             $command[] = trim($search);

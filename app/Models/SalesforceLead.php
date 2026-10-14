@@ -236,4 +236,12 @@ class SalesforceLead extends Model
     {
         return $query->where('is_converted', false);
     }
+
+    /**
+     * Scope to filter records owned by the authenticated user dynamically.
+     */
+    public function scopeForUser(Builder $query, ?User $user): Builder
+    {
+        return app(\App\Services\SalesforceOwnerService::class)->applyOwnerFilter($query, $user);
+    }
 }

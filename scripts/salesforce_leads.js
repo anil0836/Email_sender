@@ -8,7 +8,9 @@ function parseArgs() {
     const params = {
         limit: 25,
         offset: 0,
-        search: ''
+        search: '',
+        owner: '',
+        primeOwnerId: ''
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -20,6 +22,12 @@ function parseArgs() {
             i++;
         } else if (args[i] === '--search' && args[i + 1]) {
             params.search = args[i + 1].trim();
+            i++;
+        } else if (args[i] === '--owner' && args[i + 1]) {
+            params.owner = args[i + 1].trim();
+            i++;
+        } else if (args[i] === '--prime-owner-id' && args[i + 1]) {
+            params.primeOwnerId = args[i + 1].trim();
             i++;
         }
     }
@@ -59,7 +67,22 @@ function sanitizeErrorMessage(err, loginUrl, username, password) {
 }
 
 async function main() {
-    const { limit, offset, search } = parseArgs();
+    const { limit, offset, search, owner, primeOwnerId } = parseArgs();
+
+    // If no owner is specified, return empty result to guarantee no unauthorized exposure
+    if (!owner && !primeOwnerId) {
+        const response = {
+            success: true,
+            total: 0,
+            limit,
+            offset,
+            page: Math.floor(offset / limit) + 1,
+            totalPages: 1,
+            records: []
+        };
+        console.log(JSON.stringify(response));
+        process.exit(0);
+    }
 
     const loginUrl = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
     const username = process.env.SF_USERNAME || '';
@@ -91,6 +114,20 @@ async function main() {
 
         // Build SOQL Query
         let whereConditions = ['IsConverted = false'];
+
+        // Apply strict ownership filtering
+        if (owner && primeOwnerId) {
+            const escapedOwner = owner.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const escapedPrime = primeOwnerId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            whereConditions.push(`(Custom_Owner__c = '${escapedOwner}' OR Prime_Owner__c = '${escapedPrime}' OR (Custom_Owner__c = NULL AND Owner.Name = '${escapedOwner}'))`);
+        } else if (owner) {
+            const escapedOwner = owner.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            whereConditions.push(`(Custom_Owner__c = '${escapedOwner}' OR (Custom_Owner__c = NULL AND Owner.Name = '${escapedOwner}'))`);
+        } else if (primeOwnerId) {
+            const escapedPrime = primeOwnerId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            whereConditions.push(`Prime_Owner__c = '${escapedPrime}'`);
+        }
+
         if (search) {
             // Escape single quotes for SOQL injection prevention
             const escapedSearch = search.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
