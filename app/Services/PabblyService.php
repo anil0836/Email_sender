@@ -21,7 +21,10 @@ class PabblyService
     public function __construct()
     {
         $this->apiKey = config('pabbly.api_key', '');
-        $this->baseUrl = config('pabbly.base_url', 'https://emails.pabbly.com/api/v2');
+        $rawUrl = (string) config('pabbly.base_url', 'https://emails.pabbly.com/api/v2');
+        $cleanUrl = trim(rtrim(trim($rawUrl), ';/ '));
+        $cleanUrl = preg_replace('#/campaigns(/send-to-individual)?/?$#i', '', $cleanUrl);
+        $this->baseUrl = !empty($cleanUrl) ? $cleanUrl : 'https://emails.pabbly.com/api/v2';
         $this->deliveryServerId = config('pabbly.delivery_server_id', 'send-with-us');
         $this->fromEmail = config('pabbly.from_email', 'contact@mailer-b2bexportsllc.com');
         $this->fromName = config('pabbly.from_name', 'anil patel');

@@ -184,7 +184,23 @@ $unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
                 $pixelTag = '<img src="' . $pixelUrl . '" width="1" height="1" alt="" style="display:none;" />';
                 $unsubFooter = '<p style="font-size: 11px; color: #64748b; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px;">This email was sent to ' . e($email) . '. If you wish to unsubscribe, please <a href="' . $unsubUrl . '">click here</a>.</p>';
 
-                $finalBody = $personalizedBody . $unsubFooter . $pixelTag;
+                // Build attachment download block if campaign has attached files
+                $attachmentHtml = '';
+                if (!empty($campaign->attachments)) {
+                    $attachmentList = is_string($campaign->attachments) ? json_decode($campaign->attachments, true) : $campaign->attachments;
+                    if (is_array($attachmentList) && !empty($attachmentList)) {
+                        $attachmentLinks = [];
+                        foreach ($attachmentList as $filename) {
+                            $encoded = rawurlencode($filename);
+                            $downloadUrl = "{$baseUrl}/download/attachment/{$campaign->id}/{$encoded}";
+                            $safeFilename = htmlspecialchars($filename, ENT_QUOTES, 'UTF-8');
+                            $attachmentLinks[] = '<li style="margin: 4px 0;"><a href="' . $downloadUrl . '" style="color: #2563eb; text-decoration: underline; font-weight: 500;" target="_blank">📎 ' . $safeFilename . '</a></li>';
+                        }
+                        $attachmentHtml = '<div style="margin-top: 20px; padding: 12px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;"><p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #334155;">Attachments (' . count($attachmentList) . '):</p><ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #475569;">' . implode('', $attachmentLinks) . '</ul></div>';
+                    }
+                }
+
+                $finalBody = $personalizedBody . $attachmentHtml . $unsubFooter . $pixelTag;
 
                 $providerMsgId = 'msg-' . Str::random(16);
                 $sentAt = Carbon::now();

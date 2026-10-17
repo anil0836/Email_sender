@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CampaignController extends Controller
@@ -535,6 +536,34 @@ class CampaignController extends Controller
             $managerUserId = $managerInfo['local_user_id'] ?? null;
         }
 
+        // Store physical uploaded attachment files if provided
+        $savedAttachmentNames = [];
+        if ($request->hasFile('attachment_files')) {
+            $files = $request->file('attachment_files');
+            if (!is_array($files)) {
+                $files = [$files];
+            }
+            foreach ($files as $file) {
+                if ($file && $file->isValid()) {
+                    $originalName = $file->getClientOriginalName();
+                    $file->storeAs("attachments/{$campaignId}", $originalName, 'local');
+                    $savedAttachmentNames[] = $originalName;
+                }
+            }
+        }
+
+        // Include any additional attachment filenames passed in payload
+        if (!empty($attachments)) {
+            $parsed = is_string($attachments) ? json_decode($attachments, true) : $attachments;
+            if (is_array($parsed)) {
+                foreach ($parsed as $name) {
+                    if (!in_array($name, $savedAttachmentNames)) {
+                        $savedAttachmentNames[] = $name;
+                    }
+                }
+            }
+        }
+
         $campaign = Campaign::create([
             'id' => $campaignId,
             'subject' => $subject,
@@ -556,7 +585,7 @@ class CampaignController extends Controller
             'total_blocked' => count($blockedRecords),
             'status' => $status,
             'scheduled_at' => $scheduleTime,
-            'attachments' => json_encode($attachments),
+            'attachments' => json_encode($savedAttachmentNames),
         ]);
 
         // Record submission in Campaign Approval History
@@ -991,6 +1020,19 @@ class CampaignController extends Controller
     public function downloadAttachment(string $campaignId, string $filename)
     {
         $decodedFilename = urldecode($filename);
+        $relativePath = "attachments/{$campaignId}/{$decodedFilename}";
+
+        // 1. Check local storage disk (default Laravel private storage)
+        if (Storage::disk('local')->exists($relativePath)) {
+            return Storage::disk('local')->download($relativePath, $decodedFilename);
+        }
+
+        // 2. Check public storage disk if configured
+        if (Storage::disk('public')->exists($relativePath)) {
+            return Storage::disk('public')->download($relativePath, $decodedFilename);
+        }
+
+        // 3. Fallback for mock/simulated legacy attachments
         $mockContent = "==================================================\n" .
             "B2B BULK MAIL - CAMPAIGN ATTACHMENT DOWNLOAD\n" .
             "==================================================\n" .

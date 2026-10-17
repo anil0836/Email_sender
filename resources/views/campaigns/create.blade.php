@@ -1239,6 +1239,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     let selectedRecords = new Set();
     let allRecords = [];
     let attachedFilesList = [];
+    let attachedRawFiles = [];
     let recipientMethod = '{{ $isPasteMode ? "paste" : "crm" }}'; // 'crm' or 'paste'
 
     // Configure custom fonts and sizes in Quill
@@ -1388,17 +1389,19 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 
     function handleFileSelect() {
         const input = document.getElementById('attachments-input');
-        const listDiv = document.getElementById('attachments-list');
+        if (!input.files || input.files.length === 0) return;
         
         for (let i = 0; i < input.files.length; i++) {
             const file = input.files[i];
             // Prevent duplicate attachments listing
             if (!attachedFilesList.includes(file.name)) {
                 attachedFilesList.push(file.name);
+                attachedRawFiles.push(file);
             }
         }
         
         renderAttachments();
+        input.value = '';
     }
 
     function renderAttachments() {
@@ -1418,6 +1421,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
 
     function removeAttachment(index) {
         attachedFilesList.splice(index, 1);
+        attachedRawFiles.splice(index, 1);
         renderAttachments();
     }
 
@@ -2481,42 +2485,93 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             return;
         }
 
-        const payload = {
-            subject,
-            sending_domain,
-            from_address,
-            reply_to,
-            body,
-            attachments: attachedFilesList,
-            scheduled_at: scheduled_at,
-            template_id: templateId,
-            signature_id: signatureId
-        };
+        let bodyPayload;
+        let reqHeaders = { 'Accept': 'application/json' };
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) {
+            reqHeaders['X-CSRF-TOKEN'] = csrfMeta.getAttribute('content');
+        }
 
-        if (recipientMethod === 'crm') {
-            const recipient_ids = Array.from(selectedRecords);
-            if (recipient_ids.length === 0) {
-                alert("Please select recipients.");
-                return;
+        if (attachedRawFiles.length > 0) {
+            const formData = new FormData();
+            formData.append('subject', subject);
+            formData.append('sending_domain', sending_domain);
+            formData.append('from_address', from_address);
+            formData.append('reply_to', reply_to);
+            formData.append('body', body);
+            if (scheduled_at) formData.append('scheduled_at', scheduled_at);
+            if (templateId) formData.append('template_id', templateId);
+            if (signatureId) formData.append('signature_id', signatureId);
+
+            if (recipientMethod === 'crm') {
+                const recipient_ids = Array.from(selectedRecords);
+                if (recipient_ids.length === 0) {
+                    alert("Please select recipients.");
+                    return;
+                }
+                recipient_ids.forEach(id => formData.append('recipient_ids[]', id));
+                Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).forEach(cb => formData.append('selected_deal_categories[]', cb.value));
+                Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).forEach(cb => formData.append('selected_regions[]', cb.value));
+                Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).forEach(cb => formData.append('selected_countries[]', cb.value));
+            } else {
+                const pastedText = document.getElementById('pasted-emails').value;
+                const emails = pastedText.split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0);
+                if (emails.length === 0) {
+                    alert("Please paste email addresses.");
+                    return;
+                }
+                emails.forEach(email => formData.append('recipient_emails[]', email));
             }
-            payload.recipient_ids = recipient_ids;
-            payload.selected_deal_categories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
-            payload.selected_regions = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value);
-            payload.selected_countries = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value);
+
+            attachedRawFiles.forEach(file => {
+                formData.append('attachment_files[]', file);
+            });
+            attachedFilesList.forEach(name => {
+                formData.append('attachments[]', name);
+            });
+
+            bodyPayload = formData;
         } else {
-            const pastedText = document.getElementById('pasted-emails').value;
-            const emails = pastedText.split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0);
-            if (emails.length === 0) {
-                alert("Please paste email addresses.");
-                return;
+            reqHeaders['Content-Type'] = 'application/json';
+            const payload = {
+                subject,
+                sending_domain,
+                from_address,
+                reply_to,
+                body,
+                attachments: attachedFilesList,
+                scheduled_at: scheduled_at,
+                template_id: templateId,
+                signature_id: signatureId
+            };
+
+            if (recipientMethod === 'crm') {
+                const recipient_ids = Array.from(selectedRecords);
+                if (recipient_ids.length === 0) {
+                    alert("Please select recipients.");
+                    return;
+                }
+                payload.recipient_ids = recipient_ids;
+                payload.selected_deal_categories = Array.from(document.querySelectorAll('.filter-category-checkbox:checked')).map(cb => cb.value);
+                payload.selected_regions = Array.from(document.querySelectorAll('.filter-region-checkbox:checked')).map(cb => cb.value);
+                payload.selected_countries = Array.from(document.querySelectorAll('.filter-country-checkbox:checked')).map(cb => cb.value);
+            } else {
+                const pastedText = document.getElementById('pasted-emails').value;
+                const emails = pastedText.split(/[\n,]+/).map(e => e.trim()).filter(e => e.length > 0);
+                if (emails.length === 0) {
+                    alert("Please paste email addresses.");
+                    return;
+                }
+                payload.recipient_emails = emails;
             }
-            payload.recipient_emails = emails;
+
+            bodyPayload = JSON.stringify(payload);
         }
 
         fetch('/api/campaign/send', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            headers: reqHeaders,
+            body: bodyPayload
         })
         .then(res => res.json())
         .then(data => {
