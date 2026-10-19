@@ -201,9 +201,11 @@ $unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
                                 . '<div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">'
                                 . 'File: <strong>' . $safeFilename . '</strong>' . $fileSizeFormatted
                                 . '</div>'
-                                . '<div style="font-size: 12px; color: #475569;">'
-                                . 'Download link: <a href="' . $downloadUrl . '" style="color: #2563eb; text-decoration: underline; font-weight: 600;" target="_blank">' . $downloadUrl . '</a>'
-                                . '</div>'
+                                
+. '<div style="font-size: 12px; color: #475569;">'
+. 'Download link: <a href="' . htmlspecialchars($downloadUrl, ENT_QUOTES, 'UTF-8') . '" style="color: #2563eb; text-decoration: underline; font-weight: 600;" target="_blank" rel="noopener noreferrer">Click Here to Download</a>'
+. '</div>'
+
                                 . '</li>';
                         }
                         $attachmentHtml = '<div style="margin-top: 24px; padding: 16px 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">'
