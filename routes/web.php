@@ -13,6 +13,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
+use App\Http\Controllers\PublicAttachmentController;
 use App\Http\Controllers\RepliesController;
 use App\Http\Controllers\PabblyWebhookController;
 use App\Http\Controllers\SalesforceLeadController;
@@ -33,6 +34,16 @@ Route::get('/track/click/{token}', [TrackingController::class, 'trackClick'])->n
 Route::match(['get', 'post'], '/track/unsubscribe/{token}', [TrackingController::class, 'trackUnsubscribe'])->name('track_unsubscribe');
 Route::post('/api/simulator/trigger-webhook', [SimulatorController::class, 'apiTriggerWebhook'])->name('provider_webhook');
 Route::post('/api/webhooks/pabbly', [PabblyWebhookController::class, 'handleWebhook'])->name('pabbly.webhook');
+
+// --- PUBLIC ATTACHMENT DOWNLOAD ROUTES (ACCESSIBLE WITHOUT AUTHENTICATION) ---
+Route::middleware(['throttle:60,1'])->group(function () {
+    Route::get('/attachments/download/{token}', [PublicAttachmentController::class, 'download'])
+        ->name('attachments.public.download');
+
+    // Legacy route kept outside auth for backward-compatibility with previously dispatched emails
+    Route::get('/download/attachment/{campaign_id}/{filename}', [CampaignController::class, 'downloadAttachment'])
+        ->name('download_attachment');
+});
 
 // --- AUTHENTICATED WEB UI ROUTES ---
 Route::middleware(['app_auth'])->group(function () {
@@ -64,7 +75,6 @@ Route::middleware(['app_auth'])->group(function () {
     Route::get('/salesforce/test-connection', [SalesforceLeadController::class, 'connectionTestView'])->name('salesforce.connection_test');
     Route::get('/replies', [RepliesController::class, 'index'])->name('replies_view');
     Route::get('/simulator', [SimulatorController::class, 'index'])->name('simulator_view');
-    Route::get('/download/attachment/{campaign_id}/{filename}', [CampaignController::class, 'downloadAttachment'])->name('download_attachment');
 
     // Manager, Line Manager and Admin UI
     Route::middleware(['app_auth:admin,manager,line_manager'])->group(function () {

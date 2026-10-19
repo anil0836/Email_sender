@@ -761,7 +761,19 @@
                 document.getElementById('sum-blocked').innerText = c.total_blocked;
 
                 const attachDiv = document.getElementById('camp-attachments-container');
-                if (c.attachments) {
+                if (data.attachments_list && data.attachments_list.length > 0) {
+                    let attachHtml = '<span class="stat-label mb-0 me-1">Attachments:</span>';
+                    data.attachments_list.forEach(att => {
+                        const sizeStr = att.formatted_size ? ` (${att.formatted_size})` : '';
+                        attachHtml += `
+                            <span class="attachment-tag">
+                                <i class="bi bi-paperclip text-zinc-400"></i> ${escapeHtml(att.original_filename)}${sizeStr}
+                                <a href="${att.download_url}" class="text-zinc-600 hover:text-zinc-900 ms-1" target="_blank" title="Download Attachment"><i class="bi bi-download"></i></a>
+                            </span>
+                        `;
+                    });
+                    attachDiv.innerHTML = attachHtml;
+                } else if (c.attachments) {
                     try {
                         const files = JSON.parse(c.attachments);
                         if (files && files.length > 0) {

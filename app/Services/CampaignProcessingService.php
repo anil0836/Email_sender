@@ -190,13 +190,27 @@ $unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
                     $attachmentList = is_string($campaign->attachments) ? json_decode($campaign->attachments, true) : $campaign->attachments;
                     if (is_array($attachmentList) && !empty($attachmentList)) {
                         $attachmentLinks = [];
+                        $attachmentService = app(\App\Services\AttachmentService::class);
                         foreach ($attachmentList as $filename) {
-                            $encoded = rawurlencode($filename);
-                            $downloadUrl = "{$baseUrl}/download/attachment/{$campaign->id}/{$encoded}";
+                            $attachment = $attachmentService->getOrCreateForCampaignFile($campaign, $filename, $campaign->user_id);
+                            $downloadUrl = $attachment->getDownloadUrl();
                             $safeFilename = htmlspecialchars($filename, ENT_QUOTES, 'UTF-8');
-                            $attachmentLinks[] = '<li style="margin: 4px 0;"><a href="' . $downloadUrl . '" style="color: #2563eb; text-decoration: underline; font-weight: 500;" target="_blank">📎 ' . $safeFilename . '</a></li>';
+                            $fileSizeFormatted = $attachment->file_size > 0 ? ' (' . $attachment->formatted_file_size . ')' : '';
+
+                            $attachmentLinks[] = '<li style="margin: 8px 0; padding: 12px 16px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; list-style: none;">'
+                                . '<div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">'
+                                . 'File: <strong>' . $safeFilename . '</strong>' . $fileSizeFormatted
+                                . '</div>'
+                                . '<div style="font-size: 12px; color: #475569;">'
+                                . 'Download link: <a href="' . $downloadUrl . '" style="color: #2563eb; text-decoration: underline; font-weight: 600;" target="_blank">' . $downloadUrl . '</a>'
+                                . '</div>'
+                                . '</li>';
                         }
-                        $attachmentHtml = '<div style="margin-top: 20px; padding: 12px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;"><p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #334155;">Attachments (' . count($attachmentList) . '):</p><ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #475569;">' . implode('', $attachmentLinks) . '</ul></div>';
+                        $attachmentHtml = '<div style="margin-top: 24px; padding: 16px 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">'
+                            . '<p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700; color: #1e293b;">📎 Download Your Attachment (' . count($attachmentList) . '):</p>'
+                            . '<ul style="margin: 0; padding: 0;">' . implode('', $attachmentLinks) . '</ul>'
+                            . '<p style="margin: 10px 0 0 0; font-size: 11px; color: #64748b;">Direct download link &bull; No login or account required.</p>'
+                            . '</div>';
                     }
                 }
 

@@ -538,6 +538,8 @@ class CampaignController extends Controller
 
         // Store physical uploaded attachment files if provided
         $savedAttachmentNames = [];
+        $attachmentService = app(\App\Services\AttachmentService::class);
+
         if ($request->hasFile('attachment_files')) {
             $files = $request->file('attachment_files');
             if (!is_array($files)) {
@@ -546,7 +548,10 @@ class CampaignController extends Controller
             foreach ($files as $file) {
                 if ($file && $file->isValid()) {
                     $originalName = $file->getClientOriginalName();
+                    // Store in legacy directory for backward compatibility
                     $file->storeAs("attachments/{$campaignId}", $originalName, 'local');
+                    // Store in secure private attachment storage with unguessable token
+                    $attachmentService->storeUploadedFile($file, $campaignId, $userId);
                     $savedAttachmentNames[] = $originalName;
                 }
             }
@@ -587,6 +592,11 @@ class CampaignController extends Controller
             'scheduled_at' => $scheduleTime,
             'attachments' => json_encode($savedAttachmentNames),
         ]);
+
+        // Ensure all campaign attachments have EmailAttachment records with tokens
+        foreach ($savedAttachmentNames as $attName) {
+            $attachmentService->getOrCreateForCampaignFile($campaign, $attName, $userId);
+        }
 
         // Record submission in Campaign Approval History
         $approvalService->recordSubmission($campaign, $user);
@@ -764,11 +774,25 @@ class CampaignController extends Controller
             ->orderBy('campaign_approvals.created_at', 'asc')
             ->get();
 
+        $attachmentDetails = \App\Models\EmailAttachment::where('campaign_id', $campaignId)->get()->map(function ($att) {
+            return [
+                'id' => $att->id,
+                'original_filename' => $att->original_filename,
+                'download_url' => $att->getDownloadUrl(),
+                'file_size' => $att->file_size,
+                'formatted_size' => $att->formatted_file_size,
+                'mime_type' => $att->mime_type,
+                'download_count' => $att->download_count,
+                'is_available' => $att->isAvailable(),
+            ];
+        });
+
         return response()->json([
             'campaign' => (array) $campaignRow,
             'recipient_logs' => $logs,
             'members' => $members,
             'approvals' => $approvals,
+            'attachments_list' => $attachmentDetails,
         ]);
     }
 
@@ -1015,21 +1039,56 @@ class CampaignController extends Controller
     }
 
     /**
-     * Simulated attachment download endpoint.
+     * Legacy attachment download endpoint (backward compatible, now publicly accessible without auth).
      */
     public function downloadAttachment(string $campaignId, string $filename)
     {
         $decodedFilename = urldecode($filename);
-        $relativePath = "attachments/{$campaignId}/{$decodedFilename}";
+        $safeFilename = basename($decodedFilename);
+
+        // Prevent directory traversal
+        if (str_contains($decodedFilename, '..') || str_contains($decodedFilename, "\0")) {
+            abort(404, 'Invalid attachment path');
+        }
+
+        $campaign = Campaign::find($campaignId);
+        if (!$campaign) {
+            abort(404, 'Campaign not found');
+        }
+
+        // Check if an EmailAttachment record exists
+        $emailAttachment = \App\Models\EmailAttachment::where('campaign_id', $campaignId)
+            ->where('original_filename', $safeFilename)
+            ->first();
+
+        if ($emailAttachment) {
+            if ($emailAttachment->isRevoked()) {
+                abort(403, 'This attachment download link has been revoked.');
+            }
+            if ($emailAttachment->isExpired()) {
+                abort(410, 'This attachment download link has expired.');
+            }
+            $disk = Storage::disk($emailAttachment->disk ?: 'local');
+            if ($disk->exists($emailAttachment->storage_path)) {
+                $emailAttachment->recordDownload();
+                return $disk->download($emailAttachment->storage_path, $safeFilename);
+            }
+        }
 
         // 1. Check local storage disk (default Laravel private storage)
+        $relativePath = "email-attachments/{$campaignId}/{$safeFilename}";
         if (Storage::disk('local')->exists($relativePath)) {
-            return Storage::disk('local')->download($relativePath, $decodedFilename);
+            return Storage::disk('local')->download($relativePath, $safeFilename);
+        }
+
+        $legacyPath = "attachments/{$campaignId}/{$safeFilename}";
+        if (Storage::disk('local')->exists($legacyPath)) {
+            return Storage::disk('local')->download($legacyPath, $safeFilename);
         }
 
         // 2. Check public storage disk if configured
-        if (Storage::disk('public')->exists($relativePath)) {
-            return Storage::disk('public')->download($relativePath, $decodedFilename);
+        if (Storage::disk('public')->exists($legacyPath)) {
+            return Storage::disk('public')->download($legacyPath, $safeFilename);
         }
 
         // 3. Fallback for mock/simulated legacy attachments
@@ -1037,7 +1096,7 @@ class CampaignController extends Controller
             "B2B BULK MAIL - CAMPAIGN ATTACHMENT DOWNLOAD\n" .
             "==================================================\n" .
             "Campaign Reference ID: {$campaignId}\n" .
-            "Simulated File Name:  {$decodedFilename}\n" .
+            "Simulated File Name:  {$safeFilename}\n" .
             "Audit Timestamp:      " . Carbon::now()->format('Y-m-d H:i:s') . "\n\n" .
             "This is a mock-generated attachment download to verify system file extraction\n" .
             "and secure tracking audit protocols.\n" .
@@ -1045,7 +1104,7 @@ class CampaignController extends Controller
 
         return response($mockContent, 200, [
             'Content-Type' => 'text/plain',
-            'Content-Disposition' => "attachment; filename=\"{$decodedFilename}\"",
+            'Content-Disposition' => "attachment; filename=\"{$safeFilename}\"",
         ]);
     }
 

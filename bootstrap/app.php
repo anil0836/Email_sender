@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
             'track/*',
             'download/*',
+            'attachments/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

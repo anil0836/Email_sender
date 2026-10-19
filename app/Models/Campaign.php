@@ -102,6 +102,11 @@ class Campaign extends Model
         return $this->hasMany(CampaignApproval::class, 'campaign_id')->orderBy('created_at', 'asc');
     }
 
+    public function emailAttachments()
+    {
+        return $this->hasMany(EmailAttachment::class, 'campaign_id');
+    }
+
     public function recipientLogs()
     {
         return $this->hasMany(RecipientLog::class, 'campaign_id');
