@@ -854,19 +854,38 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                     onchange="onSignatureSelectionChange()">
                                     <option value="">-- No Signature Selected --</option>
                                 </select>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-insert-sig"
-                                    onclick="insertSelectedSignature()" title="Insert Signature into Body Editor"
-                                    disabled>
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" id="btn-insert-sig"
+                                    data-bs-toggle="dropdown" aria-expanded="false" title="Insert Signature Options" disabled>
                                     <i class="bi bi-box-arrow-in-down me-1"></i> Insert
                                 </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 0.825rem; min-width: 250px;">
+                                    <li>
+                                        <button type="button" class="dropdown-item py-2" onclick="insertSelectedSignatureSingleLine()">
+                                            <div class="fw-semibold text-zinc-900"><i class="bi bi-dash-lg text-primary me-2"></i> Insert Single-Line HTML</div>
+                                            <small class="text-zinc-500">Pastes formatted single line directly into body</small>
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item py-2" onclick="insertSelectedSignatureSingleLineBar()">
+                                            <div class="fw-semibold text-zinc-900"><i class="bi bi-layout-sidebar-inset text-indigo me-2"></i> Insert Single-Line (Accent Bar)</div>
+                                            <small class="text-zinc-500">Pastes container with left accent border</small>
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <button type="button" class="dropdown-item py-2" onclick="insertSelectedSignatureTag()">
+                                            <div class="fw-semibold text-zinc-900"><i class="bi bi-code-slash text-secondary me-2"></i> Insert <code>@{{Signature}}</code> Tag</div>
+                                            <small class="text-zinc-500">Resolved at send-time using signature style</small>
+                                        </button>
+                                    </li>
+                                </ul>
                                 <button type="button" class="btn btn-outline-secondary" id="btn-preview-sig"
                                     onclick="previewSelectedSignature()" title="Preview Signature" disabled>
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>
                             <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
-                                The selected signature is auto-attached to outbound emails or substituted where
-                                <code>@{{Signature}}</code> appears.
+                                Choose a signature to auto-attach or insert formatted single-line HTML directly into the body.
                             </div>
                         </div>
 
@@ -1137,10 +1156,22 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="p-3 bg-white rounded border" id="prev_sig_body" style="min-height: 120px;"></div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-zinc-500" style="font-size: 0.75rem;">Preview Style:</span>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_single" onclick="switchPreviewSigStyle('single_line')" style="font-size: 0.72rem;">Single Line</button>
+                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_bar" onclick="switchPreviewSigStyle('single_line_bar')" style="font-size: 0.72rem;">Accent Bar</button>
+                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_saved" onclick="switchPreviewSigStyle('saved')" style="font-size: 0.72rem;">Saved Default</button>
+                    </div>
+                </div>
+                <div class="p-3 bg-white rounded border" id="prev_sig_body" style="min-height: 100px; overflow-x: auto;"></div>
             </div>
-            <div class="modal-footer border-top pt-3">
+            <div class="modal-footer border-top pt-3 flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary btn-sm"
+                    onclick="insertSelectedSignatureSingleLine(); bootstrap.Modal.getInstance(document.getElementById('signaturePreviewModal')).hide();">
+                    <i class="bi bi-dash-lg me-1"></i> Insert Single Line
+                </button>
                 <button type="button" class="btn btn-primary btn-sm"
                     onclick="insertSelectedSignature(); bootstrap.Modal.getInstance(document.getElementById('signaturePreviewModal')).hide();">
                     <i class="bi bi-box-arrow-in-down me-1"></i> Insert into Editor
@@ -2573,9 +2604,9 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             headers: reqHeaders,
             body: bodyPayload
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
+        .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
                 if (data.status === 'pending_approval') {
                     let msg = '✅ Campaign submitted successfully!\n\n'
                         + '⏳ PENDING MANAGER APPROVAL\n\n'
@@ -2590,10 +2621,17 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 }
                 window.location.href = `/campaign/${data.campaign_id}`;
             } else {
-                alert(data.error || "Failed to submit campaign.");
+                let errorMsg = data.error || data.message || "Failed to submit campaign.";
+                if (data.errors && typeof data.errors === 'object') {
+                    errorMsg += '\n\n' + Object.values(data.errors).flat().join('\n');
+                }
+                alert(errorMsg);
             }
         })
-        .catch(err => console.error("Error creating campaign:", err));
+        .catch(err => {
+            console.error("Error creating campaign:", err);
+            alert("Network error while submitting campaign: " + err.message);
+        });
     }
 
     // --- Dynamic Personalization Merge Fields ---
@@ -2862,13 +2900,40 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         if (btnPreview) btnPreview.disabled = !hasSelection;
     }
 
+    function insertHtmlIntoEditor(htmlContent) {
+        if (!htmlContent) return;
+        if (currentEditorMode === 'html') {
+            const ta = document.getElementById('html-source-editor');
+            if (ta) {
+                const start = ta.selectionStart || 0;
+                const end = ta.selectionEnd || 0;
+                const val = ta.value;
+                ta.value = val.substring(0, start) + htmlContent + val.substring(end);
+                ta.selectionStart = ta.selectionEnd = start + htmlContent.length;
+                ta.focus();
+            }
+        } else if (currentEditorMode === 'preview') {
+            setEditorMode('html');
+            insertHtmlIntoEditor(htmlContent);
+        } else {
+            if (!quill) return;
+            quill.focus();
+            const range = quill.getSelection(true);
+            const index = range ? range.index : quill.getLength();
+            quill.clipboard.dangerouslyPasteHTML(index, htmlContent, 'user');
+        }
+    }
+
+    let currentPreviewSig = null;
+
     function previewSelectedSignature() {
         const id = document.getElementById('signature-select').value;
         if (!id) return;
         const sig = savedSignatures.find(s => s.id == id);
         if (sig) {
+            currentPreviewSig = sig;
             document.getElementById('prev_sig_name').textContent = sig.name;
-            document.getElementById('prev_sig_body').innerHTML = sig.rendered_html || sig.content || '';
+            switchPreviewSigStyle(sig.layout_style || 'saved');
             const modalEl = document.getElementById('signaturePreviewModal');
             if (modalEl) {
                 const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -2877,10 +2942,82 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         }
     }
 
-    function insertSelectedSignature() {
+    function switchPreviewSigStyle(style) {
+        if (!currentPreviewSig) return;
+        const bodyEl = document.getElementById('prev_sig_body');
+        const btnSingle = document.getElementById('btn_prev_style_single');
+        const btnBar = document.getElementById('btn_prev_style_bar');
+        const btnSaved = document.getElementById('btn_prev_style_saved');
+
+        [btnSingle, btnBar, btnSaved].forEach(b => {
+            if (b) {
+                b.classList.remove('active', 'btn-secondary');
+                b.classList.add('btn-outline-secondary');
+            }
+        });
+
+        if (style === 'single_line') {
+            bodyEl.innerHTML = currentPreviewSig.single_line_html || currentPreviewSig.rendered_html;
+            if (btnSingle) {
+                btnSingle.classList.add('active', 'btn-secondary');
+                btnSingle.classList.remove('btn-outline-secondary');
+            }
+        } else if (style === 'single_line_bar') {
+            bodyEl.innerHTML = currentPreviewSig.single_line_bar_html || currentPreviewSig.rendered_html;
+            if (btnBar) {
+                btnBar.classList.add('active', 'btn-secondary');
+                btnBar.classList.remove('btn-outline-secondary');
+            }
+        } else {
+            bodyEl.innerHTML = currentPreviewSig.rendered_html || currentPreviewSig.content || '';
+            if (btnSaved) {
+                btnSaved.classList.add('active', 'btn-secondary');
+                btnSaved.classList.remove('btn-outline-secondary');
+            }
+        }
+    }
+
+    function insertSelectedSignatureSingleLine() {
+        const id = document.getElementById('signature-select').value;
+        if (!id) return;
+        const sig = savedSignatures.find(s => s.id == id);
+        if (sig && sig.single_line_html) {
+            insertHtmlIntoEditor(sig.single_line_html);
+        } else if (sig) {
+            insertHtmlIntoEditor(sig.rendered_html || sig.content || '');
+        }
+    }
+
+    function insertSelectedSignatureSingleLineBar() {
+        const id = document.getElementById('signature-select').value;
+        if (!id) return;
+        const sig = savedSignatures.find(s => s.id == id);
+        if (sig && sig.single_line_bar_html) {
+            insertHtmlIntoEditor(sig.single_line_bar_html);
+        } else if (sig) {
+            insertHtmlIntoEditor(sig.rendered_html || sig.content || '');
+        }
+    }
+
+    function insertSelectedSignatureTag() {
         const id = document.getElementById('signature-select').value;
         if (!id) return;
         insertMergeField('@{{Signature}}');
+    }
+
+    function insertSelectedSignature() {
+        const id = document.getElementById('signature-select').value;
+        if (!id) return;
+        const sig = savedSignatures.find(s => s.id == id);
+        if (sig && (sig.layout_style === 'single_line' || sig.layout_style === 'single_line_bar')) {
+            if (sig.layout_style === 'single_line_bar') {
+                insertSelectedSignatureSingleLineBar();
+            } else {
+                insertSelectedSignatureSingleLine();
+            }
+        } else {
+            insertSelectedSignatureTag();
+        }
     }
 
     function deleteSelectedSignature() {

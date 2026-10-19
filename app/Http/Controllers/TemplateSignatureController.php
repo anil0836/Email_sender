@@ -31,6 +31,9 @@ class TemplateSignatureController extends Controller
                 ->map(function ($sig) {
                     $item = $sig->toArray();
                     $item['rendered_html'] = $sig->renderHtml();
+                    $item['single_line_html'] = $sig->renderSingleLineHtml();
+                    $item['single_line_bar_html'] = $sig->renderSingleLineBarHtml();
+                    $item['layout_style'] = $sig->layout_style ?: 'standard';
                     return $item;
                 });
             return response()->json($signatures);
@@ -59,6 +62,7 @@ class TemplateSignatureController extends Controller
                 'phone' => $request->input('phone'),
                 'website' => $request->input('website'),
                 'address' => $request->input('address'),
+                'layout_style' => $request->input('layout_style', 'standard'),
                 'content' => $request->input('content') ?? '',
                 'is_default' => $isDefault,
                 'is_active' => true,
@@ -69,6 +73,8 @@ class TemplateSignatureController extends Controller
                 'signature_id' => $sig->id,
                 'signature' => $sig,
                 'rendered_html' => $sig->renderHtml(),
+                'single_line_html' => $sig->renderSingleLineHtml(),
+                'single_line_bar_html' => $sig->renderSingleLineBarHtml(),
                 'message' => 'Signature saved successfully!',
             ]);
         }

@@ -538,6 +538,7 @@ class CampaignController extends Controller
 
         // Store physical uploaded attachment files if provided
         $savedAttachmentNames = [];
+        $uploadedFilesToStore = [];
         $attachmentService = app(\App\Services\AttachmentService::class);
 
         if ($request->hasFile('attachment_files')) {
@@ -550,8 +551,7 @@ class CampaignController extends Controller
                     $originalName = $file->getClientOriginalName();
                     // Store in legacy directory for backward compatibility
                     $file->storeAs("attachments/{$campaignId}", $originalName, 'local');
-                    // Store in secure private attachment storage with unguessable token
-                    $attachmentService->storeUploadedFile($file, $campaignId, $userId);
+                    $uploadedFilesToStore[] = $file;
                     $savedAttachmentNames[] = $originalName;
                 }
             }
@@ -592,6 +592,11 @@ class CampaignController extends Controller
             'scheduled_at' => $scheduleTime,
             'attachments' => json_encode($savedAttachmentNames),
         ]);
+
+        // Store in secure private attachment storage with unguessable tokens now that campaign exists
+        foreach ($uploadedFilesToStore as $file) {
+            $attachmentService->storeUploadedFile($file, $campaign->id, $userId);
+        }
 
         // Ensure all campaign attachments have EmailAttachment records with tokens
         foreach ($savedAttachmentNames as $attName) {

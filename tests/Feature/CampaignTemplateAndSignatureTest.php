@@ -474,4 +474,117 @@ class CampaignTemplateAndSignatureTest extends TestCase
         $this->assertStringContainsString('+1-800-555-0199', $resolved);
         $this->assertStringContainsString('<table width="600" style="max-width:600px;">', $resolved);
     }
+
+    /**
+     * 11. Test user can create single-line signature with horizontal inline layout and styling.
+     */
+    public function test_user_can_create_single_line_signature_and_render_inline_styling(): void
+    {
+        $response = $this->actingAsStandardUser()->postJson(route('signatures.store'), [
+            'name' => 'Single Line Executive Signature',
+            'sender_name' => 'Sarah Connor',
+            'job_title' => 'Managing Director',
+            'company_name' => 'Cyberdyne Systems',
+            'email' => 'sarah@cyberdyne.com',
+            'phone' => '+1 (555) 019-2831',
+            'website' => 'https://cyberdyne.com',
+            'layout_style' => 'single_line',
+            'is_default' => 1,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('signature.layout_style', 'single_line');
+        $this->assertNotNull($response->json('single_line_html'));
+        $this->assertNotNull($response->json('single_line_bar_html'));
+
+        $sig = UserSignature::where('name', 'Single Line Executive Signature')->first();
+        $this->assertNotNull($sig);
+        $this->assertEquals('single_line', $sig->layout_style);
+
+        // Verify single-line rendered HTML contains inline elements and separator
+        $singleHtml = $sig->renderSingleLineHtml();
+        $this->assertStringContainsString('class="email-signature-single-line"', $singleHtml);
+        $this->assertStringContainsString('Sarah Connor', $singleHtml);
+        $this->assertStringContainsString('Managing Director', $singleHtml);
+        $this->assertStringContainsString('Cyberdyne Systems', $singleHtml);
+        $this->assertStringContainsString('mailto:sarah@cyberdyne.com', $singleHtml);
+        $this->assertStringContainsString('tel:+15550192831', $singleHtml);
+        $this->assertStringContainsString('class="sig-sep"', $singleHtml);
+
+        // Verify renderHtml() defaults to single_line when layout_style is single_line
+        $renderedHtml = $sig->renderHtml();
+        $this->assertStringContainsString('class="email-signature-single-line"', $renderedHtml);
+
+        // Verify accent-bar layout
+        $barHtml = $sig->renderSingleLineBarHtml();
+        $this->assertStringContainsString('class="email-signature-single-line-bar"', $barHtml);
+        $this->assertStringContainsString('border-left: 3px solid #4f46e5', $barHtml);
+    }
+
+    /**
+     * 12. Test API signatures endpoint returns single_line_html and layout_style.
+     */
+    public function test_api_signatures_returns_single_line_html_and_layout_style(): void
+    {
+        $sig = UserSignature::create([
+            'user_id' => $this->standardUser->id,
+            'name' => 'Bar Layout Signature',
+            'sender_name' => 'Kyle Reese',
+            'job_title' => 'Field Commander',
+            'company_name' => 'Resistance Inc.',
+            'email' => 'kyle@resistance.org',
+            'phone' => '+1 (555) 999-8888',
+            'website' => 'https://resistance.org',
+            'layout_style' => 'single_line_bar',
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAsStandardUser()->getJson('/api/signatures');
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertIsArray($data);
+        $found = collect($data)->firstWhere('id', $sig->id);
+        $this->assertNotNull($found);
+        $this->assertEquals('single_line_bar', $found['layout_style']);
+        $this->assertStringContainsString('border-left: 3px solid #4f46e5', $found['rendered_html']);
+        $this->assertNotEmpty($found['single_line_html']);
+        $this->assertNotEmpty($found['single_line_bar_html']);
+    }
+
+    /**
+     * 13. Test CampaignMergeFieldService resolves single-line signature in email body.
+     */
+    public function test_campaign_merge_field_service_resolves_single_line_signature(): void
+    {
+        $sig = UserSignature::create([
+            'user_id' => $this->standardUser->id,
+            'name' => 'Single Line Sig',
+            'sender_name' => 'John Connor',
+            'job_title' => 'Chief Operations Officer',
+            'company_name' => 'Global Logistics LLC',
+            'email' => 'john@globallogistics.com',
+            'phone' => '+1 (555) 444-3322',
+            'website' => 'https://globallogistics.com',
+            'layout_style' => 'single_line',
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $bodyTemplate = "Hello {{FirstName}},\n\nPlease review the attached catalog.\n\n{{Signature}}";
+        $recipient = [
+            'first_name' => 'Alex',
+            'email' => 'alex@example.com',
+        ];
+
+        $resolved = $this->mergeFieldService->resolve($bodyTemplate, $recipient, $this->standardUser, $sig->renderHtml());
+
+        $this->assertStringContainsString('Hello Alex,', $resolved);
+        $this->assertStringContainsString('class="email-signature-single-line"', $resolved);
+        $this->assertStringContainsString('John Connor', $resolved);
+        $this->assertStringContainsString('Chief Operations Officer', $resolved);
+        $this->assertStringContainsString('mailto:john@globallogistics.com', $resolved);
+        $this->assertStringNotContainsString('{{Signature}}', $resolved);
+    }
 }
+

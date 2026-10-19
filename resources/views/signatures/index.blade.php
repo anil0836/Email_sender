@@ -20,6 +20,19 @@
         border-radius: 8px;
         padding: 16px;
     }
+    .sig-style-card {
+        transition: all 0.15s ease;
+        border: 1.5px solid #e2e8f0 !important;
+        cursor: pointer;
+    }
+    .sig-style-card:hover {
+        border-color: #94a3b8 !important;
+        background-color: #f8fafc;
+    }
+    .sig-style-card.active {
+        border-color: #4f46e5 !important;
+        background-color: #f5f3ff;
+    }
 </style>
 
 <div class="row g-4">
@@ -64,7 +77,7 @@
             </div>
             <h5 class="fw-semibold text-zinc-800 mb-1">No Email Signatures Found</h5>
             <p class="text-zinc-500 mb-4" style="font-size: 0.85rem; max-width: 450px; margin: 0 auto;">
-                Create your first signature block. You can automatically include it across all outbound campaigns using the <code>@{{Signature}}</code> merge field.
+                Create your first signature block. You can automatically include it across all outbound campaigns using the <code>@{{Signature}}</code> merge field or insert styled single-line HTML directly.
             </p>
             <div>
                 <button type="button" class="btn btn-primary btn-sm px-4" onclick="openCreateModal()">
@@ -79,11 +92,25 @@
                 <div class="card signature-card h-100 p-4">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center flex-wrap gap-2">
                                 <h6 class="fw-bold text-zinc-900 mb-0">{{ $sig->name }}</h6>
                                 @if($sig->is_default)
                                 <span class="badge bg-primary-soft">
                                     <i class="bi bi-star-fill text-warning me-1"></i> Default
+                                </span>
+                                @endif
+
+                                @if($sig->layout_style === 'single_line')
+                                <span class="badge text-primary" style="background: #eff6ff; font-weight: 500;">
+                                    <i class="bi bi-dash-lg me-1"></i> Single Line
+                                </span>
+                                @elseif($sig->layout_style === 'single_line_bar')
+                                <span class="badge" style="background: #eef2ff; color: #4f46e5; font-weight: 500;">
+                                    <i class="bi bi-layout-sidebar-inset me-1"></i> Accent Bar
+                                </span>
+                                @else
+                                <span class="badge text-secondary" style="background: #f1f5f9; font-weight: 500;">
+                                    <i class="bi bi-distribute-vertical me-1"></i> Multi-line
                                 </span>
                                 @endif
                             </div>
@@ -99,6 +126,11 @@
                                 <li>
                                     <button class="dropdown-item" onclick="openEditModal({{ $sig->id }})">
                                         <i class="bi bi-pencil me-2 text-zinc-500"></i> Edit
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item" onclick="copySignatureHtml({{ $sig->id }})">
+                                        <i class="bi bi-clipboard me-2 text-zinc-500"></i> Copy HTML
                                     </button>
                                 </li>
                                 @if(!$sig->is_default)
@@ -127,20 +159,28 @@
 
                     <!-- Rendered Preview Block -->
                     <div class="signature-preview-box mb-3 flex-grow-1">
-                        <div class="text-zinc-400 fw-semibold mb-2" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                            Signature Preview
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-zinc-400 fw-semibold" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                Signature Preview
+                            </span>
+                            <small class="text-zinc-500" style="font-size: 0.7rem;">
+                                {{ $sig->layout_style === 'single_line' ? 'Horizontal Single-Line' : ($sig->layout_style === 'single_line_bar' ? 'Single-Line with Accent Bar' : 'Stacked Multi-Line') }}
+                            </small>
                         </div>
-                        <div class="signature-rendered-content" style="background: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <div class="signature-rendered-content" id="sig-rendered-{{ $sig->id }}" style="background: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; overflow-x: auto;">
                             {!! $sig->renderHtml() !!}
                         </div>
                     </div>
 
                     <!-- Card Footer Actions -->
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top flex-wrap gap-2">
                         <span class="text-zinc-500" style="font-size: 0.75rem;">
                             Tag: <code class="text-primary">@{{Signature}}</code>
                         </span>
                         <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="copySignatureHtml({{ $sig->id }})" title="Copy rendered HTML" style="font-size: 0.75rem;">
+                                <i class="bi bi-clipboard"></i> Copy HTML
+                            </button>
                             <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="openEditModal({{ $sig->id }})" style="font-size: 0.75rem;">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
@@ -148,7 +188,7 @@
                             <form action="{{ route('signatures.default', $sig->id) }}" method="POST" class="d-inline">
                                 @csrf
                                 <button type="submit" class="btn btn-outline-primary btn-sm py-1 px-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-star"></i> Make Default
+                                    <i class="bi bi-star"></i> Default
                                 </button>
                             </form>
                             @endif
@@ -184,7 +224,7 @@
                             <label class="form-label text-zinc-700 fw-semibold" style="font-size: 0.8rem;">
                                 Signature Name <span class="text-danger">*</span>
                             </label>
-                            <input type="text" class="form-control" name="name" id="sig_name" placeholder="e.g. Official Work Signature" required>
+                            <input type="text" class="form-control" name="name" id="sig_name" placeholder="e.g. Single-Line Sales Signature" required>
                         </div>
 
                         <div class="col-12 col-md-6">
@@ -194,11 +234,54 @@
                             <input type="text" class="form-control" name="sender_name" id="sig_sender_name" placeholder="e.g. John Doe" oninput="updateLivePreview()">
                         </div>
 
+                        <!-- Layout Style Selector -->
+                        <div class="col-12">
+                            <label class="form-label text-zinc-700 fw-semibold d-flex justify-content-between align-items-center mb-1" style="font-size: 0.8rem;">
+                                <span><i class="bi bi-layout-text-window-reverse text-primary me-1"></i> Signature Layout Style</span>
+                                <span class="text-zinc-500 fw-normal" style="font-size: 0.75rem;">Single-line or classic multi-line</span>
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-4">
+                                    <div class="card p-2 h-100 sig-style-card" id="card_style_single_line" onclick="selectLayoutStyle('single_line')">
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="radio" name="layout_style" id="layout_single_line" value="single_line" checked onchange="onRadioLayoutChange()">
+                                            <label class="form-check-label w-100 cursor-pointer" for="layout_single_line" style="font-size: 0.8rem;">
+                                                <div class="fw-bold text-zinc-900"><i class="bi bi-dash-lg text-primary me-1"></i> Single Line (Inline)</div>
+                                                <small class="text-zinc-500">Horizontal inline line separated by clean vertical dividers</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="card p-2 h-100 sig-style-card" id="card_style_single_line_bar" onclick="selectLayoutStyle('single_line_bar')">
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="radio" name="layout_style" id="layout_single_line_bar" value="single_line_bar" onchange="onRadioLayoutChange()">
+                                            <label class="form-check-label w-100 cursor-pointer" for="layout_single_line_bar" style="font-size: 0.8rem;">
+                                                <div class="fw-bold text-zinc-900"><i class="bi bi-layout-sidebar-inset text-indigo me-1"></i> Single Line (Accent Bar)</div>
+                                                <small class="text-zinc-500">Horizontal single line with stylish left accent bar container</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="card p-2 h-100 sig-style-card" id="card_style_standard" onclick="selectLayoutStyle('standard')">
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="radio" name="layout_style" id="layout_standard" value="standard" onchange="onRadioLayoutChange()">
+                                            <label class="form-check-label w-100 cursor-pointer" for="layout_standard" style="font-size: 0.8rem;">
+                                                <div class="fw-bold text-zinc-900"><i class="bi bi-distribute-vertical text-secondary me-1"></i> Multi-line (Classic)</div>
+                                                <small class="text-zinc-500">Traditional stacked block format with separate rows</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="col-12 col-md-6">
                             <label class="form-label text-zinc-700 fw-semibold" style="font-size: 0.8rem;">
                                 Job Title
                             </label>
-                            <input type="text" class="form-control" name="job_title" id="sig_job_title" placeholder="e.g. VP of Sales" oninput="updateLivePreview()">
+                            <input type="text" class="form-control" name="job_title" id="sig_job_title" placeholder="e.g. Head of Business Development" oninput="updateLivePreview()">
                         </div>
 
                         <div class="col-12 col-md-6">
@@ -241,7 +324,7 @@
                                 <span>Custom HTML / Disclaimer (Optional)</span>
                                 <small class="text-zinc-500 fw-normal">Overrides structured fields if provided</small>
                             </label>
-                            <textarea class="form-control font-monospace" name="content" id="sig_content" rows="3" placeholder="Leave blank to use the automatically formatted layout above, or enter custom HTML." oninput="updateLivePreview()" style="font-size: 0.8rem;"></textarea>
+                            <textarea class="form-control font-monospace" name="content" id="sig_content" rows="2" placeholder="Leave blank to use the automatically formatted layout above, or enter custom HTML." oninput="updateLivePreview()" style="font-size: 0.8rem;"></textarea>
                         </div>
 
                         <div class="col-12">
@@ -255,10 +338,17 @@
 
                         <!-- Live Preview Inside Modal -->
                         <div class="col-12 mt-3">
-                            <label class="form-label text-zinc-700 fw-semibold" style="font-size: 0.8rem;">
-                                Live Signature Preview
-                            </label>
-                            <div id="modalLivePreview" class="signature-rendered-content p-3 border rounded bg-white">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label text-zinc-700 fw-semibold mb-0" style="font-size: 0.8rem;">
+                                    Live Signature Preview
+                                </label>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary py-0 px-2" style="font-size: 0.72rem;" onclick="selectLayoutStyle('single_line')">Single Line</button>
+                                    <button type="button" class="btn btn-outline-secondary py-0 px-2" style="font-size: 0.72rem;" onclick="selectLayoutStyle('single_line_bar')">Accent Bar</button>
+                                    <button type="button" class="btn btn-outline-secondary py-0 px-2" style="font-size: 0.72rem;" onclick="selectLayoutStyle('standard')">Multi-line</button>
+                                </div>
+                            </div>
+                            <div id="modalLivePreview" class="signature-rendered-content p-3 border rounded bg-white" style="overflow-x: auto;">
                                 <span class="text-zinc-400 fst-italic">Fill in the fields above to see live preview...</span>
                             </div>
                         </div>
@@ -286,6 +376,39 @@
         }
     });
 
+    function selectLayoutStyle(style) {
+        const radio = document.getElementById('layout_' + style);
+        if (radio) {
+            radio.checked = true;
+        }
+        updateStyleCardsActive(style);
+        updateLivePreview();
+    }
+
+    function onRadioLayoutChange() {
+        const style = getSelectedLayoutStyle();
+        updateStyleCardsActive(style);
+        updateLivePreview();
+    }
+
+    function updateStyleCardsActive(activeStyle) {
+        ['single_line', 'single_line_bar', 'standard'].forEach(s => {
+            const card = document.getElementById('card_style_' + s);
+            if (card) {
+                if (s === activeStyle) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            }
+        });
+    }
+
+    function getSelectedLayoutStyle() {
+        const checked = document.querySelector('input[name="layout_style"]:checked');
+        return checked ? checked.value : 'single_line';
+    }
+
     function openCreateModal() {
         document.getElementById('signatureForm').action = "{{ route('signatures.store') }}";
         document.getElementById('formMethod').value = "POST";
@@ -305,7 +428,7 @@
         document.getElementById('sig_content').value = '';
         document.getElementById('sig_is_default').checked = false;
 
-        updateLivePreview();
+        selectLayoutStyle('single_line');
         signatureModalInstance.show();
     }
 
@@ -335,7 +458,7 @@
             document.getElementById('sig_content').value = sig.content || '';
             document.getElementById('sig_is_default').checked = Boolean(sig.is_default);
 
-            updateLivePreview();
+            selectLayoutStyle(sig.layout_style || 'standard');
             signatureModalInstance.show();
         } catch (err) {
             alert('Error loading signature: ' + err.message);
@@ -364,6 +487,56 @@
             return;
         }
 
+        const layoutStyle = getSelectedLayoutStyle();
+
+        if (layoutStyle === 'single_line' || layoutStyle === 'single_line_bar') {
+            // Build single-line elements
+            const items = [];
+
+            if (senderName) {
+                items.push(`<span style="font-weight: 700; color: #0f172a; letter-spacing: -0.01em;">${escapeHtml(senderName)}</span>`);
+            }
+
+            if (jobTitle && companyName) {
+                items.push(`<span style="color: #334155; font-weight: 500;">${escapeHtml(jobTitle)}</span> <span style="color: #64748b;">at</span> <span style="font-weight: 600; color: #0f172a;">${escapeHtml(companyName)}</span>`);
+            } else if (jobTitle) {
+                items.push(`<span style="color: #334155; font-weight: 500;">${escapeHtml(jobTitle)}</span>`);
+            } else if (companyName) {
+                items.push(`<span style="font-weight: 600; color: #0f172a;">${escapeHtml(companyName)}</span>`);
+            }
+
+            if (email) {
+                items.push(`<a href="mailto:${escapeHtml(email)}" style="color: #2563eb; text-decoration: none; font-weight: 500;">${escapeHtml(email)}</a>`);
+            }
+
+            if (phone) {
+                const phoneClean = phone.replace(/[^0-9+]/g, '');
+                items.push(`<a href="tel:${escapeHtml(phoneClean)}" style="color: #475569; text-decoration: none;">${escapeHtml(phone)}</a>`);
+            }
+
+            if (website) {
+                const url = website.startsWith('http') ? website : 'https://' + website;
+                const displayUrl = website.replace(/^https?:\/\/(?:www\.)?/i, '').replace(/\/+$/, '');
+                items.push(`<a href="${escapeHtml(url)}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 500;">${escapeHtml(displayUrl)}</a>`);
+            }
+
+            if (address) {
+                const flatAddress = escapeHtml(address.replace(/[\r\n]+/g, ', '));
+                items.push(`<span style="color: #64748b; font-size: 12px;">${flatAddress}</span>`);
+            }
+
+            const sep = '<span class="sig-sep" style="color: #cbd5e1; margin: 0 7px; font-weight: 300;">|</span>';
+            const joined = items.join(sep);
+
+            if (layoutStyle === 'single_line_bar') {
+                previewEl.innerHTML = `<div class="email-signature-single-line-bar" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #475569; margin-top: 10px; padding: 10px 14px; background-color: #f8fafc; border-left: 3px solid #4f46e5; border-radius: 4px;">${joined}</div>`;
+            } else {
+                previewEl.innerHTML = `<div class="email-signature-single-line" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #475569; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">${joined}</div>`;
+            }
+            return;
+        }
+
+        // Multi-line Classic layout
         let lines = [];
         if (senderName) {
             lines.push(`<div style="font-weight: 600; font-size: 14px; color: #111827;">${escapeHtml(senderName)}</div>`);
@@ -387,10 +560,40 @@
             lines.push(`<div style="font-size: 12px; color: #6b7280; margin-top: 6px;">${contactDetails.join(' &bull; ')}</div>`);
         }
         if (address) {
-            lines.push(`<div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">${escapeHtml(address).replace(/\\n/g, '<br>')}</div>`);
+            lines.push(`<div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">${escapeHtml(address).replace(/\n/g, '<br>')}</div>`);
         }
 
         previewEl.innerHTML = `<div class="email-signature" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; color: #374151; line-height: 1.4;">${lines.join('')}</div>`;
+    }
+
+    async function copySignatureHtml(id) {
+        try {
+            const container = document.getElementById(`sig-rendered-${id}`);
+            let htmlToCopy = '';
+            if (container) {
+                htmlToCopy = container.innerHTML.trim();
+            } else {
+                const resp = await fetch(`/signatures/${id}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await resp.json();
+                htmlToCopy = data.rendered_html;
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(htmlToCopy);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = htmlToCopy;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            alert('Signature HTML copied to clipboard!');
+        } catch (err) {
+            alert('Failed to copy signature HTML: ' + err.message);
+        }
     }
 
     function escapeHtml(str) {

@@ -41,6 +41,7 @@ class SignatureController extends Controller
             'phone' => 'nullable|string|max:255',
             'website' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:1000',
+            'layout_style' => 'nullable|string|in:standard,single_line,single_line_bar',
             'content' => 'nullable|string',
             'is_default' => 'nullable|boolean',
         ]);
@@ -64,6 +65,7 @@ class SignatureController extends Controller
             'phone' => $validated['phone'] ?? null,
             'website' => $validated['website'] ?? null,
             'address' => $validated['address'] ?? null,
+            'layout_style' => $validated['layout_style'] ?? 'standard',
             'content' => $validated['content'] ?? '',
             'is_default' => $isDefault,
             'is_active' => true,
@@ -75,6 +77,8 @@ class SignatureController extends Controller
                 'message' => 'Signature created successfully!',
                 'signature' => $signature,
                 'rendered_html' => $signature->renderHtml(),
+                'single_line_html' => $signature->renderSingleLineHtml(),
+                'single_line_bar_html' => $signature->renderSingleLineBarHtml(),
             ]);
         }
 
@@ -95,6 +99,8 @@ class SignatureController extends Controller
             'success' => true,
             'signature' => $signature,
             'rendered_html' => $signature->renderHtml(),
+            'single_line_html' => $signature->renderSingleLineHtml(),
+            'single_line_bar_html' => $signature->renderSingleLineBarHtml(),
         ]);
     }
 
@@ -117,6 +123,7 @@ class SignatureController extends Controller
             'phone' => 'nullable|string|max:255',
             'website' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:1000',
+            'layout_style' => 'nullable|string|in:standard,single_line,single_line_bar',
             'content' => 'nullable|string',
             'is_default' => 'nullable|boolean',
         ]);
@@ -135,6 +142,7 @@ class SignatureController extends Controller
             'phone' => $validated['phone'] ?? null,
             'website' => $validated['website'] ?? null,
             'address' => $validated['address'] ?? null,
+            'layout_style' => $validated['layout_style'] ?? ($signature->layout_style ?? 'standard'),
             'content' => $validated['content'] ?? ($signature->content ?? ''),
             'is_default' => $isDefault ? true : $signature->is_default,
         ]);
@@ -145,6 +153,8 @@ class SignatureController extends Controller
                 'message' => 'Signature updated successfully!',
                 'signature' => $signature,
                 'rendered_html' => $signature->renderHtml(),
+                'single_line_html' => $signature->renderSingleLineHtml(),
+                'single_line_bar_html' => $signature->renderSingleLineBarHtml(),
             ]);
         }
 

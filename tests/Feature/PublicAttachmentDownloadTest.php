@@ -491,4 +491,45 @@ class PublicAttachmentDownloadTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('Content-Disposition', 'attachment; filename=Company_Catalog.pdf');
     }
+
+    /**
+     * Test Case 16: Campaign send with uploaded attachment files succeeds and creates EmailAttachment records.
+     */
+    public function test_campaign_send_with_uploaded_attachment_files_succeeds(): void
+    {
+        Storage::fake('local');
+        $file = UploadedFile::fake()->create('4267996426.pdf', 300, 'application/pdf');
+
+        $response = $this->actingAs($this->user)->withSession([
+            'user_id' => $this->user->id,
+            'username' => $this->user->username,
+            'role' => $this->user->role,
+            'email' => $this->user->email,
+        ])->post('/api/campaign/send', [
+            'subject' => 'Campaign with Attachment',
+            'body' => 'Please find attached catalog.',
+            'recipient_emails' => ['client@example.com'],
+            'attachment_files' => [$file],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $campaignId = $response->json('campaign_id');
+        $this->assertNotNull($campaignId);
+
+        // Verify EmailAttachment was created with foreign key campaign_id
+        $this->assertDatabaseHas('email_attachments', [
+            'campaign_id' => $campaignId,
+            'original_filename' => '4267996426.pdf',
+        ]);
+
+        $att = EmailAttachment::where('campaign_id', $campaignId)->first();
+        $this->assertNotNull($att);
+        $this->assertNotEmpty($att->token);
+
+        // Verify public download works for this attachment
+        $downloadRes = $this->get("/attachments/download/{$att->token}");
+        $downloadRes->assertOk();
+        $downloadRes->assertHeader('Content-Disposition', 'attachment; filename=4267996426.pdf');
+    }
 }

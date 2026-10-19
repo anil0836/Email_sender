@@ -39,8 +39,14 @@ class AttachmentService
         $mimeType = $file->getClientMimeType() ?: $this->guessMimeType($originalFilename);
         $fileSize = $file->getSize() ?: 0;
 
+        // Defensive check: only set foreign key campaign_id if the campaign actually exists in the database
+        $validCampaignId = null;
+        if ($campaignId && Campaign::where('id', $campaignId)->exists()) {
+            $validCampaignId = $campaignId;
+        }
+
         return EmailAttachment::create([
-            'campaign_id' => $campaignId,
+            'campaign_id' => $validCampaignId,
             'uploaded_by' => $userId,
             'original_filename' => $originalFilename,
             'storage_path' => $storagePath,
