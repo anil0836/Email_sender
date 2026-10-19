@@ -191,23 +191,61 @@ $unsubUrl = "{$baseUrl}/track/unsubscribe/{$trackingToken}";
                     if (is_array($attachmentList) && !empty($attachmentList)) {
                         $attachmentLinks = [];
                         $attachmentService = app(\App\Services\AttachmentService::class);
-                        foreach ($attachmentList as $filename) {
-                            $attachment = $attachmentService->getOrCreateForCampaignFile($campaign, $filename, $campaign->user_id);
-                            $downloadUrl = $attachment->getDownloadUrl();
-                            $safeFilename = htmlspecialchars($filename, ENT_QUOTES, 'UTF-8');
-                            $fileSizeFormatted = $attachment->file_size > 0 ? ' (' . $attachment->formatted_file_size . ')' : '';
+                       
+foreach ($attachmentList as $filename) {
 
-                            $attachmentLinks[] = '<li style="margin: 8px 0; padding: 12px 16px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; list-style: none;">'
-                                . '<div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">'
-                                . 'File: <strong>' . $safeFilename . '</strong>' . $fileSizeFormatted
-                                . '</div>'
-                                
-. '<div style="font-size: 12px; color: #475569;">'
-. 'Download link: <a href="' . htmlspecialchars($downloadUrl, ENT_QUOTES, 'UTF-8') . '" style="color: #2563eb; text-decoration: underline; font-weight: 600;" target="_blank" rel="noopener noreferrer">Click Here to Download</a>'
-. '</div>'
+    $attachment = $attachmentService->getOrCreateForCampaignFile(
+        $campaign,
+        $filename,
+        $campaign->user_id
+    );
 
-                                . '</li>';
-                        }
+    // Generate public download URL
+    $downloadUrl = $attachment->getDownloadUrl();
+
+    // Use HTTPS if the download endpoint supports it
+    $downloadUrl = preg_replace(
+        '/^http:\/\//i',
+        'https://',
+        $downloadUrl
+    );
+
+    // Escape values for safe HTML output
+    $safeDownloadUrl = htmlspecialchars(
+        $downloadUrl,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $safeFilename = htmlspecialchars(
+        $filename,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $fileSizeFormatted = $attachment->file_size > 0
+        ? ' (' . htmlspecialchars($attachment->formatted_file_size, ENT_QUOTES, 'UTF-8') . ')'
+        : '';
+
+    // Build attachment HTML
+    $attachmentLinks[] =
+        '<li style="margin:8px 0;padding:12px 16px;background:#ffffff;border:1px solid #cbd5e1;border-radius:6px;list-style:none;">'
+
+        . '<div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px;">'
+        . 'File: <strong>' . $safeFilename . '</strong>' . $fileSizeFormatted
+        . '</div>'
+
+        . '<div style="font-size:12px;color:#475569;">'
+        . '<a href="' . $safeDownloadUrl . '" '
+        . 'style="color:#2563eb;text-decoration:underline;font-weight:600;" '
+        . 'target="_blank" rel="noopener noreferrer">'
+        . 'Click Here to Download'
+        . '</a>'
+        . '</div>'
+
+        . '</li>';
+}
+
                         $attachmentHtml = '<div style="margin-top: 24px; padding: 16px 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;">'
                             . '<p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700; color: #1e293b;">📎 Download Your Attachment (' . count($attachmentList) . '):</p>'
                             . '<ul style="margin: 0; padding: 0;">' . implode('', $attachmentLinks) . '</ul>'
