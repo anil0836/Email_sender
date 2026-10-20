@@ -792,12 +792,102 @@ class CampaignController extends Controller
             ];
         });
 
+        // Resolve rendered preview for selected recipient (or default first available)
+        $campaignModel = Campaign::with(['user'])->find($campaignId);
+        $renderer = app(\App\Services\EmailRendererService::class);
+
+        $selectedRecipient = null;
+        $requestedLogId = request('recipient_log_id');
+
+        if ($requestedLogId) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)->where('id', $requestedLogId)->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)
+                ->whereIn('delivery_status', ['sent', 'delivered', 'opened'])
+                ->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)
+                ->where('decision', 'approved')
+                ->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = CampaignMember::where('campaign_id', $campaignId)->first();
+        }
+
+        $renderedPreview = $campaignModel ? $renderer->render(
+            $campaignModel,
+            $selectedRecipient,
+            $campaignModel->user,
+            false
+        ) : null;
+
         return response()->json([
             'campaign' => (array) $campaignRow,
             'recipient_logs' => $logs,
             'members' => $members,
             'approvals' => $approvals,
             'attachments_list' => $attachmentDetails,
+            'rendered_preview' => $renderedPreview,
+        ]);
+    }
+
+    /**
+     * Dedicated Recipient Preview API for Campaign Audit & Telemetry.
+     */
+    public function apiRenderedPreview(string $campaignId, Request $request)
+    {
+        $user = Auth::user() ?: User::find(session('user_id'));
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $campaign = Campaign::accessibleBy($user)->with(['user'])->find($campaignId);
+        if (!$campaign) {
+            return response()->json(['error' => 'Campaign not found or unauthorized'], 404);
+        }
+
+        $recipientLogId = $request->query('recipient_log_id');
+        $selectedRecipient = null;
+
+        if ($recipientLogId) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)->find($recipientLogId);
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)
+                ->whereIn('delivery_status', ['sent', 'delivered', 'opened'])
+                ->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)
+                ->where('decision', 'approved')
+                ->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = RecipientLog::where('campaign_id', $campaignId)->first();
+        }
+
+        if (!$selectedRecipient) {
+            $selectedRecipient = CampaignMember::where('campaign_id', $campaignId)->first();
+        }
+
+        $renderer = app(\App\Services\EmailRendererService::class);
+        $preview = $renderer->render($campaign, $selectedRecipient, $campaign->user, false);
+
+        return response()->json([
+            'success' => true,
+            'preview' => $preview,
         ]);
     }
 

@@ -162,6 +162,7 @@ Route::middleware(['app_auth'])->group(function () {
     });
 
     Route::get('/api/campaign/{campaign_id}', [CampaignController::class, 'apiDetail'])->name('api.campaign.detail');
+    Route::get('/api/campaign/{campaign_id}/preview', [CampaignController::class, 'apiRenderedPreview'])->name('api.campaign.preview_rendered');
     Route::get('/api/campaigns/dropdown', [CampaignController::class, 'apiDropdown'])->name('api.campaigns.dropdown');
     Route::post('/api/campaign/approve', [CampaignController::class, 'apiApprove'])->name('api.campaign.approve');
 

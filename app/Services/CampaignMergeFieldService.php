@@ -181,22 +181,40 @@ class CampaignMergeFieldService
         }
 
         if ($recipient instanceof CampaignMember || $recipient instanceof RecipientLog) {
-            // Attempt to resolve mapped CRM record if possible
+            $member = $recipient instanceof CampaignMember ? $recipient : $recipient->campaignMember;
+            $recId = $recipient->salesforce_record_id ?? ($member?->salesforce_record_id);
             $email = $recipient->email;
-            $crmRecord = app(SalesforceService::class)->getSalesforceRecordByEmail($email);
+
+            $crmRecord = null;
+            if ($recId && !str_starts_with($recId, 'RAW_') && $recId !== 'N/A') {
+                $crmRecord = app(SalesforceService::class)->getSalesforceRecord($recId);
+            }
+            if (!$crmRecord && $email) {
+                $crmRecord = app(SalesforceService::class)->getSalesforceRecordByEmail($email);
+            }
+
             if ($crmRecord) {
                 return $this->extractRecipientData($crmRecord);
             }
 
+            $fullName = $member ? trim((string)$member->name) : '';
+            $firstName = '';
+            $lastName = '';
+            if ($fullName) {
+                $parts = preg_split('/\s+/', $fullName, 2);
+                $firstName = $parts[0] ?? '';
+                $lastName = $parts[1] ?? '';
+            }
+
             return [
-                'first_name' => '',
-                'last_name' => '',
-                'full_name' => '',
-                'company' => '',
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'full_name' => $fullName,
+                'company' => $member ? trim((string)$member->company) : '',
                 'email' => $email ?: '',
                 'phone' => '',
                 'website' => '',
-                'owner_name' => '',
+                'owner_name' => $member ? trim((string)$member->owner_name) : '',
             ];
         }
 
@@ -365,7 +383,11 @@ class CampaignMergeFieldService
             $content = preg_replace('/\{\{\s*Signature\s*\}\}/i', $sigReplacement, $content);
         } elseif ($autoAppendSignature && !empty($signatureHtml)) {
             // Append signature if requested and tag wasn't already in the body
-            $content .= "\n" . $signatureHtml;
+            // Prevent duplicate signature if the trimmed signature block is already contained in content
+            $trimmedSig = trim($signatureHtml);
+            if (!str_contains($content, $trimmedSig)) {
+                $content .= "\n" . $signatureHtml;
+            }
         }
 
         // Clean up any double spaces introduced in plain text lines

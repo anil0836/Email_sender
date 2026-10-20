@@ -125,6 +125,12 @@
         height: 250px;
     }
 
+    #editor-container .ql-editor.ql-blank::before {
+        white-space: pre-wrap;
+        font-style: normal;
+        color: #9ca3af;
+    }
+
     .attachment-tag {
         background-color: #f4f4f5;
         border: 1px solid var(--border-color);
@@ -245,12 +251,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                         <label class="btn btn-outline-secondary btn-xs fw-medium"
                                             for="crm-filter-lead"><i class="bi bi-person me-1"></i>Leads</label>
 
-                                        <input type="radio" class="btn-check" name="crm-type-filter"
+                                        <!-- <input type="radio" class="btn-check" name="crm-type-filter"
                                             id="crm-filter-contact" value="Contact"
                                             onchange="filterRecipientsType('Contact')">
                                         <label class="btn btn-outline-secondary btn-xs fw-medium"
                                             for="crm-filter-contact"><i
-                                                class="bi bi-person-lines-fill me-1"></i>Contacts</label>
+                                                class="bi bi-person-lines-fill me-1"></i>Contacts</label> -->
 
                                         <!-- <input type="radio" class="btn-check" name="crm-type-filter"
                                             id="crm-filter-account" value="Account"
@@ -265,9 +271,18 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                     <div class="row g-2">
                                         <!-- Category Multiselect -->
                                         @php
-                                        $dealCategories = !empty($contactPicklists['Deal_Category__c']['values']) ? $contactPicklists['Deal_Category__c']['values'] : (!empty($leadPicklists['Deal_Category__c']['values']) ? $leadPicklists['Deal_Category__c']['values'] : []);
-                                        $regionPicklists = !empty($contactPicklists['Region_Acc__c']['values']) ? $contactPicklists['Region_Acc__c']['values'] : (!empty($leadPicklists['Region__c']['values']) ? $leadPicklists['Region__c']['values'] : []);
-                                        $countryPicklists = !empty($contactPicklists['MailingCountry']['values']) ? $contactPicklists['MailingCountry']['values'] : (!empty($leadPicklists['Country_Custom__c']['values']) ? $leadPicklists['Country_Custom__c']['values'] : []);
+                                        $dealCategories = !empty($contactPicklists['Deal_Category__c']['values']) ?
+                                        $contactPicklists['Deal_Category__c']['values'] :
+                                        (!empty($leadPicklists['Deal_Category__c']['values']) ?
+                                        $leadPicklists['Deal_Category__c']['values'] : []);
+                                        $regionPicklists = !empty($contactPicklists['Region_Acc__c']['values']) ?
+                                        $contactPicklists['Region_Acc__c']['values'] :
+                                        (!empty($leadPicklists['Region__c']['values']) ?
+                                        $leadPicklists['Region__c']['values'] : []);
+                                        $countryPicklists = !empty($contactPicklists['MailingCountry']['values']) ?
+                                        $contactPicklists['MailingCountry']['values'] :
+                                        (!empty($leadPicklists['Country_Custom__c']['values']) ?
+                                        $leadPicklists['Country_Custom__c']['values'] : []);
                                         @endphp
                                         <!-- Category Multiselect (Deal_Category__c) -->
                                         <div class="col-md-4">
@@ -278,14 +293,18 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     type="button" id="btn-filter-category" data-bs-toggle="dropdown"
                                                     aria-expanded="false"
                                                     style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-category">All Categories</span>
+                                                    <span class="text-truncate" id="label-filter-category">All
+                                                        Categories</span>
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-category" aria-labelledby="btn-filter-category"
                                                     style="max-height: 260px; overflow-y: auto;">
-                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-                                                        <input type="text" id="search-filter-category" class="form-control form-control-sm" placeholder="Search categories..."
-                                                            autocomplete="off"
+                                                    <div class="px-2 pb-2 border-bottom mb-1"
+                                                        onclick="event.stopPropagation()"
+                                                        onkeydown="event.stopPropagation()">
+                                                        <input type="text" id="search-filter-category"
+                                                            class="form-control form-control-sm"
+                                                            placeholder="Search categories..." autocomplete="off"
                                                             oninput="filterDropdownMenuOptions(this, 'menu-filter-category', '.filter-category-item')"
                                                             onkeyup="filterDropdownMenuOptions(this, 'menu-filter-category', '.filter-category-item')"
                                                             onkeydown="event.stopPropagation()"
@@ -293,23 +312,30 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     </div>
                                                     <div class="category-options-list">
                                                         @forelse($dealCategories as $idx => $cat)
-                                                            @php
-                                                                $catVal = is_array($cat) ? ($cat['value'] ?? '') : $cat;
-                                                                $catLabel = is_array($cat) ? ($cat['label'] ?? $catVal) : $cat;
-                                                            @endphp
-                                                            <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-category-item">
-                                                                <input class="form-check-input filter-category-checkbox mt-0"
-                                                                    type="checkbox" value="{{ $catVal }}" data-label="{{ $catLabel }}" id="cat-{{ $idx }}"
-                                                                    onchange="filterRecipients()">
-                                                                <label class="form-check-label text-zinc-800"
-                                                                    for="cat-{{ $idx }}"
-                                                                    style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $catLabel }}</label>
-                                                            </div>
+                                                        @php
+                                                        $catVal = is_array($cat) ? ($cat['value'] ?? '') : $cat;
+                                                        $catLabel = is_array($cat) ? ($cat['label'] ?? $catVal) : $cat;
+                                                        @endphp
+                                                        <div
+                                                            class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-category-item">
+                                                            <input
+                                                                class="form-check-input filter-category-checkbox mt-0"
+                                                                type="checkbox" value="{{ $catVal }}"
+                                                                data-label="{{ $catLabel }}" id="cat-{{ $idx }}"
+                                                                onchange="filterRecipients()">
+                                                            <label class="form-check-label text-zinc-800"
+                                                                for="cat-{{ $idx }}"
+                                                                style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{
+                                                                $catLabel }}</label>
+                                                        </div>
                                                         @empty
-                                                            <div class="text-zinc-400 p-2 text-center empty-category-msg" style="font-size: 0.8125rem;">Loading categories...</div>
+                                                        <div class="text-zinc-400 p-2 text-center empty-category-msg"
+                                                            style="font-size: 0.8125rem;">Loading categories...</div>
                                                         @endforelse
                                                     </div>
-                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none" style="font-size: 0.8125rem; display: none !important;">No matching options found</div>
+                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none"
+                                                        style="font-size: 0.8125rem; display: none !important;">No
+                                                        matching options found</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -323,14 +349,18 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     type="button" id="btn-filter-region" data-bs-toggle="dropdown"
                                                     aria-expanded="false"
                                                     style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-region">All Regions</span>
+                                                    <span class="text-truncate" id="label-filter-region">All
+                                                        Regions</span>
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-region" aria-labelledby="btn-filter-region"
                                                     style="max-height: 260px; overflow-y: auto;">
-                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-                                                        <input type="text" id="search-filter-region" class="form-control form-control-sm" placeholder="Search regions..."
-                                                            autocomplete="off"
+                                                    <div class="px-2 pb-2 border-bottom mb-1"
+                                                        onclick="event.stopPropagation()"
+                                                        onkeydown="event.stopPropagation()">
+                                                        <input type="text" id="search-filter-region"
+                                                            class="form-control form-control-sm"
+                                                            placeholder="Search regions..." autocomplete="off"
                                                             oninput="filterDropdownMenuOptions(this, 'menu-filter-region', '.filter-region-item')"
                                                             onkeyup="filterDropdownMenuOptions(this, 'menu-filter-region', '.filter-region-item')"
                                                             onkeydown="event.stopPropagation()"
@@ -338,23 +368,29 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     </div>
                                                     <div class="region-options-list">
                                                         @forelse($regionPicklists as $idx => $reg)
-                                                            @php
-                                                                $regVal = is_array($reg) ? ($reg['value'] ?? '') : $reg;
-                                                                $regLabel = is_array($reg) ? ($reg['label'] ?? $regVal) : $reg;
-                                                            @endphp
-                                                            <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-region-item">
-                                                                <input class="form-check-input filter-region-checkbox mt-0"
-                                                                    type="checkbox" value="{{ $regVal }}" data-label="{{ $regLabel }}" id="reg-{{ $idx }}"
-                                                                    onchange="filterRecipients()">
-                                                                <label class="form-check-label text-zinc-800"
-                                                                    for="reg-{{ $idx }}"
-                                                                    style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $regLabel }}</label>
-                                                            </div>
+                                                        @php
+                                                        $regVal = is_array($reg) ? ($reg['value'] ?? '') : $reg;
+                                                        $regLabel = is_array($reg) ? ($reg['label'] ?? $regVal) : $reg;
+                                                        @endphp
+                                                        <div
+                                                            class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-region-item">
+                                                            <input class="form-check-input filter-region-checkbox mt-0"
+                                                                type="checkbox" value="{{ $regVal }}"
+                                                                data-label="{{ $regLabel }}" id="reg-{{ $idx }}"
+                                                                onchange="filterRecipients()">
+                                                            <label class="form-check-label text-zinc-800"
+                                                                for="reg-{{ $idx }}"
+                                                                style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{
+                                                                $regLabel }}</label>
+                                                        </div>
                                                         @empty
-                                                            <div class="text-zinc-400 p-2 text-center empty-region-msg" style="font-size: 0.8125rem;">Loading regions...</div>
+                                                        <div class="text-zinc-400 p-2 text-center empty-region-msg"
+                                                            style="font-size: 0.8125rem;">Loading regions...</div>
                                                         @endforelse
                                                     </div>
-                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none" style="font-size: 0.8125rem; display: none !important;">No matching options found</div>
+                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none"
+                                                        style="font-size: 0.8125rem; display: none !important;">No
+                                                        matching options found</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -368,14 +404,18 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     type="button" id="btn-filter-country" data-bs-toggle="dropdown"
                                                     aria-expanded="false"
                                                     style="font-size: 0.8125rem; font-weight: 500;">
-                                                    <span class="text-truncate" id="label-filter-country">All Countries</span>
+                                                    <span class="text-truncate" id="label-filter-country">All
+                                                        Countries</span>
                                                 </button>
                                                 <div class="dropdown-menu p-2 shadow-sm border w-100"
                                                     id="menu-filter-country" aria-labelledby="btn-filter-country"
                                                     style="max-height: 260px; overflow-y: auto;">
-                                                    <div class="px-2 pb-2 border-bottom mb-1" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-                                                        <input type="text" id="search-filter-country" class="form-control form-control-sm" placeholder="Search countries..."
-                                                            autocomplete="off"
+                                                    <div class="px-2 pb-2 border-bottom mb-1"
+                                                        onclick="event.stopPropagation()"
+                                                        onkeydown="event.stopPropagation()">
+                                                        <input type="text" id="search-filter-country"
+                                                            class="form-control form-control-sm"
+                                                            placeholder="Search countries..." autocomplete="off"
                                                             oninput="filterDropdownMenuOptions(this, 'menu-filter-country', '.filter-country-item')"
                                                             onkeyup="filterDropdownMenuOptions(this, 'menu-filter-country', '.filter-country-item')"
                                                             onkeydown="event.stopPropagation()"
@@ -383,24 +423,30 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                                     </div>
                                                     <div class="country-options-list">
                                                         @forelse($countryPicklists as $idx => $cty)
-                                                            @php
-                                                                $ctyVal = is_array($cty) ? ($cty['value'] ?? '') : $cty;
-                                                                $ctyLabel = is_array($cty) ? ($cty['label'] ?? $ctyVal) : $cty;
-                                                                $ctyCode = is_array($cty) ? ($cty['code'] ?? '') : '';
-                                                            @endphp
-                                                            <div class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-country-item">
-                                                                <input class="form-check-input filter-country-checkbox mt-0"
-                                                                    type="checkbox" value="{{ $ctyVal }}" data-label="{{ $ctyLabel }}" data-code="{{ $ctyCode }}" id="cty-{{ $idx }}"
-                                                                    onchange="filterRecipients()">
-                                                                <label class="form-check-label text-zinc-800"
-                                                                    for="cty-{{ $idx }}"
-                                                                    style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{ $ctyLabel }}</label>
-                                                            </div>
+                                                        @php
+                                                        $ctyVal = is_array($cty) ? ($cty['value'] ?? '') : $cty;
+                                                        $ctyLabel = is_array($cty) ? ($cty['label'] ?? $ctyVal) : $cty;
+                                                        $ctyCode = is_array($cty) ? ($cty['code'] ?? '') : '';
+                                                        @endphp
+                                                        <div
+                                                            class="form-check py-1 px-3 d-flex align-items-center gap-2 rounded-2 filter-country-item">
+                                                            <input class="form-check-input filter-country-checkbox mt-0"
+                                                                type="checkbox" value="{{ $ctyVal }}"
+                                                                data-label="{{ $ctyLabel }}" data-code="{{ $ctyCode }}"
+                                                                id="cty-{{ $idx }}" onchange="filterRecipients()">
+                                                            <label class="form-check-label text-zinc-800"
+                                                                for="cty-{{ $idx }}"
+                                                                style="font-size: 0.8125rem; font-weight: 500; cursor: pointer;">{{
+                                                                $ctyLabel }}</label>
+                                                        </div>
                                                         @empty
-                                                            <div class="text-zinc-400 p-2 text-center empty-country-msg" style="font-size: 0.8125rem;">Loading countries...</div>
+                                                        <div class="text-zinc-400 p-2 text-center empty-country-msg"
+                                                            style="font-size: 0.8125rem;">Loading countries...</div>
                                                         @endforelse
                                                     </div>
-                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none" style="font-size: 0.8125rem; display: none !important;">No matching options found</div>
+                                                    <div class="text-zinc-400 p-2 text-center no-matching-options-msg d-none"
+                                                        style="font-size: 0.8125rem; display: none !important;">No
+                                                        matching options found</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -639,9 +685,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                             </label>
                             <input type="email" class="form-control" id="reply-to" name="reply_to"
                                 value="{{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }}"
-                                placeholder="{{ trim(Auth::user()->email ?? session('email', 'support@b2bexportsllc.com')) }}" required>
+                                placeholder="{{ trim(Auth::user()->email ?? session('email', 'support@b2bexportsllc.com')) }}"
+                                required>
                             <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
-                                Customer responses will be directed to this inbox (Default: {{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }} / support@b2bexportsllc.com).
+                                Customer responses will be directed to this inbox (Default: {{ trim(Auth::user()->email
+                                ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }} /
+                                support@b2bexportsllc.com).
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -854,28 +903,45 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                     onchange="onSignatureSelectionChange()">
                                     <option value="">-- No Signature Selected --</option>
                                 </select>
-                                <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" id="btn-insert-sig"
-                                    data-bs-toggle="dropdown" aria-expanded="false" title="Insert Signature Options" disabled>
+                                <button type="button"
+                                    class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+                                    id="btn-insert-sig" data-bs-toggle="dropdown" aria-expanded="false"
+                                    title="Insert Signature Options" disabled>
                                     <i class="bi bi-box-arrow-in-down me-1"></i> Insert
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 0.825rem; min-width: 250px;">
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm"
+                                    style="font-size: 0.825rem; min-width: 250px;">
                                     <li>
-                                        <button type="button" class="dropdown-item py-2" onclick="insertSelectedSignatureSingleLine()">
-                                            <div class="fw-semibold text-zinc-900"><i class="bi bi-dash-lg text-primary me-2"></i> Insert Single-Line HTML</div>
-                                            <small class="text-zinc-500">Pastes formatted single line directly into body</small>
+                                        <button type="button" class="dropdown-item py-2"
+                                            onclick="insertSelectedSignatureSingleLine()">
+                                            <div class="fw-semibold text-zinc-900"><i
+                                                    class="bi bi-dash-lg text-primary me-2"></i> Insert Single-Line HTML
+                                            </div>
+                                            <small class="text-zinc-500">Pastes formatted single line directly into
+                                                body</small>
                                         </button>
                                     </li>
                                     <li>
-                                        <button type="button" class="dropdown-item py-2" onclick="insertSelectedSignatureSingleLineBar()">
-                                            <div class="fw-semibold text-zinc-900"><i class="bi bi-layout-sidebar-inset text-indigo me-2"></i> Insert Single-Line (Accent Bar)</div>
-                                            <small class="text-zinc-500">Pastes container with left accent border</small>
+                                        <button type="button" class="dropdown-item py-2"
+                                            onclick="insertSelectedSignatureSingleLineBar()">
+                                            <div class="fw-semibold text-zinc-900"><i
+                                                    class="bi bi-layout-sidebar-inset text-indigo me-2"></i> Insert
+                                                Single-Line (Accent Bar)</div>
+                                            <small class="text-zinc-500">Pastes container with left accent
+                                                border</small>
                                         </button>
                                     </li>
-                                    <li><hr class="dropdown-divider my-1"></li>
                                     <li>
-                                        <button type="button" class="dropdown-item py-2" onclick="insertSelectedSignatureTag()">
-                                            <div class="fw-semibold text-zinc-900"><i class="bi bi-code-slash text-secondary me-2"></i> Insert <code>@{{Signature}}</code> Tag</div>
-                                            <small class="text-zinc-500">Resolved at send-time using signature style</small>
+                                        <hr class="dropdown-divider my-1">
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item py-2"
+                                            onclick="insertSelectedSignatureTag()">
+                                            <div class="fw-semibold text-zinc-900"><i
+                                                    class="bi bi-code-slash text-secondary me-2"></i> Insert
+                                                <code>@{{Signature}}</code> Tag</div>
+                                            <small class="text-zinc-500">Resolved at send-time using signature
+                                                style</small>
                                         </button>
                                     </li>
                                 </ul>
@@ -885,7 +951,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                 </button>
                             </div>
                             <div class="form-text text-zinc-500" style="font-size: 0.72rem;">
-                                Choose a signature to auto-attach or insert formatted single-line HTML directly into the body.
+                                Choose a signature to auto-attach or insert formatted single-line HTML directly into the
+                                body.
                             </div>
                         </div>
 
@@ -909,7 +976,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         <button type="button" class="btn btn-outline-primary" onclick="openLivePreviewModal()">
                             <i class="bi bi-eye-fill me-1"></i> Preview Email
                         </button>
-                        @if(auth()->user()->can('bulk-mail.send') || auth()->user()->can('bulk-mail') || auth()->user()->can('campaign.create') || auth()->user()->can('bulk-mail.create'))
+                        @if(auth()->user()->can('bulk-mail.send') || auth()->user()->can('bulk-mail') ||
+                        auth()->user()->can('campaign.create') || auth()->user()->can('bulk-mail.create'))
                         <button type="button" class="btn btn-primary" onclick="runPreSendValidation()">
                             <i class="bi bi-shield-check me-1"></i> Verify & Dispatch
                         </button>
@@ -1007,7 +1075,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 <!-- Final send actions -->
                 <div class="d-flex justify-content-end gap-2 align-items-center pt-2.5 border-top">
                     <button class="btn btn-outline-secondary btn-sm" onclick="hideValidationSummary()">Cancel</button>
-                    @if(auth()->user()->can('bulk-mail.send') || auth()->user()->can('bulk-mail') || auth()->user()->can('campaign.create') || auth()->user()->can('bulk-mail.create'))
+                    @if(auth()->user()->can('bulk-mail.send') || auth()->user()->can('bulk-mail') ||
+                    auth()->user()->can('campaign.create') || auth()->user()->can('bulk-mail.create'))
                     <button class="btn btn-primary btn-sm" id="btn-submit-send" onclick="submitCampaign()">
                         <i class="bi bi-send-fill"></i> Confirm Dispatch
                     </button>
@@ -1159,12 +1228,18 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="text-zinc-500" style="font-size: 0.75rem;">Preview Style:</span>
                     <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_single" onclick="switchPreviewSigStyle('single_line')" style="font-size: 0.72rem;">Single Line</button>
-                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_bar" onclick="switchPreviewSigStyle('single_line_bar')" style="font-size: 0.72rem;">Accent Bar</button>
-                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_saved" onclick="switchPreviewSigStyle('saved')" style="font-size: 0.72rem;">Saved Default</button>
+                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_single"
+                            onclick="switchPreviewSigStyle('single_line')" style="font-size: 0.72rem;">Single
+                            Line</button>
+                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_bar"
+                            onclick="switchPreviewSigStyle('single_line_bar')" style="font-size: 0.72rem;">Accent
+                            Bar</button>
+                        <button type="button" class="btn btn-outline-secondary py-0 px-2" id="btn_prev_style_saved"
+                            onclick="switchPreviewSigStyle('saved')" style="font-size: 0.72rem;">Saved Default</button>
                     </div>
                 </div>
-                <div class="p-3 bg-white rounded border" id="prev_sig_body" style="min-height: 100px; overflow-x: auto;"></div>
+                <div class="p-3 bg-white rounded border" id="prev_sig_body"
+                    style="min-height: 100px; overflow-x: auto;"></div>
             </div>
             <div class="modal-footer border-top pt-3 flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
@@ -1228,7 +1303,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                         </div>
                         <div class="col text-zinc-900 fw-medium font-monospace" style="font-size: 0.825rem;"
                             id="prev_reply_to_field">
-                            {{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to', 'support@b2bexportsllc.com'))) }}</div>
+                            {{ trim(Auth::user()->email ?? session('email', config('pabbly.reply_to',
+                            'support@b2bexportsllc.com'))) }}</div>
                     </div>
                     <div class="row g-2 align-items-center mt-1">
                         <div class="col-auto text-zinc-500 fw-semibold" style="font-size: 0.78rem; width: 70px;">TO:
@@ -1285,6 +1361,7 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
     // Initialize Rich text
     quill = new Quill('#editor-container', {
         theme: 'snow',
+        placeholder: "Hi @{{FirstName}},\n\nWe wanted to check in and share some exciting updates.\n\nBest regards,\nTeam",
         modules: {
             toolbar: [
                 [{ 'font': ['abadi', 'inter', 'arial', 'courier-new', 'georgia', 'tahoma', 'times-new-roman', 'verdana'] }],
@@ -1296,8 +1373,6 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
             ]
         }
     });
-    
-    quill.root.innerHTML = `<p>Hi @{{FirstName}},</p><p>We wanted to check in and share some exciting updates.</p><p>Best regards,<br>Team</p>`;
 
     // --- Dual-Mode Editor Controller (Visual Quill vs Lossless HTML Source vs Live Preview) ---
     let currentEditorMode = 'visual'; // 'visual', 'html', 'preview'
@@ -1312,7 +1387,14 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
         if (htmlVal && /<table|<tbody|<tr|<td|<style|<div style=/i.test(htmlVal)) {
             return htmlVal;
         }
-        return (quill && quill.root) ? quill.root.innerHTML : '';
+        if (quill && quill.root) {
+            // If quill only contains empty placeholder whitespace
+            if (!quill.getText().trim()) {
+                return '';
+            }
+            return quill.root.innerHTML;
+        }
+        return '';
     }
 
     function setEditorMode(mode) {

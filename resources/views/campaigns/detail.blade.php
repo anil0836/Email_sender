@@ -321,19 +321,67 @@
                 </div>
             </div>
 
-            <!-- Campaign Body Content Preview Card -->
+            <!-- Campaign Body Content Preview Card (Delivered Email Preview) -->
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0 fw-semibold text-zinc-900"><i
-                                class="bi bi-file-earmark-richtext me-1.5 text-zinc-500"></i> Rendered Email Body</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="p-3 bg-zinc-50 rounded-3 border text-zinc-800"
-                            style="min-height: 80px; font-size: 0.85rem; max-height: 300px; overflow-y: auto;"
-                            id="camp-body-content">
-                            <!-- Populated dynamically -->
+                    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 py-2.5">
+                        <div class="d-flex align-items-center gap-2">
+                            <h6 class="mb-0 fw-semibold text-zinc-900">
+                                <i class="bi bi-file-earmark-richtext me-1.5 text-zinc-500"></i> Rendered Email Body
+                            </h6>
+                            <span class="badge bg-success-soft text-emerald-800" id="preview-mode-badge" style="font-size: 0.72rem;">
+                                Delivered Preview
+                            </span>
                         </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="preview-recipient-select" class="form-label mb-0 text-muted" style="font-size: 0.76rem; white-space: nowrap;">
+                                Recipient:
+                            </label>
+                            <select id="preview-recipient-select" class="form-select form-select-sm" 
+                                    style="font-size: 0.78rem; min-width: 220px; max-width: 340px;" 
+                                    onchange="onPreviewRecipientChanged(this.value)">
+                                <option value="">Loading recipients...</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary btn-xs" onclick="refreshEmailPreview()" title="Refresh Delivered Email Preview">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Email Metadata Sub-Header -->
+                    <div class="px-3 py-2.5 bg-zinc-50 border-bottom" style="font-size: 0.8125rem;">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-7 col-12">
+                                <div class="d-flex align-items-baseline mb-1 text-truncate">
+                                    <span class="text-zinc-500 fw-medium me-2" style="min-width: 62px; font-size: 0.75rem;">Subject:</span>
+                                    <strong id="preview-subject-text" class="text-zinc-900 text-truncate">Loading subject...</strong>
+                                </div>
+                                <div class="d-flex align-items-baseline text-truncate">
+                                    <span class="text-zinc-500 fw-medium me-2" style="min-width: 62px; font-size: 0.75rem;">From:</span>
+                                    <span id="preview-from-info" class="text-zinc-800 text-truncate">
+                                        <strong id="preview-from-name">...</strong>
+                                        <span id="preview-from-email" class="text-zinc-500 ms-1 font-monospace" style="font-size: 0.74rem;">&lt;...&gt;</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-5 col-12">
+                                <div class="d-flex align-items-baseline mb-1 text-truncate">
+                                    <span class="text-zinc-500 fw-medium me-2" style="min-width: 62px; font-size: 0.75rem;">To:</span>
+                                    <span id="preview-recipient-info" class="text-zinc-800 text-truncate fw-medium">Select recipient</span>
+                                </div>
+                                <div class="d-flex align-items-baseline text-truncate">
+                                    <span class="text-zinc-500 fw-medium me-2" style="min-width: 62px; font-size: 0.75rem;">Reply-To:</span>
+                                    <span id="preview-reply-to" class="text-zinc-600 font-monospace text-truncate" style="font-size: 0.74rem;">...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Sandboxed Email Viewport -->
+                    <div class="card-body p-0 position-relative" style="background: #ffffff; border-radius: 0 0 8px 8px;">
+                        <iframe id="preview-email-iframe"
+                                sandbox="allow-popups allow-popups-to-escape-sandbox"
+                                style="width: 100%; min-height: 250px; height: 380px; border: none; display: block; background: #ffffff;"
+                                title="Rendered Email Body Preview">
+                        </iframe>
                     </div>
                 </div>
             </div>
@@ -445,6 +493,7 @@
     let pollInterval = null;
     let currentCampaignLogs = [];
     let currentFilteredEmails = [];
+    let selectedRecipientLogId = null;
 
     // Interactive Sidebar Campaigns State
     const serverSidebarData = @json($sidebarCampaigns ?? []);
@@ -725,13 +774,146 @@
         .catch(err => console.error("Error updating campaign status:", err));
     }
 
+    function renderDeliveredEmailPreview(preview) {
+        if (!preview) return;
+
+        // Update preview subject
+        const subjEl = document.getElementById('preview-subject-text');
+        if (subjEl) subjEl.innerText = preview.subject || '(No Subject)';
+
+        // Update Sender Name and Email
+        const fromNameEl = document.getElementById('preview-from-name');
+        if (fromNameEl) fromNameEl.innerText = preview.from_name || 'Sender';
+
+        const fromEmailEl = document.getElementById('preview-from-email');
+        if (fromEmailEl) fromEmailEl.innerText = preview.from_email ? `<${preview.from_email}>` : '';
+
+        // Update Reply-To Address
+        const replyToEl = document.getElementById('preview-reply-to');
+        if (replyToEl) replyToEl.innerText = preview.reply_to || preview.from_email || 'support@b2bexportsllc.com';
+
+        // Update recipient info in preview header
+        const infoEl = document.getElementById('preview-recipient-info');
+        if (infoEl) {
+            let infoText = preview.recipient_email || 'No recipient email';
+            if (preview.recipient_name && preview.recipient_name !== preview.recipient_email) {
+                infoText = `${preview.recipient_name} <${preview.recipient_email}>`;
+            }
+            if (preview.is_sample) {
+                infoText += ' (Sample Preview)';
+            }
+            infoEl.innerText = infoText;
+        }
+
+        // Update preview badge
+        const badgeEl = document.getElementById('preview-mode-badge');
+        if (badgeEl) {
+            if (preview.is_sample) {
+                badgeEl.className = 'badge bg-warning-soft text-amber-800';
+                badgeEl.innerText = 'Draft Sample Preview';
+            } else {
+                badgeEl.className = 'badge bg-success-soft text-emerald-800';
+                badgeEl.innerText = 'Delivered Preview';
+            }
+        }
+
+        // Render full HTML document safely inside the sandboxed iframe
+        const iframe = document.getElementById('preview-email-iframe');
+        if (iframe) {
+            iframe.srcdoc = preview.full_document || preview.html || '<i>(No content rendered)</i>';
+            iframe.onload = function() {
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (doc && doc.body) {
+                        const newHeight = Math.min(Math.max(doc.body.scrollHeight + 30, 260), 650);
+                        iframe.style.height = newHeight + 'px';
+                    }
+                } catch(e) {}
+            };
+        }
+    }
+
+    function syncRecipientSelector(logs) {
+        const select = document.getElementById('preview-recipient-select');
+        if (!select) return;
+
+        if (!logs || logs.length === 0) {
+            select.innerHTML = '<option value="">(No recipients recorded)</option>';
+            select.disabled = true;
+            return;
+        }
+
+        select.disabled = false;
+        const currentVal = selectedRecipientLogId !== null ? String(selectedRecipientLogId) : select.value;
+        let optionsHtml = '';
+        let matched = false;
+
+        logs.forEach(l => {
+            const isApproved = l.decision === 'approved';
+            const statusLabel = isApproved ? (l.delivery_status || 'approved') : (l.decision_reason || 'blocked');
+            const isSelected = String(l.id) === String(currentVal);
+            if (isSelected) matched = true;
+
+            optionsHtml += `<option value="${l.id}" ${isSelected ? 'selected' : ''}>${escapeHtml(l.email)} [${statusLabel}]</option>`;
+        });
+
+        select.innerHTML = optionsHtml;
+
+        if (!matched && logs.length > 0) {
+            selectedRecipientLogId = logs[0].id;
+            select.value = logs[0].id;
+        }
+    }
+
+    function onPreviewRecipientChanged(logId) {
+        selectedRecipientLogId = logId;
+        refreshEmailPreview();
+    }
+
+    function refreshEmailPreview() {
+        const url = `/api/campaign/${campaignId}/preview` + (selectedRecipientLogId ? `?recipient_log_id=${selectedRecipientLogId}` : '');
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data.preview) {
+                    renderDeliveredEmailPreview(data.preview);
+                }
+            })
+            .catch(err => console.error("Error refreshing email preview:", err));
+    }
+
+    function selectRecipientForPreview(logId) {
+        selectedRecipientLogId = logId;
+        const select = document.getElementById('preview-recipient-select');
+        if (select) {
+            select.value = logId;
+        }
+        refreshEmailPreview();
+        const previewCard = document.getElementById('preview-email-iframe');
+        if (previewCard) {
+            previewCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
     function fetchCampaignDetails() {
-        fetch(`/api/campaign/${campaignId}`)
+        const queryParam = selectedRecipientLogId ? `?recipient_log_id=${selectedRecipientLogId}` : '';
+        fetch(`/api/campaign/${campaignId}${queryParam}`)
             .then(res => res.json())
             .then(data => {
                 const c = data.campaign;
                 const logs = data.recipient_logs;
                 currentCampaignLogs = logs || [];
+
+                syncRecipientSelector(logs);
+
+                if (data.rendered_preview) {
+                    renderDeliveredEmailPreview(data.rendered_preview);
+                    if (data.rendered_preview.recipient_log_id && !selectedRecipientLogId) {
+                        selectedRecipientLogId = data.rendered_preview.recipient_log_id;
+                        const sel = document.getElementById('preview-recipient-select');
+                        if (sel) sel.value = selectedRecipientLogId;
+                    }
+                }
 
                 // Sync current campaign in sidebar list if status updated
                 if (c && allCampaignsList) {
@@ -754,7 +936,10 @@
                 const replyTo = c.reply_to || (c.creator_email || (c.user && c.user.email ? c.user.email : 'support@b2bexportsllc.com'));
                 document.getElementById('camp-meta').innerText = `From: ${c.from_address} • Reply-To: ${replyTo} • Domain: ${c.sending_domain} • Team: ${teamName} • Manager: ${managerName} • Created: ${dateStr}`;
 
-                document.getElementById('camp-body-content').innerHTML = c.body || '<i>(No body content)</i>';
+                const campBodyEl = document.getElementById('camp-body-content');
+                if (campBodyEl) {
+                    campBodyEl.innerHTML = c.body || '<i>(No body content)</i>';
+                }
 
                 document.getElementById('sum-requested').innerText = c.total_requested;
                 document.getElementById('sum-approved').innerText = c.total_approved;
@@ -1139,9 +1324,12 @@
                 : '';
 
             html += `
-                <tr>
+                <tr style="cursor: pointer;" onclick="selectRecipientForPreview(${l.id})" title="Click to preview delivered email for this recipient">
                     <td class="ps-4">
-                        <div class="fw-semibold text-zinc-900">${escapeHtml(l.email)}</div>
+                        <div class="fw-semibold text-zinc-900 d-flex align-items-center gap-1.5">
+                            <span>${escapeHtml(l.email)}</span>
+                            <span class="text-primary opacity-75" title="Preview recipient email" style="font-size: 0.75rem;"><i class="bi bi-eye"></i></span>
+                        </div>
                         <div class="text-zinc-400 font-monospace" style="font-size: 0.72rem;">ID: ${l.salesforce_record_id}</div>
                     </td>
                     <td>${decBadge}</td>
