@@ -103,11 +103,11 @@
 
     <!-- Quick Stats Grid (Row 1: Delivery Lifecycle - 6 Cards) -->
     <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-6 g-3 mb-3">
-        <!-- Stat 0: Total Mail Queued -->
+        <!-- Stat 0: Total Email Triggered -->
         <div class="col">
-            <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('queued')">
-                <div class="stat-label">Total Mail Queued</div>
-                <div class="stat-value text-sky-600" style="color: #0284c7;" id="stat-queued">0</div>
+            <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('triggered')">
+                <div class="stat-label">Total Email Triggered</div>
+                <div class="stat-value text-sky-600" style="color: #0284c7;" id="stat-triggered">0</div>
             </div>
         </div>
         <!-- Stat 1: Total Sent -->
@@ -639,6 +639,9 @@
                     userSelect.value = curr;
                 }
 
+                if (document.getElementById('stat-triggered')) {
+                    document.getElementById('stat-triggered').textContent = (data.counters.total_triggered ?? (data.counters.total_sent + data.counters.undelivered) ?? 0).toLocaleString();
+                }
                 if (document.getElementById('stat-queued')) {
                     document.getElementById('stat-queued').textContent = (data.counters.queued || 0).toLocaleString();
                 }
@@ -831,6 +834,7 @@
         if (userSelect && userSelect.value) url += `&team_member_id=${encodeURIComponent(userSelect.value)}`;
         
         const labels = {
+            'triggered': 'Total Emails Triggered (All Dispatches)',
             'queued': 'Total Mail Queued (Pending Dispatch)',
             'total': 'Total Attempted Dispatches',
             'delivered': 'Delivered Recipient Inboxes',

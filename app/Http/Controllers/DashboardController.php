@@ -122,6 +122,7 @@ class DashboardController extends Controller
         $applyFilters($baseLogQuery);
 
         $countsRow = (clone $baseLogQuery)->selectRaw("
+            COUNT(CASE WHEN recipient_logs.delivery_status IN ('sent', 'delivered', 'opened', 'unsubscribed', 'bounce', 'spam_complaint', 'failed') THEN 1 END) as total_triggered,
             COUNT(CASE WHEN recipient_logs.delivery_status IN ('queued', 'scheduled', 'pending_approval', 'pending_line_manager', 'pending_manager') THEN 1 END) as queued,
             COUNT(CASE WHEN recipient_logs.delivery_status IN ('" . implode("','", $sentStatuses) . "') THEN 1 END) as total_sent,
             COUNT(CASE WHEN recipient_logs.delivery_status IN ('sent', 'delivered', 'opened', 'unsubscribed') THEN 1 END) as delivered,
@@ -132,6 +133,7 @@ class DashboardController extends Controller
             COUNT(CASE WHEN recipient_logs.delivery_status = 'unsubscribed' THEN 1 END) as unsubscribed
         ")->first();
 
+        $totalTriggered = (int) ($countsRow->total_triggered ?? 0);
         $queued = (int) ($countsRow->queued ?? 0);
         $totalSent = (int) ($countsRow->total_sent ?? 0);
         $spamMarked = (int) ($countsRow->spam_marked ?? 0);
@@ -168,6 +170,7 @@ class DashboardController extends Controller
         $unsubRate = $totalSent > 0 ? round(($unsubscribed / $totalSent) * 100, 2) : 0.0;
 
         $counters = [
+            'total_triggered' => $totalTriggered,
             'queued' => $queued,
             'total_sent' => $totalSent,
             'delivered' => $delivered,
@@ -316,7 +319,9 @@ class DashboardController extends Controller
             ->join('campaigns', 'recipient_logs.campaign_id', '=', 'campaigns.id');
 
         // Status condition
-        if ($statusType === 'queued') {
+        if ($statusType === 'triggered') {
+            $query->whereIn('recipient_logs.delivery_status', ['sent', 'delivered', 'opened', 'unsubscribed', 'bounce', 'spam_complaint', 'failed']);
+        } elseif ($statusType === 'queued') {
             $query->whereIn('recipient_logs.delivery_status', ['queued', 'scheduled', 'pending_approval', 'pending_line_manager', 'pending_manager']);
         } elseif ($statusType === 'total') {
             $query->whereIn('recipient_logs.delivery_status', ['sent', 'delivered', 'opened', 'unsubscribed', 'bounce', 'spam_complaint']);

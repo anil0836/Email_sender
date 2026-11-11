@@ -277,18 +277,25 @@ class DashboardDeliveryLocationMapTest extends TestCase
         // Undelivered = 1
         // Delivered = total_sent - undelivered = 9 - 1 = 8
         // Opened = 3
+        // Total triggered = 9 (sent) + 1 (failed) = 10
         // Queued = 2
         // Open rate = 3 / 8 * 100 = 37.5%
         $res = $this->actingAs($admin)->getJson('/api/dashboard/stats?campaign_id=' . $campaign->id);
         $res->assertStatus(200);
 
         $data = $res->json();
+        $this->assertEquals(10, $data['counters']['total_triggered']);
         $this->assertEquals(2, $data['counters']['queued']);
         $this->assertEquals(9, $data['counters']['total_sent']);
         $this->assertEquals(8, $data['counters']['delivered']);
         $this->assertEquals(3, $data['counters']['opened']);
         $this->assertEquals(1, $data['counters']['undelivered']);
         $this->assertEquals(37.5, $data['counters']['open_rate']);
+
+        // Check recipient list drilldown for triggered status
+        $resModalTriggered = $this->actingAs($admin)->getJson('/api/dashboard/recipient-list?status=triggered&campaign_id=' . $campaign->id);
+        $resModalTriggered->assertStatus(200);
+        $this->assertCount(10, $resModalTriggered->json());
 
         // Check recipient list drilldown for queued status
         $resModalQueued = $this->actingAs($admin)->getJson('/api/dashboard/recipient-list?status=queued&campaign_id=' . $campaign->id);
@@ -300,9 +307,9 @@ class DashboardDeliveryLocationMapTest extends TestCase
         $resModal->assertStatus(200);
         $this->assertCount(9, $resModal->json());
 
-        // Check dashboard view contains Total Mail Queued
+        // Check dashboard view contains Total Email Triggered
         $resView = $this->actingAs($admin)->get('/dashboard');
         $resView->assertStatus(200);
-        $resView->assertSee('Total Mail Queued');
+        $resView->assertSee('Total Email Triggered');
     }
 }
