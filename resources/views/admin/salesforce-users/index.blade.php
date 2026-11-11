@@ -34,27 +34,65 @@
         </div>
 
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <!-- Manual Sync Form -->
-            <form action="{{ route('admin.salesforce_users.sync') }}" method="POST" id="manual-sync-users-form" class="d-inline">
+            <!-- Sync Today Form -->
+            <form action="{{ route('admin.salesforce_users.sync') }}" method="POST" id="today-sync-users-form"
+                class="d-inline">
                 @csrf
-                <button type="submit" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center gap-1.5" id="sync-users-btn" onclick="this.disabled=true; this.innerHTML='<span class=\"spinner-border spinner-border-sm me-1\"></span> Syncing...'; this.form.submit();">
+                <input type="hidden" name="today" value="1">
+                <button type="submit" class="btn btn-primary btn-sm shadow-sm d-flex align-items-center gap-1"
+                    id="sync-today-users-btn"
+                    onclick="this.innerHTML='<span class=&quot;spinner-border spinner-border-sm me-1&quot;></span> Syncing Today...';">
+                    <i class="bi bi-calendar-check"></i>
+                    <span>Sync Today's Users</span>
+                </button>
+            </form>
+
+            <!-- Sync Latest Incremental Form -->
+            <form action="{{ route('admin.salesforce_users.sync') }}" method="POST" id="manual-sync-users-form"
+                class="d-inline">
+                @csrf
+                <button type="submit" class="btn btn-outline-primary btn-sm shadow-sm d-flex align-items-center gap-2"
+                    id="sync-users-btn"
+                    onclick="this.innerHTML='<span class=&quot;spinner-border spinner-border-sm me-1&quot;></span> Syncing...';">
                     <i class="bi bi-arrow-repeat"></i>
-                    <span>Sync Users Now</span>
+                    <span>Sync Latest Users</span>
                 </button>
             </form>
 
             <!-- Full Sync Option Dropdown -->
             <div class="dropdown">
-                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false" title="Sync options">
                     <i class="bi bi-gear"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 0.8125rem;">
                     <li>
                         <form action="{{ route('admin.salesforce_users.sync') }}" method="POST">
                             @csrf
+                            <input type="hidden" name="today" value="1">
+                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2">
+                                <i class="bi bi-calendar-event"></i> Sync Today's Users Only
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <form action="{{ route('admin.salesforce_users.sync') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2">
+                                <i class="bi bi-clock-history"></i> Sync Latest (Incremental)
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li>
+                        <form action="{{ route('admin.salesforce_users.sync') }}" method="POST">
+                            @csrf
                             <input type="hidden" name="full" value="1">
-                            <button type="submit" class="dropdown-item text-danger d-flex align-items-center gap-2" onclick="return confirm('Force full sync will scan all available Salesforce User records. Proceed?');">
-                                <i class="bi bi-arrow-clockwise"></i> Force Full Resync
+                            <button type="submit" class="dropdown-item text-danger d-flex align-items-center gap-2"
+                                onclick="return confirm('Force full sync will scan all available Salesforce User records. Proceed?');">
+                                <i class="bi bi-arrow-clockwise"></i> Force Full Resync (Latest to Oldest)
                             </button>
                         </form>
                     </li>

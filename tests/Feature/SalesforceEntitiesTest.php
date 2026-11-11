@@ -162,10 +162,28 @@ class SalesforceEntitiesTest extends TestCase
         $resContacts = $this->withSession($session)->get('/admin/salesforce-contacts');
         $resContacts->assertStatus(200);
         $resContacts->assertSee('Salesforce Synchronized Contacts');
+        $resContacts->assertSee("Sync Today's Contacts", false);
+        $resContacts->assertSee('Sync Latest Contacts');
+        $resContacts->assertDontSee("this.form.submit();\">");
 
         $resUsers = $this->withSession($session)->get('/admin/salesforce-users');
         $resUsers->assertStatus(200);
         $resUsers->assertSee('Salesforce Synchronized Users');
+        $resUsers->assertSee("Sync Today's Users", false);
+        $resUsers->assertSee('Sync Latest Users');
+        $resUsers->assertDontSee("this.form.submit();\">");
+
+        $resSfUsers = $this->withSession($session)->get('/admin/salesforce-sf-users');
+        $resSfUsers->assertStatus(200);
+        $resSfUsers->assertSee("Sync Today's SF Users", false);
+        $resSfUsers->assertSee('Sync Latest SF Users');
+        $resSfUsers->assertDontSee("this.form.submit();\">");
+
+        $resLeads = $this->withSession($session)->get('/admin/salesforce-leads');
+        $resLeads->assertStatus(200);
+        $resLeads->assertSee("Sync Today's Leads", false);
+        $resLeads->assertSee('Sync Latest Leads');
+        $resLeads->assertDontSee("this.form.submit();\">");
     }
 
     public function test_admin_can_query_sync_status_endpoints()

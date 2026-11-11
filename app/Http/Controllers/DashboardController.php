@@ -122,6 +122,7 @@ class DashboardController extends Controller
         $applyFilters($baseLogQuery);
 
         $countsRow = (clone $baseLogQuery)->selectRaw("
+            COUNT(CASE WHEN recipient_logs.delivery_status IN ('queued', 'scheduled', 'pending_approval', 'pending_line_manager', 'pending_manager') THEN 1 END) as queued,
             COUNT(CASE WHEN recipient_logs.delivery_status IN ('" . implode("','", $sentStatuses) . "') THEN 1 END) as total_sent,
             COUNT(CASE WHEN recipient_logs.delivery_status IN ('sent', 'delivered', 'opened', 'unsubscribed') THEN 1 END) as delivered,
             COUNT(CASE WHEN recipient_logs.delivery_status = 'spam_complaint' THEN 1 END) as spam_marked,
@@ -131,13 +132,16 @@ class DashboardController extends Controller
             COUNT(CASE WHEN recipient_logs.delivery_status = 'unsubscribed' THEN 1 END) as unsubscribed
         ")->first();
 
+        $queued = (int) ($countsRow->queued ?? 0);
         $totalSent = (int) ($countsRow->total_sent ?? 0);
-        $delivered = (int) ($countsRow->delivered ?? 0);
         $spamMarked = (int) ($countsRow->spam_marked ?? 0);
         $bounced = (int) ($countsRow->bounced ?? 0);
         $undelivered = (int) ($countsRow->undelivered ?? 0);
         $opened = (int) ($countsRow->opened ?? 0);
         $unsubscribed = (int) ($countsRow->unsubscribed ?? 0);
+
+        // Delivered must be total sent - undelivered (and minus bounced)
+        $delivered = max(0, $totalSent - $undelivered - $bounced);
 
         // Unique Opens (either logged in recipient_opens or marked as opened status)
         $opensQuery = DB::table('recipient_logs')
@@ -164,6 +168,7 @@ class DashboardController extends Controller
         $unsubRate = $totalSent > 0 ? round(($unsubscribed / $totalSent) * 100, 2) : 0.0;
 
         $counters = [
+            'queued' => $queued,
             'total_sent' => $totalSent,
             'delivered' => $delivered,
             'spam_marked' => $spamMarked,
@@ -311,7 +316,9 @@ class DashboardController extends Controller
             ->join('campaigns', 'recipient_logs.campaign_id', '=', 'campaigns.id');
 
         // Status condition
-        if ($statusType === 'total') {
+        if ($statusType === 'queued') {
+            $query->whereIn('recipient_logs.delivery_status', ['queued', 'scheduled', 'pending_approval', 'pending_line_manager', 'pending_manager']);
+        } elseif ($statusType === 'total') {
             $query->whereIn('recipient_logs.delivery_status', ['sent', 'delivered', 'opened', 'unsubscribed', 'bounce', 'spam_complaint']);
         } elseif ($statusType === 'delivered') {
             $query->whereIn('recipient_logs.delivery_status', ['sent', 'delivered', 'opened', 'unsubscribed']);
@@ -385,8 +392,8 @@ class DashboardController extends Controller
         }
 
         $recipients = $query
-            ->select('recipient_logs.email', 'recipient_logs.salesforce_record_id', 'recipient_logs.sent_at', 'campaigns.subject as campaign_subject')
-            ->orderBy('recipient_logs.sent_at', 'desc')
+            ->select('recipient_logs.email', 'recipient_logs.salesforce_record_id', 'recipient_logs.sent_at', 'recipient_logs.created_at', 'campaigns.subject as campaign_subject')
+            ->orderByRaw('COALESCE(recipient_logs.sent_at, recipient_logs.created_at) desc')
             ->get();
 
         return response()->json($recipients);

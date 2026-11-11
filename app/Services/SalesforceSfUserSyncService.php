@@ -19,14 +19,22 @@ class SalesforceSfUserSyncService
      * @param int|null $limit Maximum records to fetch (optional)
      * @return array
      */
-    public function syncSfUsers(bool $forceFullSync = false, string $syncType = 'cron', ?int $limit = null): array
+    public function syncSfUsers(
+        bool $forceFullSync = false, 
+        string $syncType = 'cron', 
+        ?int $limit = null,
+        bool $todayOnly = false,
+        string $order = 'DESC'
+    ): array
     {
         $startTime = Carbon::now();
+
+        $effectiveSyncType = $todayOnly ? 'today' : ($forceFullSync ? 'full' : $syncType);
 
         // 1. Create Sync Log Entry (Running state)
         $syncLog = SalesforceSyncLog::create([
             'object_type' => 'SF_User__c',
-            'sync_type' => $forceFullSync ? 'full' : $syncType,
+            'sync_type' => $effectiveSyncType,
             'status' => 'running',
             'started_at' => $startTime,
             'records_fetched' => 0,
@@ -83,7 +91,7 @@ class SalesforceSfUserSyncService
 
         // 2. Determine Incremental Checkpoint
         $since = null;
-        if (!$forceFullSync) {
+        if (!$forceFullSync && !$todayOnly) {
             $latestSuccessful = SalesforceSyncLog::getLatestSuccessfulSync('SF_User__c');
             if ($latestSuccessful && $latestSuccessful->last_modified_checkpoint) {
                 $checkpointCarbon = Carbon::parse($latestSuccessful->last_modified_checkpoint)->subMinutes(5);
@@ -93,7 +101,9 @@ class SalesforceSfUserSyncService
 
         // 3. Build Command Arguments
         $command = ['node', $scriptPath, '--object', 'SF_User__c'];
-        if ($since) {
+        if ($todayOnly) {
+            $command[] = '--today';
+        } elseif ($since) {
             $command[] = '--since';
             $command[] = $since;
         }
@@ -103,6 +113,10 @@ class SalesforceSfUserSyncService
         if ($limit && $limit > 0) {
             $command[] = '--limit';
             $command[] = (string) $limit;
+        }
+        if ($order) {
+            $command[] = '--order';
+            $command[] = strtoupper($order);
         }
 
         $env = [

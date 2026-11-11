@@ -90,7 +90,9 @@ class SalesforceSfUserAdminController extends Controller
     public function manualSync(Request $request, SalesforceSfUserSyncService $syncService): RedirectResponse|JsonResponse
     {
         $forceFull = $request->boolean('full', false);
-        $result = $syncService->syncSfUsers($forceFull, 'manual');
+        $todayOnly = $request->boolean('today', false);
+        $order = $request->input('order', 'DESC');
+        $result = $syncService->syncSfUsers($forceFull, 'manual', null, $todayOnly, $order);
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json($result);

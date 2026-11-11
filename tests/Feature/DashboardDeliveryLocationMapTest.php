@@ -258,24 +258,51 @@ class DashboardDeliveryLocationMapTest extends TestCase
             'sent_at' => null,
         ]);
 
+        // 2 emails queued in queue for dispatch
+        for ($i = 0; $i < 2; $i++) {
+            RecipientLog::create([
+                'campaign_id' => $campaign->id,
+                'email' => "queued{$i}@example.com",
+                'salesforce_record_id' => "003ACC_Q_{$i}",
+                'salesforce_object' => 'Contact',
+                'record_owner_id' => 'admin',
+                'decision' => 'approved',
+                'delivery_status' => 'queued',
+                'tracking_token' => (string) Str::uuid(),
+                'sent_at' => null,
+            ]);
+        }
+
         // Total sent = 5 (sent) + 3 (opened) + 1 (unsubscribed) = 9
-        // Delivered = 9
-        // Opened = 3
         // Undelivered = 1
-        // Open rate = 3 / 9 * 100 = 33.33%
+        // Delivered = total_sent - undelivered = 9 - 1 = 8
+        // Opened = 3
+        // Queued = 2
+        // Open rate = 3 / 8 * 100 = 37.5%
         $res = $this->actingAs($admin)->getJson('/api/dashboard/stats?campaign_id=' . $campaign->id);
         $res->assertStatus(200);
 
         $data = $res->json();
+        $this->assertEquals(2, $data['counters']['queued']);
         $this->assertEquals(9, $data['counters']['total_sent']);
-        $this->assertEquals(9, $data['counters']['delivered']);
+        $this->assertEquals(8, $data['counters']['delivered']);
         $this->assertEquals(3, $data['counters']['opened']);
         $this->assertEquals(1, $data['counters']['undelivered']);
-        $this->assertEquals(33.33, $data['counters']['open_rate']);
+        $this->assertEquals(37.5, $data['counters']['open_rate']);
+
+        // Check recipient list drilldown for queued status
+        $resModalQueued = $this->actingAs($admin)->getJson('/api/dashboard/recipient-list?status=queued&campaign_id=' . $campaign->id);
+        $resModalQueued->assertStatus(200);
+        $this->assertCount(2, $resModalQueued->json());
 
         // Check recipient list drilldown for delivered status
         $resModal = $this->actingAs($admin)->getJson('/api/dashboard/recipient-list?status=delivered&campaign_id=' . $campaign->id);
         $resModal->assertStatus(200);
         $this->assertCount(9, $resModal->json());
+
+        // Check dashboard view contains Total Mail Queued
+        $resView = $this->actingAs($admin)->get('/dashboard');
+        $resView->assertStatus(200);
+        $resView->assertSee('Total Mail Queued');
     }
 }

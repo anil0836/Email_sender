@@ -101,8 +101,15 @@
         </div>
     </div>
 
-    <!-- Quick Stats Grid (10 Clean Cards in 2 Balanced Rows of 5) -->
-    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-3 mb-3">
+    <!-- Quick Stats Grid (Row 1: Delivery Lifecycle - 6 Cards) -->
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-6 g-3 mb-3">
+        <!-- Stat 0: Total Mail Queued -->
+        <div class="col">
+            <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('queued')">
+                <div class="stat-label">Total Mail Queued</div>
+                <div class="stat-value text-sky-600" style="color: #0284c7;" id="stat-queued">0</div>
+            </div>
+        </div>
         <!-- Stat 1: Total Sent -->
         <div class="col">
             <div class="card stat-card h-100 p-3" onclick="openRecipientListModal('total')">
@@ -632,6 +639,9 @@
                     userSelect.value = curr;
                 }
 
+                if (document.getElementById('stat-queued')) {
+                    document.getElementById('stat-queued').textContent = (data.counters.queued || 0).toLocaleString();
+                }
                 document.getElementById('stat-sent').textContent = data.counters.total_sent.toLocaleString();
                 document.getElementById('stat-delivered').textContent = data.counters.delivered.toLocaleString();
                 if (document.getElementById('stat-opened-count')) {
@@ -821,6 +831,7 @@
         if (userSelect && userSelect.value) url += `&team_member_id=${encodeURIComponent(userSelect.value)}`;
         
         const labels = {
+            'queued': 'Total Mail Queued (Pending Dispatch)',
             'total': 'Total Attempted Dispatches',
             'delivered': 'Delivered Recipient Inboxes',
             'opened': 'Opened Recipient Inboxes',
@@ -849,7 +860,7 @@
                 data.forEach(r => {
                     const dateStr = r.sent_at 
                         ? new Date(r.sent_at).toLocaleString() 
-                        : 'N/A';
+                        : (r.created_at ? new Date(r.created_at).toLocaleString() : 'Queued');
                     
                     html += `
                         <tr>

@@ -98,7 +98,9 @@ class SalesforceContactAdminController extends Controller
     public function manualSync(Request $request, SalesforceContactSyncService $syncService): RedirectResponse|JsonResponse
     {
         $forceFull = $request->boolean('full', false);
-        $result = $syncService->syncContacts($forceFull, 'manual');
+        $todayOnly = $request->boolean('today', false);
+        $order = $request->input('order', 'DESC');
+        $result = $syncService->syncContacts($forceFull, 'manual', null, $todayOnly, $order);
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json($result);
