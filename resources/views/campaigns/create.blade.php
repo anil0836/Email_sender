@@ -251,12 +251,12 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                         <label class="btn btn-outline-secondary btn-xs fw-medium"
                                             for="crm-filter-lead"><i class="bi bi-person me-1"></i>Leads</label>
 
-                                        <!-- <input type="radio" class="btn-check" name="crm-type-filter"
+                                        <input type="radio" class="btn-check" name="crm-type-filter"
                                             id="crm-filter-contact" value="Contact"
                                             onchange="filterRecipientsType('Contact')">
                                         <label class="btn btn-outline-secondary btn-xs fw-medium"
                                             for="crm-filter-contact"><i
-                                                class="bi bi-person-lines-fill me-1"></i>Contacts</label> -->
+                                                class="bi bi-person-lines-fill me-1"></i>Contacts</label>
 
                                         <!-- <input type="radio" class="btn-check" name="crm-type-filter"
                                             id="crm-filter-account" value="Account"
@@ -939,7 +939,8 @@ $isPasteMode = ($mode ?? request('mode', '')) === 'paste' || request()->routeIs(
                                             onclick="insertSelectedSignatureTag()">
                                             <div class="fw-semibold text-zinc-900"><i
                                                     class="bi bi-code-slash text-secondary me-2"></i> Insert
-                                                <code>@{{Signature}}</code> Tag</div>
+                                                <code>@{{Signature}}</code> Tag
+                                            </div>
                                             <small class="text-zinc-500">Resolved at send-time using signature
                                                 style</small>
                                         </button>
