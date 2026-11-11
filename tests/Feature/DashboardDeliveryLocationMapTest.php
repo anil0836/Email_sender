@@ -178,4 +178,104 @@ class DashboardDeliveryLocationMapTest extends TestCase
         $res->assertDontSee('id="volumeChart"', false);
         $res->assertDontSee('id="openTimelineChart"', false);
     }
+
+    /**
+     * Test delivered count includes 'sent', 'delivered', 'opened', 'unsubscribed' and open_rate is correct.
+     */
+    public function test_dashboard_stats_accurately_counts_delivered_and_open_rate(): void
+    {
+        $admin = User::where('username', 'admin')->first();
+        $campaign = Campaign::create([
+            'id' => (string) Str::uuid(),
+            'subject' => 'Accuracy Test Campaign',
+            'body' => '<p>Hello</p>',
+            'sending_domain' => 'test.com',
+            'from_address' => 'from@test.com',
+            'reply_to' => 'reply@test.com',
+            'user_id' => $admin->id,
+            'total_requested' => 10,
+            'total_approved' => 10,
+            'status' => 'completed',
+        ]);
+
+        // 5 emails sent (inbox delivered, not opened yet)
+        for ($i = 0; $i < 5; $i++) {
+            RecipientLog::create([
+                'campaign_id' => $campaign->id,
+                'email' => "sent{$i}@example.com",
+                'salesforce_record_id' => "003ACC_S_{$i}",
+                'salesforce_object' => 'Contact',
+                'record_owner_id' => 'admin',
+                'decision' => 'approved',
+                'delivery_status' => 'sent',
+                'tracking_token' => (string) Str::uuid(),
+                'sent_at' => now(),
+            ]);
+        }
+
+        // 3 emails opened
+        for ($i = 0; $i < 3; $i++) {
+            $log = RecipientLog::create([
+                'campaign_id' => $campaign->id,
+                'email' => "opened{$i}@example.com",
+                'salesforce_record_id' => "003ACC_O_{$i}",
+                'salesforce_object' => 'Contact',
+                'record_owner_id' => 'admin',
+                'decision' => 'approved',
+                'delivery_status' => 'opened',
+                'tracking_token' => (string) Str::uuid(),
+                'sent_at' => now(),
+            ]);
+            RecipientOpen::create([
+                'recipient_log_id' => $log->id,
+                'opened_at' => now(),
+            ]);
+        }
+
+        // 1 email unsubscribed
+        RecipientLog::create([
+            'campaign_id' => $campaign->id,
+            'email' => 'unsub@example.com',
+            'salesforce_record_id' => '003ACC_U_1',
+            'salesforce_object' => 'Contact',
+            'record_owner_id' => 'admin',
+            'decision' => 'approved',
+            'delivery_status' => 'unsubscribed',
+            'tracking_token' => (string) Str::uuid(),
+            'sent_at' => now(),
+        ]);
+
+        // 1 email failed before send
+        RecipientLog::create([
+            'campaign_id' => $campaign->id,
+            'email' => 'failed@example.com',
+            'salesforce_record_id' => '003ACC_F_1',
+            'salesforce_object' => 'Contact',
+            'record_owner_id' => 'admin',
+            'decision' => 'approved',
+            'delivery_status' => 'failed',
+            'tracking_token' => (string) Str::uuid(),
+            'sent_at' => null,
+        ]);
+
+        // Total sent = 5 (sent) + 3 (opened) + 1 (unsubscribed) = 9
+        // Delivered = 9
+        // Opened = 3
+        // Undelivered = 1
+        // Open rate = 3 / 9 * 100 = 33.33%
+        $res = $this->actingAs($admin)->getJson('/api/dashboard/stats?campaign_id=' . $campaign->id);
+        $res->assertStatus(200);
+
+        $data = $res->json();
+        $this->assertEquals(9, $data['counters']['total_sent']);
+        $this->assertEquals(9, $data['counters']['delivered']);
+        $this->assertEquals(3, $data['counters']['opened']);
+        $this->assertEquals(1, $data['counters']['undelivered']);
+        $this->assertEquals(33.33, $data['counters']['open_rate']);
+
+        // Check recipient list drilldown for delivered status
+        $resModal = $this->actingAs($admin)->getJson('/api/dashboard/recipient-list?status=delivered&campaign_id=' . $campaign->id);
+        $resModal->assertStatus(200);
+        $this->assertCount(9, $resModal->json());
+    }
 }

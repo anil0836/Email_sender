@@ -123,7 +123,7 @@ class DashboardController extends Controller
 
         $countsRow = (clone $baseLogQuery)->selectRaw("
             COUNT(CASE WHEN recipient_logs.delivery_status IN ('" . implode("','", $sentStatuses) . "') THEN 1 END) as total_sent,
-            COUNT(CASE WHEN recipient_logs.delivery_status IN ('delivered', 'opened', 'unsubscribed') THEN 1 END) as delivered,
+            COUNT(CASE WHEN recipient_logs.delivery_status IN ('sent', 'delivered', 'opened', 'unsubscribed') THEN 1 END) as delivered,
             COUNT(CASE WHEN recipient_logs.delivery_status = 'spam_complaint' THEN 1 END) as spam_marked,
             COUNT(CASE WHEN recipient_logs.delivery_status = 'bounce' THEN 1 END) as bounced,
             COUNT(CASE WHEN recipient_logs.delivery_status = 'failed' THEN 1 END) as undelivered,
@@ -159,8 +159,8 @@ class DashboardController extends Controller
         $applyFilters($clicksQuery);
         $uniqueClicks = $clicksQuery->distinct()->count('recipient_logs.id');
 
-        $openRate = $totalSent > 0 ? round(($uniqueOpens / $totalSent) * 100, 2) : 0.0;
-        $clickRate = $totalSent > 0 ? round(($uniqueClicks / $totalSent) * 100, 2) : 0.0;
+        $openRate = $delivered > 0 ? round(($uniqueOpens / $delivered) * 100, 2) : ($totalSent > 0 ? round(($uniqueOpens / $totalSent) * 100, 2) : 0.0);
+        $clickRate = $delivered > 0 ? round(($uniqueClicks / $delivered) * 100, 2) : ($totalSent > 0 ? round(($uniqueClicks / $totalSent) * 100, 2) : 0.0);
         $unsubRate = $totalSent > 0 ? round(($unsubscribed / $totalSent) * 100, 2) : 0.0;
 
         $counters = [
@@ -192,12 +192,12 @@ class DashboardController extends Controller
                 'recipient_logs.country',
                 'recipient_logs.region',
                 'recipient_logs.city',
-                DB::raw("COUNT(DISTINCT CASE WHEN recipient_logs.delivery_status IN ('delivered', 'opened') THEN recipient_logs.id END) as delivered_count"),
+                DB::raw("COUNT(DISTINCT CASE WHEN recipient_logs.delivery_status IN ('sent', 'delivered', 'opened', 'unsubscribed') THEN recipient_logs.id END) as delivered_count"),
                 DB::raw("COUNT(DISTINCT CASE WHEN recipient_opens.id IS NOT NULL OR recipient_logs.delivery_status = 'opened' THEN recipient_logs.id END) as open_count"),
                 DB::raw("COUNT(DISTINCT recipient_logs.id) as total_count")
             )
             ->groupBy('recipient_logs.country', 'recipient_logs.region', 'recipient_logs.city')
-            ->orderByDesc(DB::raw("COUNT(DISTINCT CASE WHEN recipient_logs.delivery_status IN ('delivered', 'opened') THEN recipient_logs.id END)"))
+            ->orderByDesc(DB::raw("COUNT(DISTINCT CASE WHEN recipient_logs.delivery_status IN ('sent', 'delivered', 'opened', 'unsubscribed') THEN recipient_logs.id END)"))
             ->orderByDesc(DB::raw("COUNT(DISTINCT CASE WHEN recipient_opens.id IS NOT NULL OR recipient_logs.delivery_status = 'opened' THEN recipient_logs.id END)"))
             ->get()
             ->toArray();
@@ -314,7 +314,7 @@ class DashboardController extends Controller
         if ($statusType === 'total') {
             $query->whereIn('recipient_logs.delivery_status', ['sent', 'delivered', 'opened', 'unsubscribed', 'bounce', 'spam_complaint']);
         } elseif ($statusType === 'delivered') {
-            $query->whereIn('recipient_logs.delivery_status', ['delivered', 'opened', 'unsubscribed']);
+            $query->whereIn('recipient_logs.delivery_status', ['sent', 'delivered', 'opened', 'unsubscribed']);
         } elseif ($statusType === 'bounce') {
             $query->where('recipient_logs.delivery_status', 'bounce');
         } elseif ($statusType === 'failed') {

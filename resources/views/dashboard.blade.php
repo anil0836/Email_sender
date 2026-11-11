@@ -184,8 +184,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-geo-alt me-1.5 text-zinc-500"></i> Email
-                        Delivery & Telemetry Map</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-geo-alt me-1.5 text-zinc-500"></i> Email Delivery & Telemetry Map</span>
                     <span class="badge bg-secondary-soft">Global Dispatch Locations</span>
                 </div>
                 <div class="card-body p-3">
@@ -201,8 +200,7 @@
         <div class="col-md-5">
             <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold text-zinc-900"><i class="bi bi-compass me-1.5 text-zinc-500"></i> Top
-                        Delivery & Engagement Hubs</span>
+                    <span class="fw-semibold text-zinc-900"><i class="bi bi-compass me-1.5 text-zinc-500"></i> Top Delivery & Engagement Hubs</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive border-0" style="max-height: 380px;">
