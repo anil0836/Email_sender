@@ -118,6 +118,9 @@ class RolePermissionSeeder extends Seeder
                 $user->syncRoles(['Admin']);
             } elseif ($existingRole === 'manager') {
                 $user->syncRoles(['Manager']);
+            } elseif ($existingRole === 'line_manager') {
+                $targetRole = Role::where('name', 'Line Manager')->where('guard_name', $guardName)->exists() ? 'Line Manager' : 'line_manager';
+                $user->syncRoles([$targetRole]);
             } elseif ($existingRole === 'user' || $existingRole === 'employee' || empty($existingRole)) {
                 $user->syncRoles(['Employee']);
             } else {

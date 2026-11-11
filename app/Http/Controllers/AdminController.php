@@ -67,7 +67,13 @@ class AdminController extends Controller
                         'name' => $u->name,
                         'email' => $u->email,
                         'role' => $u->role,
-                        'spatie_role' => $u->roles->first()?->name ?? ($u->role === 'user' ? 'Employee' : ucfirst($u->role)),
+                        'spatie_role' => $u->roles->first()?->name === 'line_manager' ? 'Line Manager' : ($u->roles->first()?->name ?? match ($u->role) {
+                            'admin' => 'Admin',
+                            'manager' => 'Manager',
+                            'line_manager' => 'Line Manager',
+                            'user', 'employee' => 'Employee',
+                            default => ucfirst((string) $u->role),
+                        }),
                         'manager_id' => $u->manager_id,
                         'is_blocked' => $u->is_blocked,
                         'manager_username' => $u->manager?->username,
@@ -120,6 +126,17 @@ class AdminController extends Controller
                 return response()->json(['error' => 'Manager selection is required for employee role.'], 400);
             }
 
+            if ($managerId) {
+                $mgr = User::find($managerId);
+                if (!$mgr) {
+                    return response()->json(['error' => 'Selected manager does not exist.'], 400);
+                }
+                $mgrRole = strtolower(trim((string) $mgr->role));
+                if (!in_array($mgrRole, ['manager', 'line_manager', 'admin']) && !$mgr->hasAnyRole(['Manager', 'Line Manager', 'Admin'])) {
+                    return response()->json(['error' => 'Selected user is not an eligible manager.'], 400);
+                }
+            }
+
             if (User::where('email', $email)->exists()) {
                 return response()->json(['error' => 'Email address already registered.'], 400);
             }
@@ -143,8 +160,11 @@ class AdminController extends Controller
             ]);
 
             // Assign Spatie Role
-            if (\Spatie\Permission\Models\Role::where('name', $spatieRole)->where('guard_name', 'web')->exists()) {
-                $newUser->assignRole($spatieRole);
+            $roleToAssign = \Spatie\Permission\Models\Role::where('name', $spatieRole)->where('guard_name', 'web')->first()
+                ?: ($legacyRole === 'line_manager' ? \Spatie\Permission\Models\Role::where('name', 'line_manager')->where('guard_name', 'web')->first() : null);
+
+            if ($roleToAssign) {
+                $newUser->assignRole($roleToAssign->name);
             }
 
             $this->auditService->logActivity(
@@ -183,8 +203,36 @@ class AdminController extends Controller
                 return response()->json(['error' => 'Username and Email are required.'], 400);
             }
 
-            if ($role === 'user' && !$managerId) {
+            $normalizedRole = strtolower(trim((string) $role));
+            if (in_array($normalizedRole, ['user', 'employee']) && !$managerId) {
                 return response()->json(['error' => 'Manager selection is required for user role.'], 400);
+            }
+
+            if ($managerId) {
+                if ((int) $managerId === (int) $userId) {
+                    return response()->json(['error' => 'A user cannot be assigned as their own manager.'], 400);
+                }
+
+                $mgr = User::find($managerId);
+                if (!$mgr) {
+                    return response()->json(['error' => 'Selected manager does not exist.'], 400);
+                }
+
+                $mgrRole = strtolower(trim((string) $mgr->role));
+                if (!in_array($mgrRole, ['manager', 'line_manager', 'admin']) && !$mgr->hasAnyRole(['Manager', 'Line Manager', 'Admin'])) {
+                    return response()->json(['error' => 'Selected user is not an eligible manager.'], 400);
+                }
+
+                // Prevent circular manager hierarchy (e.g. A reports to B, B reports to A)
+                $current = $mgr;
+                $visited = [(int) $userId];
+                while ($current && $current->manager_id) {
+                    if (in_array((int) $current->manager_id, $visited, true)) {
+                        return response()->json(['error' => 'Circular manager assignment detected. A manager cannot report to their own subordinate.'], 400);
+                    }
+                    $visited[] = (int) $current->id;
+                    $current = User::find($current->manager_id);
+                }
             }
 
             if (User::where('email', $email)->where('id', '!=', $userId)->exists()) {
@@ -210,8 +258,12 @@ class AdminController extends Controller
                     default => 'user',
                 };
                 $user->role = $legacyRole;
-                if (\Spatie\Permission\Models\Role::where('name', $spatieRole)->exists()) {
-                    $user->syncRoles([$spatieRole]);
+
+                $roleToAssign = \Spatie\Permission\Models\Role::where('name', $spatieRole)->where('guard_name', 'web')->first()
+                    ?: ($legacyRole === 'line_manager' ? \Spatie\Permission\Models\Role::where('name', 'line_manager')->where('guard_name', 'web')->first() : null);
+
+                if ($roleToAssign) {
+                    $user->syncRoles([$roleToAssign->name]);
                 }
             }
 
@@ -251,6 +303,9 @@ class AdminController extends Controller
                 return response()->json(['error' => 'You cannot delete yourself.'], 400);
             }
 
+            // Nullify manager_id for direct reports before deleting
+            User::where('manager_id', $userId)->update(['manager_id' => null]);
+
             User::destroy($userId);
 
             $this->auditService->logActivity(
@@ -276,7 +331,12 @@ class AdminController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $managers = User::whereIn('role', ['manager', 'line_manager', 'admin'])
+        $managers = User::where(function ($q) {
+                $q->whereIn('role', ['manager', 'line_manager', 'admin'])
+                  ->orWhereHas('roles', function ($rq) {
+                      $rq->whereIn('name', ['Manager', 'Line Manager', 'Admin', 'manager', 'line_manager', 'admin']);
+                  });
+            })
             ->select('id', 'username', 'name', 'email', 'role')
             ->orderBy('name', 'asc')
             ->orderBy('username', 'asc')

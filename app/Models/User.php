@@ -69,10 +69,13 @@ class User extends Authenticatable
                 default => !empty($role) ? ucfirst($role) : 'Employee',
             };
 
-            if (\Spatie\Permission\Models\Role::where('name', $targetRole)->where('guard_name', 'web')->exists()) {
-                if (!$this->hasRole($targetRole)) {
-                    $this->assignRole($targetRole);
-                }
+            $roleObj = \Spatie\Permission\Models\Role::where('name', $targetRole)->where('guard_name', 'web')->first();
+            if (!$roleObj && $role === 'line_manager') {
+                $roleObj = \Spatie\Permission\Models\Role::where('name', 'line_manager')->where('guard_name', 'web')->first();
+            }
+
+            if ($roleObj && !$this->hasRole($roleObj->name)) {
+                $this->assignRole($roleObj->name);
             }
         } catch (\Throwable $e) {
             // Ignore during early migrations or if permission tables are not ready

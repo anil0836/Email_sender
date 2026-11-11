@@ -33,6 +33,7 @@
                             <label for="new-role" class="form-label mb-1">Application Role</label>
                             <select class="form-select" id="new-role" onchange="toggleManagerDropdown('new')">
                                 <option value="user" selected>Employee (Outbound Sender)</option>
+                                <option value="line_manager">Line Manager</option>
                                 <option value="manager">Manager (Approver)</option>
                                 <option value="admin">Admin (Full Access)</option>
                             </select>
@@ -169,6 +170,7 @@
                         <label for="edit-role" class="form-label mb-1">Role</label>
                         <select class="form-select" id="edit-role" onchange="toggleManagerDropdown('edit')">
                             <option value="user">Employee (Outbound Sender)</option>
+                            <option value="line_manager">Line Manager</option>
                             <option value="manager">Manager (Approver)</option>
                             <option value="admin">Admin (Full Access)</option>
                         </select>
@@ -235,11 +237,13 @@
                     const isCurrentUser = u.id == currentUserId;
                     
                     let roleBadge = '';
-                    const displayRole = u.spatie_role || (u.role === 'admin' ? 'Admin' : (u.role === 'manager' ? 'Manager' : 'Employee'));
+                    const displayRole = u.spatie_role || (u.role === 'admin' ? 'Admin' : (u.role === 'manager' ? 'Manager' : (u.role === 'line_manager' ? 'Line Manager' : 'Employee')));
                     if (displayRole === 'Admin') {
                         roleBadge = '<span class="badge bg-danger-soft">Admin</span>';
                     } else if (displayRole === 'Manager') {
                         roleBadge = '<span class="badge bg-success-soft">Manager</span>';
+                    } else if (displayRole === 'Line Manager' || u.role === 'line_manager') {
+                        roleBadge = '<span class="badge bg-primary-soft">Line Manager</span>';
                     } else {
                         roleBadge = '<span class="badge bg-secondary-soft">Employee</span>';
                     }
@@ -304,6 +308,9 @@
         if (role === 'user' || role === 'Employee') {
             container.style.display = 'block';
             select.required = true;
+        } else if (role === 'line_manager' || role === 'Line Manager') {
+            container.style.display = 'block';
+            select.required = false;
         } else {
             container.style.display = 'none';
             select.required = false;
@@ -315,6 +322,13 @@
         fetch('/api/admin/managers')
             .then(res => res.json())
             .then(managers => {
+                const formatRole = (r) => {
+                    if (r === 'line_manager') return 'Line Manager';
+                    if (r === 'manager') return 'Manager';
+                    if (r === 'admin') return 'Admin';
+                    return r || '';
+                };
+
                 const selectNew = document.getElementById('new-manager');
                 selectNew.innerHTML = '<option value="">-- Select Manager --</option>';
                 managers.forEach(m => {
@@ -322,7 +336,7 @@
                     opt.value = m.id;
                     const displayName = m.name || m.username;
                     const emailPart = m.email ? ` <${m.email}>` : '';
-                    opt.textContent = `${displayName}${emailPart} (${m.role})`;
+                    opt.textContent = `${displayName}${emailPart} (${formatRole(m.role)})`;
                     selectNew.appendChild(opt);
                 });
 
@@ -333,7 +347,7 @@
                     opt.value = m.id;
                     const displayName = m.name || m.username;
                     const emailPart = m.email ? ` <${m.email}>` : '';
-                    opt.textContent = `${displayName}${emailPart} (${m.role})`;
+                    opt.textContent = `${displayName}${emailPart} (${formatRole(m.role)})`;
                     selectEdit.appendChild(opt);
                 });
             })
@@ -389,6 +403,19 @@
         document.getElementById('edit-blocked').value = u.is_blocked || '0';
 
         toggleManagerDropdown('edit');
+
+        // Prevent selecting self as own manager
+        const editMgrSelect = document.getElementById('edit-manager');
+        for (let i = 0; i < editMgrSelect.options.length; i++) {
+            const opt = editMgrSelect.options[i];
+            if (opt.value && opt.value == userId) {
+                opt.disabled = true;
+                opt.style.display = 'none';
+            } else {
+                opt.disabled = false;
+                opt.style.display = '';
+            }
+        }
 
         if (!editModalInstance) {
             editModalInstance = new bootstrap.Modal(document.getElementById('editUserModal'));

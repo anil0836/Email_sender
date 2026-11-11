@@ -65,6 +65,7 @@ class CheckAppAuth
                     $spatieVariants = match($normalized) {
                         'admin' => ['Admin', 'admin'],
                         'manager' => ['Manager', 'manager'],
+                        'line_manager' => ['Line Manager', 'line_manager', 'Line_manager'],
                         'user', 'employee' => ['Employee', 'employee', 'User', 'user'],
                         default => [ucfirst($normalized), $normalized],
                     };

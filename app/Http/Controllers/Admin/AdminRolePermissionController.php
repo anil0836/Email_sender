@@ -169,8 +169,9 @@ class AdminRolePermissionController extends Controller
         $legacyRole = match ($role->name) {
             'Admin' => 'admin',
             'Manager' => 'manager',
+            'Line Manager', 'line_manager' => 'line_manager',
             'Employee' => 'user',
-            default => strtolower($role->name),
+            default => strtolower(str_replace(' ', '_', $role->name)),
         };
         $user->role = $legacyRole;
         $user->save();

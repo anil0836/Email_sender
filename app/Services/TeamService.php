@@ -258,7 +258,7 @@ class TeamService
     public function getTeamMembersForManager(User $user): Collection
     {
         if ($user->role === 'admin') {
-            return User::whereIn('role', ['user', 'line_manager'])->select('id', 'username', 'emp_id', 'email', 'name', 'role')->get();
+            return User::whereIn('role', ['user', 'line_manager', 'manager'])->select('id', 'username', 'emp_id', 'email', 'name', 'role')->get();
         }
 
         $teams = $this->getManagedTeamsForUser($user);
@@ -305,6 +305,14 @@ class TeamService
 
         if ($member->manager_id === $manager->id) {
             return true;
+        }
+
+        // Support two-tier hierarchy: Manager -> Line Manager -> Employee
+        if ($manager->role === 'manager' && $member->manager_id) {
+            $lineMgr = User::find($member->manager_id);
+            if ($lineMgr && $lineMgr->manager_id === $manager->id) {
+                return true;
+            }
         }
 
         $managedTeams = $this->getManagedTeamsForUser($manager);

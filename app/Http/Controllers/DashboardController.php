@@ -36,7 +36,7 @@ class DashboardController extends Controller
 
         $teamService = app(\App\Services\TeamService::class);
         $managedTeams = $teamService->getManagedTeamsForUser($user);
-        $isMgr = $role === 'admin' || $role === 'manager' || count($managedTeams) > 0;
+        $isMgr = in_array($role, ['admin', 'manager', 'line_manager']) || count($managedTeams) > 0;
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
@@ -61,6 +61,13 @@ class DashboardController extends Controller
                 }
             } elseif ($isMgr) {
                 $subordinateIds = User::where('manager_id', $userId)->pluck('id')->toArray();
+                if ($role === 'manager' && !empty($subordinateIds)) {
+                    $subLineManagerIds = User::whereIn('id', $subordinateIds)->where('role', 'line_manager')->pluck('id')->toArray();
+                    if (!empty($subLineManagerIds)) {
+                        $subUserIds = User::whereIn('manager_id', $subLineManagerIds)->pluck('id')->toArray();
+                        $subordinateIds = array_unique(array_merge($subordinateIds, $subUserIds));
+                    }
+                }
                 $subordinateIds[] = $userId;
 
                 if ($teamMemberId) {
@@ -341,7 +348,7 @@ class DashboardController extends Controller
         // Role filter
         $teamService = app(\App\Services\TeamService::class);
         $managedTeams = $teamService->getManagedTeamsForUser($user);
-        $isMgr = $role === 'admin' || $role === 'manager' || count($managedTeams) > 0;
+        $isMgr = in_array($role, ['admin', 'manager', 'line_manager']) || count($managedTeams) > 0;
 
         if ($role === 'admin') {
             if ($teamMemberId) {
@@ -349,6 +356,13 @@ class DashboardController extends Controller
             }
         } elseif ($isMgr) {
             $subordinateIds = User::where('manager_id', $userId)->pluck('id')->toArray();
+            if ($role === 'manager' && !empty($subordinateIds)) {
+                $subLineManagerIds = User::whereIn('id', $subordinateIds)->where('role', 'line_manager')->pluck('id')->toArray();
+                if (!empty($subLineManagerIds)) {
+                    $subUserIds = User::whereIn('manager_id', $subLineManagerIds)->pluck('id')->toArray();
+                    $subordinateIds = array_unique(array_merge($subordinateIds, $subUserIds));
+                }
+            }
             $subordinateIds[] = $userId;
 
             if ($teamMemberId) {
