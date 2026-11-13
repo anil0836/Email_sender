@@ -307,10 +307,10 @@ class CampaignApprovalService
             'comment' => $remark ?: 'Approved',
         ]);
 
-        // Trigger Queue Processing if ready and not testing
+        // Trigger Queue Processing if ready and not testing (processes immediate initial batch, remaining handled by scheduler)
         if ($newStatus === 'queued' && !app()->environment('testing')) {
             try {
-                $this->processingService->processQueuedEmails();
+                $this->processingService->processQueuedEmails(maxEmails: 3, maxExecutionSeconds: 15);
             } catch (\Throwable $e) {
                 Log::error("[CampaignApprovalService] Mail processing trigger error: " . $e->getMessage());
             }

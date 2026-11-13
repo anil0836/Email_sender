@@ -20,6 +20,8 @@ class RecipientLog extends Model
         'decision',
         'decision_reason',
         'delivery_status',
+        'retry_count',
+        'next_retry_at',
         'provider_message_id',
         'error_message',
         'country',
@@ -33,6 +35,8 @@ class RecipientLog extends Model
     protected $casts = [
         'validated_at' => 'datetime',
         'sent_at' => 'datetime',
+        'next_retry_at' => 'datetime',
+        'retry_count' => 'integer',
     ];
 
     public function campaign()

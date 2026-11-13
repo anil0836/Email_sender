@@ -15,4 +15,22 @@ return [
     'to_email' => env('PABBLY_TO_EMAIL', 'arpit@retrotech.in'),
     'to_name' => env('PABBLY_TO_NAME', 'Recipient name'),
     'reply_to' => env('PABBLY_REPLY_TO', 'support@b2bexportsllc.com'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pabbly API Rate Limiting & Retry Configuration
+    |--------------------------------------------------------------------------
+    |
+    | dispatch_interval_seconds: Minimum seconds between Pabbly dispatch requests (shared across campaigns/workers).
+    | rate_limit_enabled: Enable/disable dispatch rate limiting.
+    | max_retry_attempts: Maximum retry attempts for temporary rate limit (429) errors.
+    | retry_base_delay_seconds: Base delay in seconds for exponential backoff.
+    | retry_max_delay_seconds: Maximum delay in seconds for rate limit retries.
+    |
+    */
+    'dispatch_interval_seconds' => (int) env('PABBLY_DISPATCH_INTERVAL_SECONDS', 5),
+    'rate_limit_enabled' => filter_var(env('PABBLY_RATE_LIMIT_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+    'max_retry_attempts' => (int) env('PABBLY_MAX_RETRY_ATTEMPTS', 5),
+    'retry_base_delay_seconds' => (int) env('PABBLY_RETRY_BASE_DELAY_SECONDS', 60),
+    'retry_max_delay_seconds' => (int) env('PABBLY_RETRY_MAX_DELAY_SECONDS', 900),
 ];

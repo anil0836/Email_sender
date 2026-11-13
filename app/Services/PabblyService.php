@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\PabblyApiException;
+use App\Exceptions\PabblyRateLimitException;
+use App\Services\PabblyRateLimiterService;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -16,10 +19,12 @@ class PabblyService
     protected string $fromEmail;
     protected string $fromName;
     protected string $replyTo;
+    protected PabblyRateLimiterService $rateLimiter;
     protected static array $generatedCampaignNames = [];
 
-    public function __construct()
+    public function __construct(?PabblyRateLimiterService $rateLimiter = null)
     {
+        $this->rateLimiter = $rateLimiter ?: app(PabblyRateLimiterService::class);
         $this->apiKey = config('pabbly.api_key', '');
         $rawUrl = (string) config('pabbly.base_url', 'https://emails.pabbly.com/api/v2');
         $cleanUrl = trim(rtrim(trim($rawUrl), ';/ '));
@@ -43,7 +48,8 @@ class PabblyService
         ?string $fromName = null,
         ?string $deliveryServerId = null,
         ?string $replyTo = null,
-        ?string $campaignName = null
+        ?string $campaignName = null,
+        ?string $existingPabblyCampaignId = null
     ): array {
         return $this->sendBulk(
             [$recipientEmail],
@@ -53,7 +59,8 @@ class PabblyService
             $fromName,
             $deliveryServerId,
             $replyTo,
-            $campaignName
+            $campaignName,
+            $existingPabblyCampaignId
         );
     }
 
@@ -135,7 +142,8 @@ class PabblyService
         ?string $fromName = null,
         ?string $deliveryServerId = null,
         ?string $replyTo = null,
-        ?string $campaignName = null
+        ?string $campaignName = null,
+        ?string $existingPabblyCampaignId = null
     ): array {
         if (empty($this->apiKey)) {
             throw new RuntimeException('PABBLY_API_KEY is not configured in .env');
@@ -146,61 +154,87 @@ class PabblyService
         $serverId = $deliveryServerId ?: $this->deliveryServerId;
         $replyToEmail = $replyTo ?: $this->replyTo;
 
-        // 1. Create Campaign in Pabbly with uniqueness protection & retry on name collision
-        $maxAttempts = 3;
-        $pabblyCampaignId = null;
+        $pabblyCampaignId = $existingPabblyCampaignId;
 
-        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            $generatedCampaignName = $this->generateUniqueCampaignName($subject, $campaignName, $attempt);
+        // 1. Create Campaign in Pabbly with uniqueness protection & retry on name collision (skip if already created)
+        if (empty($pabblyCampaignId)) {
+            $maxAttempts = 3;
 
-            $campaignPayload = [
-                'campaignDetails' => [
-                    'campaignName' => $generatedCampaignName,
-                    'senderName' => $senderName,
-                    'subject' => $subject,
-                    'replyToEmail' => $replyToEmail,
-                    'replyTo' => $replyToEmail,
-                    'preheaderText' => substr(strip_tags($htmlBody), 0, 100),
-                ],
-                'builderType' => 'HTML',
-                'content' => $htmlBody,
-            ];
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                $generatedCampaignName = $this->generateUniqueCampaignName($subject, $campaignName, $attempt);
 
-            $createResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ])->timeout(60)->post("{$this->baseUrl}/campaigns", $campaignPayload);
+                $campaignPayload = [
+                    'campaignDetails' => [
+                        'campaignName' => $generatedCampaignName,
+                        'senderName' => $senderName,
+                        'subject' => $subject,
+                        'replyToEmail' => $replyToEmail,
+                        'replyTo' => $replyToEmail,
+                        'preheaderText' => substr(strip_tags($htmlBody), 0, 100),
+                    ],
+                    'builderType' => 'HTML',
+                    'content' => $htmlBody,
+                ];
 
-            if ($createResponse->successful()) {
-                $createData = $createResponse->json();
-                $pabblyCampaignId = $createData['data']['_id'] ?? $createData['data']['id'] ?? null;
-                if ($pabblyCampaignId) {
-                    break;
+                $createResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])->timeout(60)->post("{$this->baseUrl}/campaigns", $campaignPayload);
+
+                if ($createResponse->successful()) {
+                    $createData = $createResponse->json();
+                    $pabblyCampaignId = $createData['data']['_id'] ?? $createData['data']['id'] ?? null;
+                    if ($pabblyCampaignId) {
+                        break;
+                    }
                 }
+
+                $status = $createResponse->status();
+                $err = $createResponse->json('message') ?? $createResponse->json('error') ?? $createResponse->body();
+
+                // Explicit rate limit detection on campaign creation
+                if ($status === 429 || stripos((string)$err, 'Too many requests') !== false || stripos((string)$err, 'rate limit') !== false) {
+                    $retryAfter = (int) $createResponse->header('Retry-After');
+                    Log::warning("[PabblyService] Rate limited during campaign creation: {$err}");
+                    throw new PabblyRateLimitException("Pabbly campaign creation failed: {$err}", 429, $retryAfter ?: null);
+                }
+
+                // Self-healing: if campaign name collides within business, regenerate and retry
+                if ($attempt < $maxAttempts && (
+                    stripos((string)$err, 'campaign name must be unique') !== false ||
+                    stripos((string)$err, 'already exists') !== false
+                )) {
+                    Log::warning("[PabblyService] Duplicate campaign name collision on attempt {$attempt} ('{$generatedCampaignName}'): {$err}. Retrying with fresh unique name...");
+                    usleep(100000); // 100ms jitter
+                    continue;
+                }
+
+                Log::error("[PabblyService] Failed to create campaign: {$err}");
+                if ($status >= 500) {
+                    throw new PabblyApiException("Pabbly campaign creation server error: {$err}", $status, isRetryable: true);
+                }
+                throw new PabblyApiException("Pabbly campaign creation failed: {$err}", $status, isRetryable: false);
             }
 
-            $err = $createResponse->json('message') ?? $createResponse->json('error') ?? $createResponse->body();
-
-            // Self-healing: if campaign name collides within business, regenerate and retry
-            if ($attempt < $maxAttempts && (
-                stripos($err, 'campaign name must be unique') !== false ||
-                stripos($err, 'already exists') !== false
-            )) {
-                Log::warning("[PabblyService] Duplicate campaign name collision on attempt {$attempt} ('{$generatedCampaignName}'): {$err}. Retrying with fresh unique name...");
-                usleep(100000); // 100ms jitter
-                continue;
+            if (!$pabblyCampaignId) {
+                throw new RuntimeException('Pabbly created campaign but returned no campaign ID.');
             }
-
-            Log::error("[PabblyService] Failed to create campaign: {$err}");
-            throw new RuntimeException("Pabbly campaign creation failed: {$err}");
         }
 
-        if (!$pabblyCampaignId) {
-            throw new RuntimeException('Pabbly created campaign but returned no campaign ID.');
+        // 2. Await dispatch slot (enforcing shared minimum interval across campaigns/workers)
+        $slotAcquired = $this->rateLimiter->awaitDispatchSlot($this->apiKey);
+        if (!$slotAcquired) {
+            $rem = $this->rateLimiter->getCooldownRemainingSeconds($this->apiKey);
+            throw new PabblyRateLimitException(
+                "Pabbly dispatch deferred: Rate limit cooldown active or slot queue congested ({$rem}s remaining).",
+                429,
+                $rem ?: null,
+                $pabblyCampaignId
+            );
         }
 
-        // 2. Dispatch to recipients via send-to-individual
+        // 3. Dispatch to recipients via send-to-individual
         $sendPayload = [
             'campaignId' => $pabblyCampaignId,
             'emails' => array_values($recipientEmails),
@@ -221,10 +255,24 @@ class PabblyService
             'Content-Type' => 'application/json',
         ])->timeout(60)->post("{$this->baseUrl}/campaigns/send-to-individual", $sendPayload);
 
+        // Record dispatch timestamp in rate limiter
+        $this->rateLimiter->recordDispatch($this->apiKey);
+
         if (!$sendResponse->successful()) {
+            $status = $sendResponse->status();
             $err = $sendResponse->json('message') ?? $sendResponse->json('error') ?? $sendResponse->body();
-            Log::error("[PabblyService] Failed to send campaign {$pabblyCampaignId}: {$err}");
-            throw new RuntimeException("Pabbly dispatch failed: {$err}");
+            Log::error("[PabblyService] Failed to send campaign {$pabblyCampaignId} (status {$status}): {$err}");
+
+            if ($status === 429 || stripos((string)$err, 'Too many requests') !== false || stripos((string)$err, 'rate limit') !== false) {
+                $retryAfter = (int) $sendResponse->header('Retry-After');
+                throw new PabblyRateLimitException("Pabbly dispatch failed: {$err}", 429, $retryAfter ?: null, $pabblyCampaignId);
+            }
+
+            if ($status >= 500) {
+                throw new PabblyApiException("Pabbly dispatch server error: {$err}", $status, isRetryable: true, pabblyCampaignId: $pabblyCampaignId);
+            }
+
+            throw new PabblyApiException("Pabbly dispatch failed: {$err}", $status, isRetryable: false, pabblyCampaignId: $pabblyCampaignId);
         }
 
         $sendData = $sendResponse->json();

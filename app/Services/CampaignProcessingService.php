@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Exceptions\PabblyApiException;
+use App\Exceptions\PabblyRateLimitException;
 use App\Models\Campaign;
 use App\Models\RecipientLog;
 use App\Models\SendingDomain;
 use App\Models\Server;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -18,19 +21,35 @@ class CampaignProcessingService
         protected SalesforceService $sfService,
         protected PabblyService $pabblyService,
         protected CampaignMergeFieldService $mergeFieldService,
-        protected ?EmailRendererService $emailRenderer = null
+        protected ?EmailRendererService $emailRenderer = null,
+        protected ?PabblyRateLimiterService $rateLimiter = null
     ) {
         $this->emailRenderer = $this->emailRenderer ?: app(EmailRendererService::class);
+        $this->rateLimiter = $this->rateLimiter ?: app(PabblyRateLimiterService::class);
     }
 
     /**
-     * Processes all queued and scheduled campaigns.
-     * Returns the count of processed emails.
+     * Processes queued and scheduled campaigns.
+     * Enforces rate limiting, concurrency protection, and intelligent retries.
+     *
+     * @param int|null $maxEmails Maximum emails to process in this run
+     * @param int|null $maxExecutionSeconds Maximum run time in seconds
+     * @return int Count of dispatched emails
      */
-    public function processQueuedEmails(): int
+    public function processQueuedEmails(?int $maxEmails = null, ?int $maxExecutionSeconds = null): int
     {
+        $startTime = microtime(true);
         $now = Carbon::now();
         $processedCount = 0;
+
+        $pabblyApiKey = (string) config('pabbly.api_key', '');
+
+        // Global Rate-Limit Cooldown Check: avoid hammering provider if active cooldown
+        if ($this->rateLimiter->isInCooldown($pabblyApiKey)) {
+            $rem = $this->rateLimiter->getCooldownRemainingSeconds($pabblyApiKey);
+            Log::info("[CampaignProcessing] Global Pabbly rate-limit cooldown active ({$rem}s remaining). Skipping queue run.");
+            return 0;
+        }
 
         // Find campaigns in 'queued', 'sending', or 'scheduled' (whose time has arrived)
         $campaigns = Campaign::with('user')
@@ -45,6 +64,19 @@ class CampaignProcessingService
             ->get();
 
         foreach ($campaigns as $campaign) {
+            // Execution limit checks
+            if ($maxEmails !== null && $processedCount >= $maxEmails) {
+                break;
+            }
+            if ($maxExecutionSeconds !== null && (microtime(true) - $startTime) >= $maxExecutionSeconds) {
+                break;
+            }
+
+            // Check if Pabbly entered cooldown during loop
+            if ($this->rateLimiter->isInCooldown($pabblyApiKey)) {
+                break;
+            }
+
             // STRICT SEND-TIME APPROVAL SHIELD: Must be fully approved to send emails
             if (!$campaign->isFullyApproved()) {
                 Log::warning("[CampaignProcessing] Campaign {$campaign->id} is not fully approved. Status: {$campaign->status}. Skipping sending.");
@@ -63,15 +95,29 @@ class CampaignProcessingService
                     ->update(['delivery_status' => 'queued']);
             }
 
-            // Find all queued approved recipients
+            // Find all queued approved recipients eligible for dispatch (not in retry delay)
             $recipients = RecipientLog::where('campaign_id', $campaignId)
                 ->where('delivery_status', 'queued')
                 ->where('decision', 'approved')
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('next_retry_at')
+                      ->orWhere('next_retry_at', '<=', $now);
+                })
+                ->orderBy('created_at', 'asc')
                 ->get();
 
             if ($recipients->isEmpty()) {
-                // No more queued recipients, mark campaign as completed
-                $campaign->update(['status' => 'completed']);
+                // Check if any recipients are still waiting for retry
+                $waitingRetry = RecipientLog::where('campaign_id', $campaignId)
+                    ->where('delivery_status', 'queued')
+                    ->where('decision', 'approved')
+                    ->where('next_retry_at', '>', $now)
+                    ->exists();
+
+                if (!$waitingRetry) {
+                    // No more queued recipients and none waiting for retry, mark completed
+                    $campaign->update(['status' => 'completed']);
+                }
                 continue;
             }
 
@@ -81,118 +127,201 @@ class CampaignProcessingService
             }
             $fromName = config('pabbly.from_name', 'anil patel');
             $deliveryServerId = config('pabbly.delivery_server_id', 'send-with-us');
-            $pabblyApiKey = config('pabbly.api_key');
+
+            $campaignHaltedDueToCooldown = false;
 
             foreach ($recipients as $recipient) {
-                $recLogId = $recipient->id;
-                $recordId = $recipient->salesforce_record_id;
-                $email = $recipient->email;
+                // Check execution limits
+                if ($maxEmails !== null && $processedCount >= $maxEmails) {
+                    break 2;
+                }
+                if ($maxExecutionSeconds !== null && (microtime(true) - $startTime) >= $maxExecutionSeconds) {
+                    break 2;
+                }
 
-                // MANDATORY DIRECT SUPPRESSION CHECK (RACE-CONDITION SHIELD)
-                if (app(EmailSuppressionService::class)->isSuppressed($email)) {
-                    Log::warning("[CampaignProcessing] Immediate send-time suppression caught: {$email} is suppressed.");
+                // Check Pabbly cooldown before each recipient
+                if ($this->rateLimiter->isInCooldown($pabblyApiKey)) {
+                    $campaignHaltedDueToCooldown = true;
+                    break;
+                }
 
-                    $recipient->update([
-                        'decision' => 'blocked',
-                        'decision_reason' => 'GLOBAL_SUPPRESSION',
-                        'delivery_status' => 'blocked',
-                        'validated_at' => Carbon::now(),
-                    ]);
-
-                    if ($recipient->campaign_member_id) {
-                        \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
-                            'status' => 'blocked',
-                        ]);
-                    }
-
-                    $campaign->decrement('total_approved');
-                    $campaign->increment('total_blocked');
+                // CONCURRENCY & DUPLICATE DISPATCH SHIELD
+                // Acquire an atomic lock on this recipient record (expires in 60s)
+                $recipientLock = Cache::lock("pabbly:recipient_lock:{$recipient->id}", 60);
+                if (!$recipientLock->get()) {
+                    // Another concurrent worker/process is actively processing this recipient
                     continue;
                 }
 
-                // MANDATORY FINAL SEND-TIME REVALIDATION AGAINST SALESFORCE CRM
-                $isRawRecipient = str_starts_with($recordId ?? '', 'RAW_') || $recordId === 'N/A' || ($recipient->salesforce_object ?? '') === 'Raw';
-
-                if ($isRawRecipient) {
-                    // Bulk raw list emails do not verify against Salesforce CRM data
-                    $isEligible = true;
-                    $reason = null;
-                    $sfRecord = [
-                        'id' => $recordId,
-                        'name' => $email,
-                        'email' => $email,
-                        'first_name' => '',
-                        'last_name' => '',
-                        'company' => '',
-                        'object_type' => 'Contact',
-                    ];
-                } elseif ($recordId && !str_starts_with($recordId, '003SF0000000_')) {
-                    [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibility($recordId, $appUsername);
-                } else {
-                    [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibilityByEmail($email, $appUsername);
-                }
-
-                if (!$isEligible) {
-                    // Eligibility changed since selection! Block sending
-                    Log::info("[CampaignProcessing] Recipient {$email} blocked at send-time: {$reason}");
-
-                    $recipient->update([
-                        'decision' => 'blocked',
-                        'decision_reason' => $reason,
-                        'delivery_status' => 'blocked',
-                        'validated_at' => Carbon::now(),
-                    ]);
-
-                    if ($recipient->campaign_member_id) {
-                        \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
-                            'status' => 'blocked',
-                        ]);
+                try {
+                    // Fresh database check: Ensure recipient was not already sent or modified
+                    $recipient->refresh();
+                    if ($recipient->delivery_status !== 'queued') {
+                        continue;
+                    }
+                    if ($recipient->sent_at !== null) {
+                        continue;
+                    }
+                    if ($recipient->next_retry_at && $recipient->next_retry_at->isFuture()) {
+                        continue;
                     }
 
-                    // Update campaign totals
-                    $campaign->decrement('total_approved');
-                    $campaign->increment('total_blocked');
-                    continue;
-                }
+                    $recLogId = $recipient->id;
+                    $recordId = $recipient->salesforce_record_id;
+                    $email = $recipient->email;
 
-                // Render complete delivered email (subject, body, signature, attachments, unsubscribe footer, pixel)
-                $rendered = $this->emailRenderer->render(
-                    $campaign,
-                    $sfRecord ?: $recipient,
-                    $campaign->user,
-                    includeTrackingPixel: true,
-                    overrideTrackingToken: $recipient->tracking_token
-                );
+                    // MANDATORY DIRECT SUPPRESSION CHECK (RACE-CONDITION SHIELD)
+                    if (app(EmailSuppressionService::class)->isSuppressed($email)) {
+                        Log::warning("[CampaignProcessing] Immediate send-time suppression caught: {$email} is suppressed.");
 
-                $personalizedSubject = $rendered['subject'];
-                $finalBody = $rendered['html'];
-                $recipientName = $rendered['recipient_name'];
+                        $recipient->update([
+                            'decision' => 'blocked',
+                            'decision_reason' => 'GLOBAL_SUPPRESSION',
+                            'delivery_status' => 'blocked',
+                            'validated_at' => Carbon::now(),
+                        ]);
 
-                $providerMsgId = 'msg-' . Str::random(16);
-                $sentAt = Carbon::now();
+                        if ($recipient->campaign_member_id) {
+                            \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                                'status' => 'blocked',
+                            ]);
+                        }
 
-                // Send via Pabbly if configured, or simulate if testing
-                if (!empty($pabblyApiKey) && !app()->environment('testing')) {
-                    try {
-                        $replyToEmail = trim((string) ($campaign->reply_to ?: ($campaign->user?->email ?: config('pabbly.reply_to', 'support@b2bexportsllc.com'))));
-                        $pabblyResult = $this->pabblyService->sendEmail(
-                            $email,
-                            $recipientName,
-                            $personalizedSubject,
-                            $finalBody,
-                            $fromEmail,
-                            $fromName,
-                            $deliveryServerId,
-                            $replyToEmail
-                        );
+                        $campaign->decrement('total_approved');
+                        $campaign->increment('total_blocked');
+                        continue;
+                    }
 
-                        $providerMsgId = $pabblyResult['pabbly_campaign_id'] ?? $providerMsgId;
+                    // MANDATORY FINAL SEND-TIME REVALIDATION AGAINST SALESFORCE CRM
+                    $isRawRecipient = str_starts_with($recordId ?? '', 'RAW_') || $recordId === 'N/A' || ($recipient->salesforce_object ?? '') === 'Raw';
 
+                    if ($isRawRecipient) {
+                        $isEligible = true;
+                        $reason = null;
+                        $sfRecord = [
+                            'id' => $recordId,
+                            'name' => $email,
+                            'email' => $email,
+                            'first_name' => '',
+                            'last_name' => '',
+                            'company' => '',
+                            'object_type' => 'Contact',
+                        ];
+                    } elseif ($recordId && !str_starts_with($recordId, '003SF0000000_')) {
+                        [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibility($recordId, $appUsername);
+                    } else {
+                        [$isEligible, $reason, $sfRecord] = $this->sfService->checkRecipientEligibilityByEmail($email, $appUsername);
+                    }
+
+                    if (!$isEligible) {
+                        Log::info("[CampaignProcessing] Recipient {$email} blocked at send-time: {$reason}");
+
+                        $recipient->update([
+                            'decision' => 'blocked',
+                            'decision_reason' => $reason,
+                            'delivery_status' => 'blocked',
+                            'validated_at' => Carbon::now(),
+                        ]);
+
+                        if ($recipient->campaign_member_id) {
+                            \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                                'status' => 'blocked',
+                            ]);
+                        }
+
+                        $campaign->decrement('total_approved');
+                        $campaign->increment('total_blocked');
+                        continue;
+                    }
+
+                    // Render complete delivered email (subject, body, signature, attachments, unsubscribe footer, pixel)
+                    $rendered = $this->emailRenderer->render(
+                        $campaign,
+                        $sfRecord ?: $recipient,
+                        $campaign->user,
+                        includeTrackingPixel: true,
+                        overrideTrackingToken: $recipient->tracking_token
+                    );
+
+                    $personalizedSubject = $rendered['subject'];
+                    $finalBody = $rendered['html'];
+                    $recipientName = $rendered['recipient_name'];
+
+                    $providerMsgId = 'msg-' . Str::random(16);
+                    $sentAt = Carbon::now();
+
+                    // Send via Pabbly if configured, or simulate if testing
+                    $usePabbly = !empty($pabblyApiKey) && (!app()->environment('testing') || config('pabbly.force_pabbly_in_testing', false));
+
+                    if ($usePabbly) {
+                        $existingPabblyId = $recipient->provider_message_id;
+                        if ($existingPabblyId && str_starts_with($existingPabblyId, 'msg-')) {
+                            $existingPabblyId = null;
+                        }
+
+                        try {
+                            $replyToEmail = trim((string) ($campaign->reply_to ?: ($campaign->user?->email ?: config('pabbly.reply_to', 'support@b2bexportsllc.com'))));
+                            $pabblyResult = $this->pabblyService->sendEmail(
+                                $email,
+                                $recipientName,
+                                $personalizedSubject,
+                                $finalBody,
+                                $fromEmail,
+                                $fromName,
+                                $deliveryServerId,
+                                $replyToEmail,
+                                existingPabblyCampaignId: $existingPabblyId
+                            );
+
+                            $providerMsgId = $pabblyResult['pabbly_campaign_id'] ?? $providerMsgId;
+
+                            $recipient->update([
+                                'delivery_status' => 'sent',
+                                'provider_message_id' => $providerMsgId,
+                                'error_message' => null,
+                                'sent_at' => $sentAt,
+                                'validated_at' => $sentAt,
+                                'next_retry_at' => null,
+                            ]);
+
+                            if ($recipient->campaign_member_id) {
+                                \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                                    'status' => 'sent',
+                                ]);
+                            }
+
+                            $processedCount++;
+                        } catch (PabblyRateLimitException $e) {
+                            $this->handleRateLimitFailure($recipient, $e, $campaignId, $pabblyApiKey);
+                            $campaignHaltedDueToCooldown = true;
+                            break;
+                        } catch (PabblyApiException $e) {
+                            if ($e->isRetryable()) {
+                                $this->handleRetryableFailure($recipient, $e, $campaignId, $pabblyApiKey);
+                                $campaignHaltedDueToCooldown = true;
+                                break;
+                            } else {
+                                $this->handlePermanentFailure($recipient, $e);
+                            }
+                        } catch (Throwable $e) {
+                            if (stripos($e->getMessage(), 'Too many requests') !== false || stripos($e->getMessage(), 'rate limit') !== false) {
+                                $rateLimitEx = new PabblyRateLimitException($e->getMessage(), 429);
+                                $this->handleRateLimitFailure($recipient, $rateLimitEx, $campaignId, $pabblyApiKey);
+                                $campaignHaltedDueToCooldown = true;
+                                break;
+                            } else {
+                                $this->handlePermanentFailure($recipient, $e);
+                            }
+                        }
+                    } else {
+                        // Simulated dispatch (for testing environment)
                         $recipient->update([
                             'delivery_status' => 'sent',
                             'provider_message_id' => $providerMsgId,
                             'sent_at' => $sentAt,
                             'validated_at' => $sentAt,
+                            'next_retry_at' => null,
+                            'error_message' => null,
                         ]);
 
                         if ($recipient->campaign_member_id) {
@@ -202,51 +331,150 @@ class CampaignProcessingService
                         }
 
                         $processedCount++;
-                    } catch (Throwable $e) {
-                        Log::error("[CampaignProcessing] Failed to send email to {$email} via Pabbly: " . $e->getMessage());
-
-                        $recipient->update([
-                            'delivery_status' => 'failed',
-                            'error_message' => $e->getMessage(),
-                            'validated_at' => $sentAt,
-                        ]);
-
-                        if ($recipient->campaign_member_id) {
-                            \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
-                                'status' => 'failed',
-                            ]);
-                        }
                     }
-                } else {
-                    // Simulated dispatch (for testing environment)
-                    $recipient->update([
-                        'delivery_status' => 'sent',
-                        'provider_message_id' => $providerMsgId,
-                        'sent_at' => $sentAt,
-                        'validated_at' => $sentAt,
-                    ]);
-
-                    if ($recipient->campaign_member_id) {
-                        \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
-                            'status' => 'sent',
-                        ]);
-                    }
-
-                    $processedCount++;
+                } finally {
+                    $recipientLock->release();
                 }
             }
 
-            // Check if all queued recipients for this campaign have finished
-            $remaining = RecipientLog::where('campaign_id', $campaignId)
-                ->where('delivery_status', 'queued')
-                ->where('decision', 'approved')
-                ->count();
+            // Check if all queued recipients for this campaign have finished (unless paused due to rate-limit cooldown)
+            if (!$campaignHaltedDueToCooldown) {
+                $remaining = RecipientLog::where('campaign_id', $campaignId)
+                    ->where('delivery_status', 'queued')
+                    ->where('decision', 'approved')
+                    ->count();
 
-            if ($remaining === 0) {
-                $campaign->update(['status' => 'completed']);
+                if ($remaining === 0) {
+                    $campaign->update(['status' => 'completed']);
+                }
             }
         }
 
         return $processedCount;
+    }
+
+    /**
+     * Handle temporary rate-limiting (429) failures with exponential backoff and retry scheduling.
+     */
+    protected function handleRateLimitFailure(
+        RecipientLog $recipient,
+        PabblyRateLimitException $e,
+        string $campaignId,
+        string $apiKey
+    ): void {
+        $maxRetries = (int) config('pabbly.max_retry_attempts', 5);
+        $currentRetries = (int) $recipient->retry_count;
+        $pabblyCampaignId = $e->getPabblyCampaignId() ?: $recipient->provider_message_id;
+
+        $delay = $this->rateLimiter->calculateBackoffDelay($currentRetries + 1, $e->getRetryAfter());
+        $nextRetryAt = Carbon::now()->addSeconds($delay);
+
+        if ($currentRetries < $maxRetries) {
+            $newRetries = $currentRetries + 1;
+            $msg = "Rate limit hit (HTTP 429). Attempt {$newRetries}/{$maxRetries} scheduled for retry at {$nextRetryAt->format('Y-m-d H:i:s')} (cooldown {$delay}s). Provider: {$e->getMessage()}";
+
+            $updateData = [
+                'delivery_status' => 'queued',
+                'retry_count' => $newRetries,
+                'next_retry_at' => $nextRetryAt,
+                'error_message' => $msg,
+                'validated_at' => Carbon::now(),
+            ];
+            if ($pabblyCampaignId) {
+                $updateData['provider_message_id'] = $pabblyCampaignId;
+            }
+
+            $recipient->update($updateData);
+
+            if ($recipient->campaign_member_id) {
+                \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                    'status' => 'queued',
+                ]);
+            }
+
+            $this->rateLimiter->setCooldown($apiKey, $delay, "Rate limit hit on {$recipient->email} (attempt {$newRetries}/{$maxRetries})");
+
+            Log::warning("[CampaignProcessing] Recipient {$recipient->email} (campaign {$campaignId}) rate-limited. Retry {$newRetries}/{$maxRetries} scheduled at {$nextRetryAt->format('Y-m-d H:i:s')}.");
+        } else {
+            $msg = "Pabbly dispatch failed: Rate limit retry attempts exhausted ({$maxRetries}/{$maxRetries}). {$e->getMessage()}";
+            $updateData = [
+                'delivery_status' => 'failed',
+                'error_message' => $msg,
+                'validated_at' => Carbon::now(),
+            ];
+            if ($pabblyCampaignId) {
+                $updateData['provider_message_id'] = $pabblyCampaignId;
+            }
+
+            $recipient->update($updateData);
+
+            if ($recipient->campaign_member_id) {
+                \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                    'status' => 'failed',
+                ]);
+            }
+
+            Log::error("[CampaignProcessing] Recipient {$recipient->email} (campaign {$campaignId}) permanently failed after {$maxRetries} rate limit retries.");
+        }
+    }
+
+    /**
+     * Handle temporary 5xx server or connection failures with exponential backoff.
+     */
+    protected function handleRetryableFailure(
+        RecipientLog $recipient,
+        PabblyApiException $e,
+        string $campaignId,
+        string $apiKey
+    ): void {
+        $maxRetries = (int) config('pabbly.max_retry_attempts', 5);
+        $currentRetries = (int) $recipient->retry_count;
+        $delay = $this->rateLimiter->calculateBackoffDelay($currentRetries + 1, $e->getRetryAfter());
+        $nextRetryAt = Carbon::now()->addSeconds($delay);
+
+        if ($currentRetries < $maxRetries) {
+            $newRetries = $currentRetries + 1;
+            $msg = "Temporary provider error ({$e->getStatusCode()}). Attempt {$newRetries}/{$maxRetries} scheduled for retry at {$nextRetryAt->format('Y-m-d H:i:s')}. Provider: {$e->getMessage()}";
+
+            $recipient->update([
+                'delivery_status' => 'queued',
+                'retry_count' => $newRetries,
+                'next_retry_at' => $nextRetryAt,
+                'error_message' => $msg,
+                'validated_at' => Carbon::now(),
+            ]);
+
+            if ($recipient->campaign_member_id) {
+                \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                    'status' => 'queued',
+                ]);
+            }
+
+            $this->rateLimiter->setCooldown($apiKey, min(30, $delay), "Temporary 5xx provider error on {$recipient->email}");
+            Log::warning("[CampaignProcessing] Temporary provider error for {$recipient->email} (status {$e->getStatusCode()}). Retry {$newRetries}/{$maxRetries} scheduled at {$nextRetryAt->format('Y-m-d H:i:s')}.");
+        } else {
+            $this->handlePermanentFailure($recipient, $e);
+        }
+    }
+
+    /**
+     * Handle permanent non-retryable provider failure (e.g. 400 Bad Request, 401 Unauthorized, 403, 404, 422).
+     */
+    protected function handlePermanentFailure(RecipientLog $recipient, Throwable $e): void
+    {
+        $errorMsg = $e->getMessage();
+        Log::error("[CampaignProcessing] Failed to send email to {$recipient->email} via Pabbly: " . $errorMsg);
+
+        $recipient->update([
+            'delivery_status' => 'failed',
+            'error_message' => $errorMsg,
+            'validated_at' => Carbon::now(),
+        ]);
+
+        if ($recipient->campaign_member_id) {
+            \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
+                'status' => 'failed',
+            ]);
+        }
     }
 }

@@ -8,7 +8,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('email:process-queue')->everyMinute();
+// Bulk Email Campaign Queue Processing (every minute, non-overlapping)
+Schedule::command('email:process-queue')
+    ->everyMinute()
+    ->withoutOverlapping(10);
 
 // Salesforce Leads Synchronization (every 5 minutes, non-overlapping)
 Schedule::command('salesforce:sync-leads')

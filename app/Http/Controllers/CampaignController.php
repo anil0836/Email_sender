@@ -686,11 +686,11 @@ class CampaignController extends Controller
             $request->ip()
         );
 
-        // 8. Immediately process queued campaign if not scheduled, testing is not active, and campaign is fully approved
+        // 8. Immediately process initial batch if not scheduled, testing is not active, and campaign is fully approved
         if ($status === 'queued' && !app()->environment('testing') && $campaign->isFullyApproved()) {
             try {
                 @set_time_limit(180);
-                $this->processingService->processQueuedEmails();
+                $this->processingService->processQueuedEmails(maxEmails: 3, maxExecutionSeconds: 15);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error("[CampaignController] Immediate processing error: " . $e->getMessage());
             }

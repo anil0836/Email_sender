@@ -1316,12 +1316,21 @@
                     "failed": '<span class="badge bg-danger-soft">Failed</span>',
                     "scheduled": '<span class="badge bg-secondary-soft">Scheduled</span>'
                 };
-                statusHtml = statusBadges[l.delivery_status] || l.delivery_status;
+                const isRetrying = l.delivery_status === 'queued' && (l.next_retry_at || (l.error_message && (l.error_message.includes('Rate limit hit') || l.error_message.includes('scheduled for retry'))));
+                if (isRetrying) {
+                    statusHtml = '<span class="badge bg-warning-soft text-amber-800"><i class="bi bi-clock-history me-1"></i>Retrying</span>';
+                } else {
+                    statusHtml = statusBadges[l.delivery_status] || l.delivery_status;
+                }
             }
 
-            const errorText = l.error_message 
-                ? `<div class="text-rose-600" style="font-size: 0.72rem; margin-top: 2px;"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(l.error_message)}</div>` 
-                : '';
+            let errorText = '';
+            if (l.error_message) {
+                const isRetryWait = l.error_message.includes('Rate limit hit') || l.error_message.includes('scheduled for retry');
+                const textColor = isRetryWait ? 'text-amber-700' : 'text-rose-600';
+                const icon = isRetryWait ? 'bi-clock-history' : 'bi-exclamation-triangle';
+                errorText = `<div class="${textColor}" style="font-size: 0.72rem; margin-top: 2px;"><i class="bi ${icon}"></i> ${escapeHtml(l.error_message)}</div>`;
+            }
 
             html += `
                 <tr style="cursor: pointer;" onclick="selectRecipientForPreview(${l.id})" title="Click to preview delivered email for this recipient">
