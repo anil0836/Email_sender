@@ -12,20 +12,39 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
 class CampaignProcessingService
 {
+    protected ?PabblyRateLimiterService $rateLimiter = null;
+    protected static ?bool $hasRetryColumns = null;
+
     public function __construct(
         protected SalesforceService $sfService,
         protected PabblyService $pabblyService,
         protected CampaignMergeFieldService $mergeFieldService,
-        protected ?EmailRendererService $emailRenderer = null,
-        protected ?PabblyRateLimiterService $rateLimiter = null
+        ?EmailRendererService $emailRenderer = null,
+        ?PabblyRateLimiterService $rateLimiter = null
     ) {
-        $this->emailRenderer = $this->emailRenderer ?: app(EmailRendererService::class);
-        $this->rateLimiter = $this->rateLimiter ?: app(PabblyRateLimiterService::class);
+        $this->emailRenderer = $emailRenderer ?: app(EmailRendererService::class);
+        $this->rateLimiter = $rateLimiter ?: app(PabblyRateLimiterService::class);
+    }
+
+    /**
+     * Defensive check whether the retry_count and next_retry_at columns exist on recipient_logs.
+     */
+    protected function hasRetryColumns(): bool
+    {
+        if (static::$hasRetryColumns === null) {
+            try {
+                static::$hasRetryColumns = Schema::hasColumn('recipient_logs', 'next_retry_at');
+            } catch (Throwable) {
+                static::$hasRetryColumns = false;
+            }
+        }
+        return static::$hasRetryColumns;
     }
 
     /**
@@ -96,23 +115,29 @@ class CampaignProcessingService
             }
 
             // Find all queued approved recipients eligible for dispatch (not in retry delay)
-            $recipients = RecipientLog::where('campaign_id', $campaignId)
+            $recipientsQuery = RecipientLog::where('campaign_id', $campaignId)
                 ->where('delivery_status', 'queued')
-                ->where('decision', 'approved')
-                ->where(function ($q) use ($now) {
+                ->where('decision', 'approved');
+
+            if ($this->hasRetryColumns()) {
+                $recipientsQuery->where(function ($q) use ($now) {
                     $q->whereNull('next_retry_at')
                       ->orWhere('next_retry_at', '<=', $now);
-                })
-                ->orderBy('created_at', 'asc')
-                ->get();
+                });
+            }
+
+            $recipients = $recipientsQuery->orderBy('created_at', 'asc')->get();
 
             if ($recipients->isEmpty()) {
-                // Check if any recipients are still waiting for retry
-                $waitingRetry = RecipientLog::where('campaign_id', $campaignId)
-                    ->where('delivery_status', 'queued')
-                    ->where('decision', 'approved')
-                    ->where('next_retry_at', '>', $now)
-                    ->exists();
+                $waitingRetry = false;
+                if ($this->hasRetryColumns()) {
+                    // Check if any recipients are still waiting for retry
+                    $waitingRetry = RecipientLog::where('campaign_id', $campaignId)
+                        ->where('delivery_status', 'queued')
+                        ->where('decision', 'approved')
+                        ->where('next_retry_at', '>', $now)
+                        ->exists();
+                }
 
                 if (!$waitingRetry) {
                     // No more queued recipients and none waiting for retry, mark completed
@@ -162,7 +187,7 @@ class CampaignProcessingService
                     if ($recipient->sent_at !== null) {
                         continue;
                     }
-                    if ($recipient->next_retry_at && $recipient->next_retry_at->isFuture()) {
+                    if ($this->hasRetryColumns() && $recipient->next_retry_at && $recipient->next_retry_at->isFuture()) {
                         continue;
                     }
 
@@ -275,14 +300,17 @@ class CampaignProcessingService
 
                             $providerMsgId = $pabblyResult['pabbly_campaign_id'] ?? $providerMsgId;
 
-                            $recipient->update([
+                            $sentPayload = [
                                 'delivery_status' => 'sent',
                                 'provider_message_id' => $providerMsgId,
                                 'error_message' => null,
                                 'sent_at' => $sentAt,
                                 'validated_at' => $sentAt,
-                                'next_retry_at' => null,
-                            ]);
+                            ];
+                            if ($this->hasRetryColumns()) {
+                                $sentPayload['next_retry_at'] = null;
+                            }
+                            $recipient->update($sentPayload);
 
                             if ($recipient->campaign_member_id) {
                                 \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
@@ -315,14 +343,17 @@ class CampaignProcessingService
                         }
                     } else {
                         // Simulated dispatch (for testing environment)
-                        $recipient->update([
+                        $simPayload = [
                             'delivery_status' => 'sent',
                             'provider_message_id' => $providerMsgId,
                             'sent_at' => $sentAt,
                             'validated_at' => $sentAt,
-                            'next_retry_at' => null,
                             'error_message' => null,
-                        ]);
+                        ];
+                        if ($this->hasRetryColumns()) {
+                            $simPayload['next_retry_at'] = null;
+                        }
+                        $recipient->update($simPayload);
 
                         if ($recipient->campaign_member_id) {
                             \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
@@ -375,11 +406,13 @@ class CampaignProcessingService
 
             $updateData = [
                 'delivery_status' => 'queued',
-                'retry_count' => $newRetries,
-                'next_retry_at' => $nextRetryAt,
                 'error_message' => $msg,
                 'validated_at' => Carbon::now(),
             ];
+            if ($this->hasRetryColumns()) {
+                $updateData['retry_count'] = $newRetries;
+                $updateData['next_retry_at'] = $nextRetryAt;
+            }
             if ($pabblyCampaignId) {
                 $updateData['provider_message_id'] = $pabblyCampaignId;
             }
@@ -436,13 +469,17 @@ class CampaignProcessingService
             $newRetries = $currentRetries + 1;
             $msg = "Temporary provider error ({$e->getStatusCode()}). Attempt {$newRetries}/{$maxRetries} scheduled for retry at {$nextRetryAt->format('Y-m-d H:i:s')}. Provider: {$e->getMessage()}";
 
-            $recipient->update([
+            $updateData = [
                 'delivery_status' => 'queued',
-                'retry_count' => $newRetries,
-                'next_retry_at' => $nextRetryAt,
                 'error_message' => $msg,
                 'validated_at' => Carbon::now(),
-            ]);
+            ];
+            if ($this->hasRetryColumns()) {
+                $updateData['retry_count'] = $newRetries;
+                $updateData['next_retry_at'] = $nextRetryAt;
+            }
+
+            $recipient->update($updateData);
 
             if ($recipient->campaign_member_id) {
                 \App\Models\CampaignMember::where('id', $recipient->campaign_member_id)->update([
